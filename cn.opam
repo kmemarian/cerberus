@@ -12,9 +12,9 @@ authors: [
 ]
 license: "BSD-2-Clause"
 homepage: "https://rems-project.github.io/cn-tutorial"
-bug-reports: "https://github.com/rems-project/cerberus/issues"
+bug-reports: "https://github.com/rems-project/cn/issues"
 depends: [
-  "cerberus-lib"
+  # "cerberus-lib"
   "monomorphic"
   "ocaml" {>= "4.14.0"}
   "ppx_deriving"
@@ -23,6 +23,9 @@ depends: [
   "ocamlgraph"
   "zarith" {>= "1.13"}
 ]
+# pin-depends: [
+#   ["cerberus-lib.dev" "git+https://github.com:rems-project/cerberus.git#7475359"]
+# ]
 build: [
   ["dune" "subst"] {pinned}
   ["dune"

@@ -6,10 +6,10 @@
  (flags
   (:standard -w @60 -open Monomorphic.Int))
  (libraries
-  cerb_backend
-  cerb_frontend
-  cerb_util
-  mem_concrete
+  cerberus-lib.backend_common
+  cerberus-lib.frontend
+  cerberus-lib.util
+  cerberus-lib.mem.concrete
   menhirLib
   monomorphic
   ocamlgraph
