@@ -188,12 +188,9 @@ let translate_linux_memory_order (A.AnnotatedExpression _ _ _ expr as a_expr) =
   end
 
 
-val     translate_constant: A.constant -> C.pexpr
-let rec translate_constant cst =
+val translate_constant: Core.core_tag_definitions -> A.constant -> C.pexpr
+let translate_constant tagDefs cst =
   match cst with
-    | A.ConstantIndeterminate ty ->
-        (* NOTE: we assume the lack of trap representation *)
-        Caux.mk_unspecified_pe ty
     | A.ConstantNull ->
         Caux.mk_specified_pe (Caux.mk_nullptr_pe Cty.void)
     | A.ConstantInteger (A.IConstant n _ _) ->
@@ -208,16 +205,18 @@ let rec translate_constant cst =
     | A.ConstantCharacter (_, str) ->
         (* NOTE: making an implementation fix here (ASCII) *)
         Caux.mk_value_pe (C.Vloaded (C.LVspecified (C.OVinteger (Mem.integer_ival (Decode.decode_character_constant str)))))
-    | A.ConstantArray _ csts ->
-        Caux.mk_specified_pe (Caux.mk_array_pe (List.map translate_constant csts))
-    | A.ConstantStruct tag_sym xs ->
+    (* | A.ConstantArray _ csts ->
+        Caux.mk_specified_pe (Caux.mk_array_pe (List.map (translate_constant tagDefs) csts)) *)
+    | A.ConstantZero ty ->
+        Caux.mk_zero_pe tagDefs ty
+    (* | A.ConstantStruct tag_sym xs ->
         Caux.mk_specified_pe begin
           Caux.mk_struct_pe tag_sym begin
             List.map (fun (memb_ident, cst) -> (memb_ident, translate_constant cst)) xs
           end
-        end
-    | A.ConstantUnion tag_sym memb_ident pe ->
-        Caux.mk_specified_pe (Caux.mk_union_pe tag_sym memb_ident (translate_constant pe))
+        end *)
+    (* | A.ConstantUnion tag_sym memb_ident pe ->
+        Caux.mk_specified_pe (Caux.mk_union_pe tag_sym memb_ident (translate_constant pe)) *)
     | A.ConstantPredefined A.PConstantFalse ->
         (* STD C23 §6.4.4.5#3 *)
         Caux.mk_value_pe (C.Vloaded (C.LVspecified (C.OVinteger (Mem.integer_ival 0))))
@@ -2883,7 +2882,7 @@ end
           end
       
       | A.AilEconst cst ->
-          E.return (Caux.mk_pure_e (translate_constant cst))
+          E.return (Caux.mk_pure_e (translate_constant tagDefs cst))
       
       | A.AilEbuiltin b ->
         match b with

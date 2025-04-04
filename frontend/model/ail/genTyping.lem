@@ -441,8 +441,8 @@ let annotate_stringLiteral (pref_opt, strs) =
     , GenLValueType no_qualifiers (Ctype [] (Array elem_ty (Just (integerFromNatural (naturalFromNat sz))))) false )
 
 
-val     typecheck_constant: Loc.t -> constant -> E.errorM genType
-let rec typecheck_constant loc cst =
+val typecheck_constant: Loc.t -> constant -> E.errorM genType
+let typecheck_constant loc cst =
   match cst with
     | ConstantInteger iCst ->
         gen_typing_type_of_constant loc iCst >>= fun gity ->
@@ -474,31 +474,11 @@ let rec typecheck_constant loc cst =
               E.add "§6.4.4.4#11" >>
               E.return genChar32_t
         end
-    | ConstantArray elem_ty csts ->
-        (* TODO: this is probably too strong *)
-        E.mapM (typecheck_constant loc) csts >>= function
-          | [] ->
-              error "typecheck_constant: empty array constant"
-          | gtys ->
-              (* TODO !!!! *)
-              E.return (GenArray elem_ty (Just $ integerFromNat (List.length csts)))
-        end
-    | ConstantIndeterminate ty ->
-        E.return (GenTypes.inject_type ty)
     | ConstantNull ->
         (* TODO: check *)
         E.return (GenPointer no_qualifiers (Ctype [] Void))
-    | ConstantStruct tag_sym xs ->
-        E.mapM (fun (memb_ident, cst) ->
-          (* TODO: need to check that the members type match ... *)
-          typecheck_constant loc cst >>= fun gty ->
-          E.return (memb_ident, gty)
-        ) xs >>= fun xs_gtys ->
-        E.return (GenTypes.GenStruct tag_sym)
-    | ConstantUnion tag_sym memb_ident cst ->
-          (* TODO: need to check that the members type match ... *)
-        typecheck_constant loc cst >>= fun gty_membr ->
-        E.return (GenTypes.GenUnion tag_sym)
+    | ConstantZero ty ->
+        E.return (GenTypes.inject_type ty)
     | ConstantPredefined PConstantFalse ->
         (* STD C23 §6.4.4.5#3 *)
         E.return (GenTypes.GenBasic (GenTypes.GenInteger (GenTypes.Concrete Bool)))
@@ -1716,8 +1696,8 @@ and perform_decays sigm ctx a_expr =
   let is_literal = match a_expr with
     | AnnotatedExpression _ _ _ (AilEarray true _ _) ->
         true
-    | AnnotatedExpression _ _ _ (AilEconst (ConstantArray _ _)) ->
-        true
+    | AnnotatedExpression _ _ _ (AilEconst (ConstantZero ty)) ->
+        AilTypesAux.is_array ty
     | AnnotatedExpression _ _ _ (AilEstr _) -> (* TODO: this is probably dead now *)
         true
     | _ ->
@@ -1773,8 +1753,6 @@ and perform_decays sigm ctx a_expr =
                   std_annots (Loc.locOf a_expr) (AilEfunction_decay a_expr)
             | GenArray elem_ty sz_opt ->
               match a_expr with
-                | AnnotatedExpression _ _ _ (AilEconst (ConstantIndeterminate _)) ->
-                    a_expr
                 | AnnotatedExpression _ _ _ (AilEarray false _ _) ->
                     (* NOTE: this case doesn't syntactically exist in C, since
                        array values don't exist *)

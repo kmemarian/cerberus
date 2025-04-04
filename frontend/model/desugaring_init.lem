@@ -581,7 +581,7 @@ let rec constructValue_aux tagDefs path init_map (Ctype.Ctype _ ty as cty) =
     | _ ->
         match Map.lookup path init_map with
           | Nothing ->
-              mk_zeroInit tagDefs cty
+              zeroConstant_expr loc cty
           | Just e ->
               e
         end

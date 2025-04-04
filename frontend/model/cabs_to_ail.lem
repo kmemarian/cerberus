@@ -536,7 +536,7 @@ let rec constructValue_aux tagDefs path elems (Ctype.Ctype _ ty as cty) =
     | _ ->
         match List.lookup path elems with
           | Nothing ->
-              mk_zeroInit tagDefs cty
+              zeroConstant_expr (Loc.other "Cabs_to_ail.constructValue") cty
           | Just e ->
               e
         end
@@ -798,11 +798,6 @@ let rec is_arithmetic_constant_expression is_lvalue ((AnnotatedExpression () _ l
         E.return true
     | AilEconst (ConstantPredefined PConstantTrue) ->
         E.return true
-(*
-    | AilEconst (ConstantArray _) ->
-        (* NOTE: is Ail specific *)
-        E.return true
-*)
 
     | AilEident _ ->
         E.return is_lvalue
@@ -1029,9 +1024,6 @@ val desugar_for_clause:
 (* TODO: WIP *)
 val wip_desugar_initializer_:
   Loc.t -> storageDuration -> Ctype.ctype -> initializer_ -> E.desugM (Ctype.ctype * expression unit)
-
-val _UNUSED_static_thread_implicit_initializer:
-  map ail_identifier tag_definition -> Ctype.ctype -> constant
 
 
 
@@ -2900,6 +2892,7 @@ OTHER
 
 
 (* STD §6.7.9#10, second sentence *)
+(*
 and _UNUSED_static_thread_implicit_initializer tagDefs (Ctype.Ctype _ ty as cty) =
   let () = Debug.print_debug 8 [Debug.DB_desugaring]
       (fun () -> "ENTERING Cabs_to_ail.static_thread_implicit_initializer: " ^ Pp.stringFromAil_ctype Ctype.no_qualifiers cty) in
@@ -2958,7 +2951,7 @@ and _UNUSED_static_thread_implicit_initializer tagDefs (Ctype.Ctype _ ty as cty)
     | Struct of identifier * list (Cabs.Symbol.identifier * ctype) (* TODO: no bitfields for now *)
     | Union of identifier * list (Cabs.Symbol.identifier * ctype) (* TODO: no bitfields for now *) *)
   end
-
+*)
 
 
 
@@ -3021,7 +3014,7 @@ and foo_aux
     | [] ->
         E.get_tag_definitions >>= fun tagDefs ->
         let pad = List.map (fun (path, _, outer_ty) ->
-          (path, mk_zeroInit tagDefs (innerCtype tagDefs outer_ty))
+          (path, zeroConstant_expr Loc.unknown (innerCtype tagDefs outer_ty))
         ) elems in
         let n_opt = match unknown_array with
           | Nothing     -> Nothing
@@ -3037,7 +3030,7 @@ and foo_aux
               (* TODO: hackish *)
               E.get_tag_definitions >>= fun tagDefs ->
               let acc' = List.foldl (fun acc (path, _, outer_ty) ->
-                (path, mk_zeroInit tagDefs (innerCtype tagDefs outer_ty)) :: acc
+                (path, zeroConstant_expr Loc.unknown (innerCtype tagDefs outer_ty)) :: acc
               ) acc skipped_elems in
               foo_aux (*entity_ty*) acc' elems' unknown_array ((Nothing, init_) :: xs')
         end
@@ -3560,7 +3553,7 @@ and desugar_declaration_base attrs specifs idecltors =
                             | Static ->
                                 if not (List.elem SC_extern specifs.storage_classes) then
                                   E.get_tag_definitions >>= fun tagDefs ->
-                                  E.register_global_object_definition sym (E.Definition (mk_zeroInit tagDefs cty)) >>= fun () ->
+                                  E.register_global_object_definition sym (E.Definition (zeroConstant_expr loc cty)) >>= fun () ->
                                   E.return (cty, acc)
                                 else
                                   E.return (cty, acc)

@@ -2537,13 +2537,14 @@ let extract_program startup_str =
   | (sym, Tentative loc (Ctype.Ctype _ (Ctype.Array elem_ty Nothing))) ->
       (* TODO: check *)
       (* STD §6.9.2#5 EXAMPLE 2 *)
-      return (sym, A.AnnotatedExpression () [] loc (A.AilEconst (A.ConstantArray elem_ty [mk_zeroInit_aux st.tag_definitions elem_ty])))
+      return (sym, zeroConstant_expr loc (Ctype.Ctype [] (Ctype.Array elem_ty (Just 1))))
+      (* return (sym, A.AnnotatedExpression () [] loc (A.AilEconst (A.ConstantArray elem_ty [mk_zeroInit_aux st.tag_definitions elem_ty]))) *)
   | (sym, Tentative loc ty) ->
       is_incomplete ty >>= function
         | true ->
             fail loc (Errors.Desugar_ConstraintViolation (Constraint.TentativeNotCompleted ty))
         | false ->
-            return (sym, mk_zeroInit st.tag_definitions ty)
+            return (sym, zeroConstant_expr loc ty)
       end
     | (sym, Definition e) ->
         return (sym, e)

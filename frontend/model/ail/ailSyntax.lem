@@ -66,14 +66,11 @@ type arithmeticOperator [name = "aop.*"] =
   | Bor
 
 type constant [name = "c*"] =
-  | ConstantIndeterminate of ctype
   | ConstantNull
   | ConstantInteger       of integerConstant
   | ConstantFloating      of floatingConstant
   | ConstantCharacter     of characterConstant
-  | ConstantArray         of ctype * list constant
-  | ConstantStruct        of Symbol.sym * list (Symbol.identifier * constant)
-  | ConstantUnion         of Symbol.sym * Symbol.identifier * constant
+  | ConstantZero          of ctype
   | ConstantPredefined    of predefinedConstant (* since C23 *)
 
 type unaryOperator =

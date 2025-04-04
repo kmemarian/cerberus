@@ -455,10 +455,7 @@ let pp_stringLiteral (pref_opt, strs) =
   (P.optional pp_encodingPrefix pref_opt) ^^ pp_ansi_format [Green] (fun () -> P.dquotes (!^ (String.concat "" strs)))
 
 
-let rec pp_constant = function
-  | ConstantIndeterminate ty ->
-      (* NOTE: this is not in C11 *)
-      pp_keyword "indet" ^^ P.parens (pp_ctype no_qualifiers ty)
+let pp_constant = function
   | ConstantNull ->
       pp_const "NULL"
   | ConstantInteger ic ->
@@ -467,16 +464,8 @@ let rec pp_constant = function
       pp_floatingConstant fc
   | ConstantCharacter cc ->
       pp_characterConstant cc
- | ConstantArray (elem_ty, csts) ->
-     P.braces (comma_list (pp_constant ) csts)
- | ConstantStruct (tag_sym, xs) ->
-     P.parens (!^ "struct" ^^^ pp_id tag_sym) ^^ P.braces (
-       comma_list (fun (memb_ident, cst) ->
-         P.dot ^^ Pp_symbol.pp_identifier memb_ident ^^ P.equals ^^^ pp_constant cst
-       ) xs
-     )
- | ConstantUnion (tag_sym, memb_ident, cst) ->
-     P.parens (!^ "union" ^^^ pp_id tag_sym) ^^ P.braces (P.dot ^^ Pp_symbol.pp_identifier memb_ident ^^ P.equals ^^^ pp_constant cst)
+  | ConstantZero ty ->
+      !^ "TODO(ZERO)"
   | ConstantPredefined PConstantFalse ->
       pp_keyword "false"
   | ConstantPredefined PConstantTrue ->

@@ -107,56 +107,11 @@ let desug_get_structDefs tagDefs tag_sym =
 
 let inline get_structDefs = desug_get_structDefs
 
-
-val mk_zeroInit: map A.ail_identifier tag_definition -> Ctype.ctype -> A.expression unit
-let rec mk_zeroInit_aux tagDefs (Ctype.Ctype _ ty) =
-  match ty with
-    | Ctype.Void ->
-        error "[Cabs_to_ail.mk_zeroInit_aux] - internal ERROR: Void"
-    | Ctype.Basic (Ctype.Integer _) ->
-        A.ConstantInteger (A.IConstant 0 A.Octal Nothing)
-    | Ctype.Basic (Ctype.Floating _) ->
-        A.ConstantFloating ("0.0", Nothing)
-    | Ctype.Array elem_ty Nothing ->
-        error "[Cabs_to_ail.mk_zeroInit_aux] - internal ERROR: Array Nothing"
-    | Ctype.Array elem_ty (Just n) ->
-        A.ConstantArray elem_ty begin
-          List.replicate (natFromInteger n) (mk_zeroInit_aux tagDefs elem_ty)
-        end
-    | Ctype.Function _ _ _ ->
-        error "[Cabs_to_ail.mk_zeroInit_aux] - internal ERROR: Function"
-    | Ctype.FunctionNoParams _ ->
-        error "[Cabs_to_ail.mk_zeroInit_aux] - internal ERROR: FunctionNoParams"
-    | Ctype.Pointer _ _ ->
-        A.ConstantNull
-    | Ctype.Atomic atom_ty ->
-        (* TODO: check *)
-        mk_zeroInit_aux tagDefs atom_ty
-    | Ctype.Struct tag_sym ->
-        A.ConstantStruct tag_sym
-          match Map.lookup tag_sym tagDefs with
-            | Just (Struct_definition _ _ _ xs _) ->
-                (* NOTE: the potential flexible array member is NOT initialised
-                         (there won't even be space allocated for it) *)
-                List.map (fun (memb_ident, (_, _, _, memb_ty)) ->
-                  (memb_ident, mk_zeroInit_aux tagDefs memb_ty)
-                ) xs
-            | _ ->
-                error "[Cabs_to_ail.mk_zeroInit_aux] - internal ERROR: Struct"
-          end
-    | Ctype.Union tag_sym ->
-        match Map.lookup tag_sym tagDefs with
-          | Just (Union_definition _ _ _ ((memb_ident, (_, _, _, memb_ty)) :: _)) ->
-              A.ConstantUnion tag_sym memb_ident (mk_zeroInit_aux tagDefs memb_ty)
-          | _ ->
-              error "[Cabs_to_ail.mk_zeroInit_aux] - internal ERROR: Union"
-        end
-  end
-let mk_zeroInit tagDefs ty =
-  A.AnnotatedExpression () [] Loc.unknown
-    (A.AilEconst (mk_zeroInit_aux tagDefs ty))
-
 open AilSyntax
+val zeroConstant_expr: Loc.t -> Ctype.ctype -> expression unit
+let zeroConstant_expr loc ty =
+  AnnotatedExpression () [] loc (AilEconst (ConstantZero ty))
+
 val zeroAil: expression unit
 let zeroAil =
   AnnotatedExpression () [] Loc.unknown

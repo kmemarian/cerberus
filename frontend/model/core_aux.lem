@@ -69,6 +69,7 @@ let oTy_of_bTy = function
      Nothing
 end
 
+(*
 val     objectValueFromMemValue: Mem.mem_value -> core_object_type * object_value
 let rec objectValueFromMemValue mem_val =
   let () = Debug.print_debug 6 [] (fun () ->
@@ -83,8 +84,9 @@ let rec objectValueFromMemValue mem_val =
     (fun mem_vals          -> error "[Core_aux.objectValueFromMemValue] Vspecified (OVarray (List.map objectValueFromMemValue mem_vals))")
     (fun sym xs            -> (OTy_struct sym, OVstruct sym xs))
     (fun sym ident mem_val -> (OTy_union sym, OVunion sym ident mem_val))
+*)
 
-and loadedValueFromMemValue mem_val : core_object_type * loaded_value =
+let rec loadedValueFromMemValue mem_val : core_object_type * loaded_value =
   let () = Debug.print_debug 6 [] (fun () ->
     "loadedValueFromMemValue ==> " ^ Mem.stringFromMem_value mem_val
   ) in
@@ -575,14 +577,9 @@ let rec zeros_aux tagDefs (Ctype _ ty) =
        error "Core_aux.zeros should only be called on complete types"
   end
 
-val zeros: core_tag_definitions -> ctype -> pexpr
-let zeros tagDefs ty =
-  (* TODO: yucky *)
-  Pexpr [] ()
-(*
-    (PEval (Vobject (snd $ objectValueFromMemValue (zeros_aux ty))))
-*)
-    (PEval (snd $ valueFromMemValue (zeros_aux tagDefs ty)))
+val mk_zero_pe: core_tag_definitions -> ctype -> pexpr
+let mk_zero_pe tagDefs ty =
+  Pexpr [] () (PEval (snd (valueFromMemValue (zeros_aux tagDefs ty))))
 
 
 (*
