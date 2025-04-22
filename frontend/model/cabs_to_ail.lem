@@ -19,7 +19,6 @@ import Cn
 module E = Cabs_to_ail_effect
 
 let inline (>>=)    = E.bind
-let inline (>>) m f = m >>= fun _ -> f (* NOTE: the inline is important *)
 let inline (<$>)    = E.fmap
 let inline (<*>)    = E.app
 
@@ -830,7 +829,7 @@ let rec is_arithmetic_constant_expression is_lvalue ((AnnotatedExpression () _ l
         if not (AilTypesAux.is_arithmetic ty) then
           E.return false
         else
-          E.print_debugM 2 (fun () -> "WARNING[Cabs_to_ail.is_arithmetic_constant_expression] AilEcast: annoying ==> need to typecheck e...") >>
+          E.print_debugM 2 (fun () -> "WARNING[Cabs_to_ail.is_arithmetic_constant_expression] AilEcast: annoying ==> need to typecheck e...") >>= fun () ->
 (*          E.return true *)
           (* TODO: is_lvalue might be wrong depending on the type of e? *)
           is_arithmetic_constant_expression is_lvalue e
@@ -1553,7 +1552,7 @@ let rec desugar_type_specifiers specs =
                   E.undef loc Undefined.UB061_no_named_members
               | Just ((last_ident, (lastMemb_attrs, _, lastMemb_qs, lastMemb_ty)), membDefs) ->
                   (* STD §6.7.2.1#3 *)
-                  check_members membDefs >>
+                  check_members membDefs >>= fun () ->
                   if AilTypesAux.is_function lastMemb_ty then
                       E.constraint_violation (Loc.locOf last_ident) (StructMemberFunctionType last_ident)
                   else
@@ -1690,12 +1689,12 @@ let rec desugar_type_specifiers specs =
               E.register_tag loc E.Kind_enum tag_ident_opt >>= fun tag_sym ->
               register_enumerators loc tag_sym enums >>= fun ns_rev ->
               (* NOTE: this function doesn't care about the order of the integers *)
-              E.register_tag_definition loc tag_sym (Enum_definition ns_rev) >>
+              E.register_tag_definition loc tag_sym (Enum_definition ns_rev) >>= fun () ->
               E.return (Ctype.no_qualifiers, Ctype.Ctype [Annot.Aloc loc] (Ctype.Basic (Ctype.Integer (Ctype.Enum tag_sym))))
           
           (* *)
           | [TSpec _ (TSpec_name ((Symbol.Identifier cid_loc str) as ident))] ->
-              E.print_debugM 2 (fun () -> "Cabs_to_ail, TSpec_name ==> " ^ str) >>
+              E.print_debugM 2 (fun () -> "Cabs_to_ail, TSpec_name ==> " ^ str) >>= fun () ->
               match Builtins.translate_builtin_typenames str with
                 | Just ty ->
                     E.return (Ctype.no_qualifiers, ty)
@@ -1769,7 +1768,7 @@ and register_enumerators tag_loc tag_sym enums =
     (* STD §6.2.1#7, sentence 2 *)
     (* the scope  of an enumeration constant start just after it's appearance in
        the enumerator list *)
-    E.register_enum_constant ident d_e >>
+    E.register_enum_constant ident d_e >>= fun () ->
     E.return (n + 1, n :: acc)
   ) (0, []) enums >>= fun (_, ns_rev) ->
   E.return ns_rev
@@ -2140,7 +2139,7 @@ and desugar_parameter_declaration is_first fundef param_decl =
                   E.register_ordinary_identifier ident (E.OK_object true) scs >>= fun (link, sym) ->
                   (* TODO: check this registration *)
                   let dur = determinate_storage_duration link scs in
-                  E.register_internal_object_declaration sym (Loc.locOf ident, dur, isRegister, Nothing, qs, ty) >>
+                  E.register_internal_object_declaration sym (Loc.locOf ident, dur, isRegister, Nothing, qs, ty) >>= fun () ->
                   E.return (Just ident, ( qs
                                       , if isAtomic then Ctype.mk_ctype_atomic ty else ty
                                       , isRegister ))
@@ -2241,7 +2240,7 @@ STD_ "§6.5.1#2" $
               if not is_visible || not (E.is_object_kind kind || kind = E.OK_function) then
                 E.fail (Loc.locOf ident) (Errors.Desugar_MiscViolation (Errors.UndeclaredIdentifier (show ident)))
               else
-                E.add_used_identifier sym >>
+                E.add_used_identifier sym >>= fun () ->
                 (* TODO(check): this is to let the Ail typechecker know about
                    identifiers used before their type have been completed *)
                 (* TODO: only had that annotation if sym_ty is incomplete? *)
@@ -2672,7 +2671,7 @@ and desugar_struct_declaration struct_decl =
           ) sdecltors
     
     | Struct_assert sa_decl ->
-        desugar_and_register_static_assert_declaration sa_decl >>
+        desugar_and_register_static_assert_declaration sa_decl >>= fun () ->
         E.return []
   end
 
@@ -3501,7 +3500,7 @@ and desugar_declaration_base attrs specifs idecltors =
             
             else if specifs.storage_classes = [SC_typedef] then
               (* Case of a typedef *)
-              E.register_typedef ident (attrs, qs, cty) >>
+              E.register_typedef ident (attrs, qs, cty) >>= fun () ->
               E.return acc
               
             else
@@ -3518,7 +3517,7 @@ and desugar_declaration_base attrs specifs idecltors =
                     is_variadic,
                     List.elem FS_inline   specifs.function_specifiers,
                     List.elem FS_Noreturn specifs.function_specifiers
-                  ) >>
+                  ) >>= fun () ->
                   E.return acc in
               match ty with
                 | Ctype.Function return_qs_ty params is_variadic ->
@@ -3542,7 +3541,7 @@ and desugar_declaration_base attrs specifs idecltors =
                       | _ ->
                           E.register_internal_object_declaration sym
                             (ident_loc, dur, List.elem SC_register specifs.storage_classes, align_opt, qs, cty)
-                    end >>
+                    end >>= fun () ->
                     mk_desug_init () >>= function
                       | Just (ty', d_e) ->
                           E.print_debugM 2 (fun () ->
@@ -3560,10 +3559,10 @@ and desugar_declaration_base attrs specifs idecltors =
   *)
                           else
                             E.return ()
-                          end >>
+                          end >>= fun () ->
                           match dur with
                             | Static ->
-                                E.register_global_object_definition2 ident_loc sym link (E.Definition d_e) >>
+                                E.register_global_object_definition2 ident_loc sym link (E.Definition d_e) >>= fun () ->
                                 E.return (ty', acc)
                             | Thread ->
                                 error "TODO: desugar_declaration_base, Thread duration"
@@ -3682,7 +3681,7 @@ and desugar_statement_aux ctx (CabsStatement loc attrs stmt_) =
           end <$> desugar_declaration_base attrs specifs idecltors
       
       | CabsSdecl (Declaration_static_assert sa_decl) ->
-          desugar_and_register_static_assert_declaration sa_decl >>
+          desugar_and_register_static_assert_declaration sa_decl >>= fun () ->
           (* TODO: hackish *)
           E.return AilSskip
       
@@ -3723,7 +3722,7 @@ and desugar_statement_aux ctx (CabsStatement loc attrs stmt_) =
       | CabsSwhile e s ->
           (* TODO: when supporting VLAs ==> §6.8.4.2#2 *)
           E.freshify (Symbol.Identifier loc "__cerb_continue") >>= fun cont_ident ->
-          E.register_label cont_ident >>
+          E.register_label cont_ident >>= fun () ->
           E.resolve_label cont_ident >>= fun cont_sym ->
           let ctx' =
             <| cont_ident_opt= Just cont_ident |> in
@@ -3755,7 +3754,7 @@ and desugar_statement_aux ctx (CabsStatement loc attrs stmt_) =
       
       | CabsSdo e s ->
           E.freshify (Symbol.Identifier loc "__cerb_continue") >>= fun cont_ident ->
-          E.register_label cont_ident >>
+          E.register_label cont_ident >>= fun () ->
           E.resolve_label cont_ident >>= fun cont_sym ->
           let ctx' =
             <| cont_ident_opt= Just cont_ident |> in
@@ -3787,7 +3786,7 @@ and desugar_statement_aux ctx (CabsStatement loc attrs stmt_) =
       
       | CabsSfor (Just (FC_decl decl_loc ((Declaration_base attrs specifs idecltors)))) e2_opt e3_opt s ->
           E.freshify (Symbol.Identifier loc "__cerb_continue") >>= fun cont_ident ->
-          E.register_label cont_ident >>
+          E.register_label cont_ident >>= fun () ->
           E.resolve_label cont_ident >>= fun cont_sym ->
           let ctx' =
             <| cont_ident_opt= Just cont_ident |> in
@@ -3801,7 +3800,7 @@ and desugar_statement_aux ctx (CabsStatement loc attrs stmt_) =
               desugar_init_declarator attrs isAtomic (specifs.alignment_specifiers <> []) base_qs base_ty specifs.storage_classes init
             ) idecltors  >>= fun xs ->
             let loop_id = Symbol.fresh_int () in
-            E.record_loop_attribute loop_id attrs_outer (match e2_opt with Just e2 -> Loc.locOf e2 | Nothing -> Loc.unknown end) loc >> 
+            E.record_loop_attribute loop_id attrs_outer (match e2_opt with Just e2 -> Loc.locOf e2 | Nothing -> Loc.unknown end) loc >>= fun () ->
             (* for each [init_declarator] *)
             E.foldrM (fun opt (acc1, acc2) ->
               match opt with
@@ -3895,10 +3894,10 @@ and desugar_statement_aux ctx (CabsStatement loc attrs stmt_) =
       | CabsSfor fc_opt e2_opt e3_opt s ->
           (* fc_opt is either Nothing, a static assertion, or a FC_expr *)
           E.freshify (Symbol.Identifier loc "__cerb_continue") >>= fun cont_ident ->
-          E.register_label cont_ident >>
+          E.register_label cont_ident >>= fun () ->
           E.resolve_label cont_ident >>= fun cont_sym ->
           let loop_id = Symbol.fresh_int () in
-          E.record_loop_attribute loop_id attrs (match e2_opt with Just e2 -> Loc.locOf e2 | Nothing -> Loc.unknown end) loc >>
+          E.record_loop_attribute loop_id attrs (match e2_opt with Just e2 -> Loc.locOf e2 | Nothing -> Loc.unknown end) loc >>= fun () ->
           let ctx' =
             <| cont_ident_opt= Just cont_ident |> in
 
@@ -4045,7 +4044,7 @@ val     register_labels: cabs_statement -> E.desugM unit
 let rec register_labels (CabsStatement _ _ stmt_) =
   match stmt_ with
     | CabsSlabel ident s ->
-        E.register_label ident >>
+        E.register_label ident >>= fun () ->
         register_labels s
     | CabsScase _ s ->
         register_labels s
@@ -4060,7 +4059,7 @@ let rec register_labels (CabsStatement _ _ stmt_) =
     | CabsSexpr _ ->
         E.return ()
     | CabsSif _ s1 s2_opt ->
-        register_labels s1 >>
+        register_labels s1 >>= fun () ->
         maybe (E.return ()) register_labels s2_opt
     | CabsSswitch _ s ->
         register_labels s
@@ -4608,16 +4607,16 @@ let desugar_and_register_function_definition (FunDef fundef_loc fundef_attrs spe
       | _ ->
           (* STD §6.9.1#2 *)
           E.constraint_violation (Loc.locOf ddecltor) WrongTypeFunctionIdentifier
-    end >>
+    end >>= fun () ->
     
     E.register_ordinary_identifier fun_ident E.OK_function specifs.storage_classes >>= fun (_(*loc_fun_sym*), fun_sym) ->
     
     E.under_scope E.Scope_function begin
-      register_labels stmt >>
+      register_labels stmt >>= fun () ->
       
       E.under_scope funblock_scope begin
         (* TODO: this is a horrible hack, DO BETTER *)
-        E.hack_inject_idents_map idents_map >>
+        E.hack_inject_idents_map idents_map >>= fun () ->
 
 
 (*        desugar_declarator (IsFunDef specifs) decltor >>= fun (fun_ident, mk_qs_ctype) -> *)
@@ -4636,14 +4635,14 @@ let desugar_and_register_function_definition (FunDef fundef_loc fundef_attrs spe
           E.function_is_defined fun_sym >>= function
             | true  -> E.constraint_violation (Loc.locOf fun_ident) (ExternalRedefinition fun_sym)
             | false -> E.return ()
-          end >>
+          end >>= fun () ->
           E.register_function_declaration (Loc.locOf fun_ident) fundef_attrs fun_sym false (
             (return_qs, return_ty),
             params_opt,
             isVariadic,
             List.elem FS_inline   specifs.function_specifiers,
             List.elem FS_Noreturn specifs.function_specifiers
-          ) >>
+          ) >>= fun () ->
           E.inside_function return_ty begin
             E.record_marker ()     >>= fun marker_id ->
             desugar_statement stmt >>= fun d_stmt    ->
@@ -4770,7 +4769,7 @@ let desugar_and_register_external_declaration edecl =
                     desugar_alignment_specifiers ident_loc ty specifs.alignment_specifiers >>= fun align_opt ->
                     let dur = determinate_storage_duration link specifs.storage_classes in
                     E.register_external_object_declaration sym
-                      (isTentative, ident_loc, Annot.combine_attributes attrs ident_attrs, dur, List.elem SC_register specifs.storage_classes, align_opt, qs, ty) >>
+                      (isTentative, ident_loc, Annot.combine_attributes attrs ident_attrs, dur, List.elem SC_register specifs.storage_classes, align_opt, qs, ty) >>= fun () ->
                     
                     mk_desug_init () >>= function
                       | Just (ty', d_e) ->
@@ -4785,7 +4784,7 @@ let desugar_and_register_external_declaration edecl =
                             E.update_external_object_type sym ty'
                           else
                             E.return ()
-                          end >>
+                          end >>= fun () ->
                           (* NOTE: it is the type after the initialisation which must be complete *)
                           E.is_incomplete ty' >>= fun is_incomplete ->
                           if link = Linkage_none && is_incomplete then
@@ -4957,7 +4956,7 @@ let desugar core_eval_stuff cn_eval_stuff startup_str (TUnit edecls) =
       
       
       
-      E.mapM_ desugar_and_register_external_declaration edecls >>
+      E.mapM_ desugar_and_register_external_declaration edecls >>= fun () ->
       E.extract_program startup_str
     )
   ) 
