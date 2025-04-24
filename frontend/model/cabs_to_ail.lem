@@ -11,7 +11,6 @@ import AilSyntaxAux AilTypesAux Builtins
 import Errors
 
 import Mini_pipeline
-import Desugaring_init
 
 import Cn
 
@@ -23,6 +22,25 @@ let inline (<$>)    = E.fmap
 let inline (<*>)    = E.app
 
 
+type init_map
+
+val desugar_init:
+  map Symbol.sym tag_definition ->
+  (Cabs.cabs_expression -> E.desugM (AilSyntax.expression unit)) ->
+  (AilSyntax.expression unit -> E.desugM bool) ->
+  (AilSyntax.expression unit -> E.desugM bool) ->
+  (Loc.t -> maybe Ctype.ctype -> AilSyntax.expression unit -> E.desugM integer) ->
+  bool ->
+  Ctype.ctype -> initializer_ ->
+  E.desugM (Ctype.ctype * init_map)
+
+val desug_init_constructValue:
+  map Symbol.sym tag_definition -> init_map ->
+  Ctype.ctype -> AilSyntax.expression unit
+
+declare ocaml target_rep type init_map = `Desugaring_init.init_map`
+declare ocaml target_rep function desugar_init = `Desugaring_init.desugar_init`
+declare ocaml target_rep function desug_init_constructValue = `Desugaring_init.constructValue`
 
 (* STD §6.9.2#2, sentence 1 *)
 (* TODO replace the bool by this type? *)
@@ -3437,14 +3455,13 @@ and wip_desugar_initializer_ loc dur current_ty init =
           E.return (current_ty, d_e)
       | _ ->
           E.get_tag_definitions >>= fun tagDefs ->
-          let funcs = <|
-            Desugaring_init.desugar_expression= desugar_expression;
-            Desugaring_init.is_integer_constant_expression= is_integer_constant_expression;
-            Desugaring_init.is_initializer_constant_expression_or_string_literal= is_initializer_constant_expression_or_string_literal;
-            Desugaring_init.evaluate_integer_constant_expression= evaluate_integer_constant_expression;
-          |> in
-          Desugaring_init.desugar_init tagDefs funcs (dur = Static || dur = Thread) current_ty init >>= fun (current_ty', init_st, _) ->
-          E.return (current_ty', Desugaring_init.constructValue tagDefs init_st current_ty')
+          desugar_init tagDefs
+            desugar_expression
+            is_integer_constant_expression
+            is_initializer_constant_expression_or_string_literal
+            evaluate_integer_constant_expression
+            (dur = Static || dur = Thread) current_ty init >>= fun (current_ty', init_st) ->
+          E.return (current_ty', desug_init_constructValue tagDefs init_st current_ty')
 
           (* E.get_tag_definitions >>= fun tagDefs ->
           foo current_ty init >>= fun (current_ty', xs) ->
