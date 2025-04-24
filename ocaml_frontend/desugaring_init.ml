@@ -1,287 +1,287 @@
-open import Pervasives Utils Cabs
+open Monomorphic.None
+open Cabs
+open Ctype
+open Cabs_to_ail_aux
 
-open import Ctype
-open import Cabs_to_ail_aux
-import Cabs_to_ail_effect
-import AilTypesAux Constraint
+let equal_ctype = Ctype.ctypeEqual
+
+module Symbol = struct
+  include Symbol
+  let equal_identifier = instance_Basic_classes_Eq_Symbol_identifier_dict.isEqual_method
+  let compare_identifier = instance_Basic_classes_SetType_Symbol_identifier_dict.setElemCompare_method
+end
+
+module Loc = struct
+  let locOf_cabs_expr (CabsExpression (loc, _)) = loc
+  let locOf_ail_expr (AilSyntax.AnnotatedExpression (_, _, loc, _)) = loc
+  let locOf_identifier (Symbol.Identifier (loc, _)) = loc
+end
+
 
 type init_cursor_kind =
-  | Init_array of integer(* current index*) * maybe integer(* size (nothing if we are dealing with a top-level unknown sized array) *)
-  | Init_struct of Symbol.sym * list (Symbol.identifier * ctype) * Symbol.identifier * list (Symbol.identifier * ctype)
+  | Init_array of Z.t(* current index*) * Z.t option(* size (nothing if we are dealing with a top-level unknown sized array) *)
+  | Init_struct of Symbol.sym * (Symbol.identifier * ctype) list * Symbol.identifier * (Symbol.identifier * ctype) list
   | Init_union of Symbol.sym * Symbol.identifier
+[@@deriving eq]
 
-type init_cursor_elem = <|
+type init_cursor_elem = {
   is_block: bool; (* indicates whether an Init_list was entered *)
   is_overflowing: bool; (* indicates whether the cursor has overflowed (the current struct or array) *)
   kind: init_cursor_kind;
-|>
+} [@@deriving eq]
 
-type init_position = <|
-  block_ty: ctype; (* type of the current { .. } *)
+type init_position = {
+  block_ty: ctype [@warning "-69"]; (* type of the current { .. } *)
   ty: ctype; (* type at the cursor *)
-  cursor: list init_cursor_elem;
-  in_block: bool;
-|>
+  cursor: init_cursor_elem list;
+  in_block: bool [@warning "-69"];
+}
 
-let mark_as_overflowing pos =
+let _mark_as_overflowing pos =
   let cursor =
     match pos.cursor with
       | elem :: cursor' ->
-          <| elem with is_overflowing= true |> :: cursor'
-      | z -> z
-    end in
-  <| pos with cursor= cursor |>
+          { elem with is_overflowing= true } :: cursor'
+      | z -> z in
+  { pos with cursor= cursor }
 
 let unmark_as_overflowing pos =
   let cursor =
     match pos.cursor with
       | elem :: cursor' ->
-          <| elem with is_overflowing= false |> :: cursor'
-      | z -> z
-    end in
-  <| pos with cursor= cursor |>
+          { elem with is_overflowing= false } :: cursor'
+      | z -> z in
+  { pos with cursor= cursor }
 
 let cursor_overflowing = function
   | [] ->
       false
   | elem :: _ ->
       elem.is_overflowing
-end
 
 let lookup_struct_members tagDefs tag_sym =
   let aux (ident, (_, _, _, ty)) = (ident, ty) in
-  match Map.lookup tag_sym tagDefs with
-    | Just (Struct_definition _ _ _ (x::xs) flex_opt) ->
+  match Pmap.lookup tag_sym tagDefs with
+    | Some (Struct_definition (_, _, _, x::xs, flex_opt)) ->
         (aux x, List.map aux xs, flex_opt)
     | _ ->
-        error "Desugaring_init.lookup_struct_members: Nothing or empty Struct definition"
-  end
+        Cerb_debug.error "Desugaring_init.lookup_struct_members: None or empty Struct definition"
 
 let lookup_union_members tagDefs tag_sym =
   let aux (ident, (_, _, _, ty)) = (ident, ty) in
-  match Map.lookup tag_sym tagDefs with
-    | Just (Union_definition _ _ _ (x::xs)) ->
+  match Pmap.lookup tag_sym tagDefs with
+    | Some (Union_definition (_, _, _, x::xs)) ->
         (aux x, List.map aux xs)
     | _ ->
-        error "Desugaring_init.lookup_union_members: Nothing or empty Union definition"
-  end
+        Cerb_debug.error "Desugaring_init.lookup_union_members: None or empty Union definition"
 
-val go_down_aux: map Symbol.sym tag_definition -> bool -> init_position -> maybe init_position
 let go_down_aux tagDefs entering_block pos =
   if cursor_overflowing pos.cursor then
     (* OVERFLOWING *)
-    Nothing
+    None
   else
     let mk_cursor_elem kind =
-      <| is_block= entering_block; is_overflowing= false; kind= kind |> in
+      { is_block= entering_block; is_overflowing= false; kind= kind } in
     match unatomic pos.ty with
-      | Ctype _ (Basic _) ->
-          Nothing
-      | Ctype _ (Pointer _ _) ->
-          Nothing
-      | Ctype _  (Array elem_ty size_opt) ->
-          Just <| pos with ty= elem_ty; cursor= mk_cursor_elem (Init_array 0 size_opt) :: pos.cursor |>
-      | Ctype _  (Struct tag_sym) ->
+      | Ctype (_, Basic _) ->
+          None
+      | Ctype (_, Pointer _) ->
+          None
+      | Ctype (_, Array (elem_ty, size_opt)) ->
+          Some { pos with ty= elem_ty; cursor= mk_cursor_elem (Init_array (Z.zero, size_opt)) :: pos.cursor }
+      | Ctype (_, Struct tag_sym) ->
           let ((first_ident, first_ty), other_membrs, _) = lookup_struct_members tagDefs tag_sym in
-          Just <| pos with ty= first_ty; cursor= mk_cursor_elem (Init_struct tag_sym [] first_ident other_membrs) :: pos.cursor |>
-      | Ctype _ (Union tag_sym) ->
+          Some { pos with ty= first_ty; cursor= mk_cursor_elem (Init_struct (tag_sym, [], first_ident, other_membrs)) :: pos.cursor }
+      | Ctype (_, Union tag_sym) ->
           let ((first_ident, first_ty), _) = lookup_union_members tagDefs tag_sym in
-          Just <| pos with ty= first_ty; cursor= mk_cursor_elem (Init_union tag_sym first_ident) :: pos.cursor |>
+          Some { pos with ty= first_ty; cursor= mk_cursor_elem (Init_union (tag_sym, first_ident)) :: pos.cursor }
       | _ ->
-          let ty_str = Pp.stringFromAil_ctype no_qualifiers pos.ty in
-          error ("Desugaring_init.go_down_aux NOT Basic, Array, Struct, Union ==> " ^ ty_str)
-    end
+          let ty_str = String_ail.string_of_ctype_human no_qualifiers pos.ty in
+          Cerb_debug.error ("Desugaring_init.go_down_aux NOT Basic, Array, Struct, Union ==> " ^ ty_str)
 
 let go_down                tagDefs pos = go_down_aux tagDefs false pos
 let go_down_entering_block tagDefs pos = go_down_aux tagDefs true  pos
 
-val     go_bottom: map Symbol.sym tag_definition -> init_position -> init_position
 let rec go_bottom tagDefs pos =
   match go_down tagDefs pos with
-    | Just pos ->
+    | Some pos ->
         go_bottom tagDefs pos
-    | Nothing ->
+    | None ->
         pos
-  end
 
 
-val go_up_aux: bool -> init_position -> maybe init_position
 let go_up_aux stop_at_block pos =
   match pos.cursor with
     | [] ->
-        Nothing
+        None
     | elem :: cursor' ->
-        match elem.kind with
-          | Init_array _ size_opt ->
+        begin match elem.kind with
+          | Init_array (_, size_opt) ->
               if stop_at_block && elem.is_block then
-                Nothing
+                None
               else
-                Just <| pos with ty= Ctype [] (Array pos.ty size_opt); cursor= cursor'|>
-          | Init_struct tag_sym _ _ _ ->
+                Some { pos with ty= Ctype ([], Array (pos.ty, size_opt)); cursor= cursor'}
+          | Init_struct (tag_sym, _, _, _) ->
               if stop_at_block && elem.is_block then
-                Nothing
+                None
               else
-                Just <| pos with ty= Ctype [] (Struct tag_sym); cursor= cursor' |>
-          | Init_union tag_sym _ ->
+                Some { pos with ty= Ctype ([], Struct tag_sym); cursor= cursor' }
+          | Init_union (tag_sym, _) ->
               if stop_at_block && elem.is_block then
-                Nothing
+                None
               else
-                Just <| pos with ty= Ctype [] (Union tag_sym); cursor= cursor' |>
+                Some { pos with ty= Ctype ([], Union tag_sym); cursor= cursor' }
         end
-  end
 
 let go_up               pos = go_up_aux false pos
 let go_up_stop_at_block pos = go_up_aux true  pos
 
 
-val     go_next_aux: map Symbol.sym tag_definition -> bool -> init_position -> maybe init_position
 let rec go_next_aux tagDefs going_up pos =
   if cursor_overflowing pos.cursor then
     (* TODO: check (OVERFLOWING) *)
-    Nothing
+    None
   else match pos.cursor with
     | [] ->
         go_down tagDefs pos
     | elem :: cursor' ->
-        match elem.kind with
-          | Init_array current_idx size_opt ->
-              let new_idx = current_idx + 1 in
+        begin match elem.kind with
+          | Init_array (current_idx, size_opt) ->
+              let new_idx = Z.succ current_idx in
               let index_is_overflowing =
                 match size_opt with
-                  | Just size -> new_idx >= size
-                  | Nothing   -> false
-                end in
+                  | Some size -> Z.geq new_idx size
+                  | None      -> false in
               if index_is_overflowing then
                 if elem.is_block then
                   (* OVERFLOWING *)
-                  Just <| pos with cursor= <| elem with is_overflowing= true |> :: cursor' |>
+                  Some { pos with cursor= { elem with is_overflowing= true } :: cursor' }
                 else
-                  Maybe.bind (go_up pos) (go_next_going_up tagDefs)
+                  Option.bind (go_up pos) (go_next_going_up tagDefs)
               else if AilTypesAux.is_scalar (unatomic pos.ty) || going_up then
-                Just <| pos with cursor= <| is_block= elem.is_block; is_overflowing= elem.is_overflowing; kind= Init_array new_idx size_opt |> :: cursor' |>
+                Some { pos with cursor= { is_block= elem.is_block; is_overflowing= elem.is_overflowing; kind= Init_array (new_idx, size_opt) } :: cursor' }
               else
-                Maybe.bind (go_down tagDefs pos) (go_next tagDefs)
-          | Init_struct _ _ _ [] ->
+                Option.bind (go_down tagDefs pos) (go_next tagDefs)
+          | Init_struct (_, _, _, []) ->
               if elem.is_block then
                 (* OVERFLOWING *)
-                Just <| pos with cursor= <| elem with is_overflowing= true |> :: cursor' |>
+                Some { pos with cursor= { elem with is_overflowing= true } :: cursor' }
               else
-                Maybe.bind (go_up pos) (go_next_going_up tagDefs)
-          | Init_struct tag_sym prev_membrs current_member next_membrs ->
-              let (memb_ident, memb_ty) = List_extra.head next_membrs in
+                Option.bind (go_up pos) (go_next_going_up tagDefs)
+          | Init_struct (tag_sym, prev_membrs, current_member, next_membrs) ->
+              let (memb_ident, memb_ty) = List.hd next_membrs in
               if AilTypesAux.is_scalar (unatomic pos.ty) || going_up then
-                Just <| pos with ty= memb_ty; cursor= <| elem with kind=
-                  Init_struct tag_sym(prev_membrs ++ [(current_member, pos.ty)]) memb_ident (List_extra.tail next_membrs) |> :: cursor' |>
+                Some { pos with ty= memb_ty; cursor= { elem with kind=
+                  Init_struct (tag_sym, prev_membrs @ [(current_member, pos.ty)], memb_ident, List.tl next_membrs) } :: cursor' }
               else
-                Maybe.bind (go_down tagDefs pos) (go_next tagDefs)
-          | Init_union _ _ ->
+                Option.bind (go_down tagDefs pos) (go_next tagDefs)
+          | Init_union _ ->
               if elem.is_block then
                 (* OVERFLOWING *)
-                Just <| pos with cursor= <| elem with is_overflowing= true |> :: cursor' |>
+                Some { pos with cursor= { elem with is_overflowing= true } :: cursor' }
               else
-                Maybe.bind (go_up pos) (go_next_going_up tagDefs)
+                Option.bind (go_up pos) (go_next_going_up tagDefs)
         end
-  end
 
 and go_next          tagDefs pos = go_next_aux tagDefs false pos
 and go_next_going_up tagDefs pos = go_next_aux tagDefs true  pos
 
 
-val do_next_in_same_level: map Symbol.sym tag_definition -> init_position -> maybe init_position
 let do_next_in_same_level tagDefs pos =
   if cursor_overflowing pos.cursor then
-    Just pos
+    Some pos
   else match pos.cursor with
     | elem :: cursor' ->
-        match elem.kind with
-          | Init_array current_idx size_opt ->
-              let new_idx = current_idx + 1 in
+        begin match elem.kind with
+          | Init_array (current_idx, size_opt) ->
+              let new_idx = Z.succ current_idx in
               let index_is_overflowing =
                 match size_opt with
-                  | Just size -> new_idx >= size
-                  | Nothing   -> false
-                end in
+                  | Some size -> Z.geq new_idx size
+                  | None      -> false in
               if index_is_overflowing then
-                if cursor' = [] then
+                if List.is_empty cursor' then
                   (* OVERFLOWING *)
-                  Just <| pos with cursor= <| elem with is_overflowing= true |> :: cursor' |>
+                  Some { pos with cursor= { elem with is_overflowing= true } :: cursor' }
                 else
-                  Maybe.bind (go_up pos) (go_next_going_up tagDefs)
+                  Option.bind (go_up pos) (go_next_going_up tagDefs)
               else
-                Just <| pos with cursor= <| elem with kind= Init_array new_idx size_opt |> :: cursor' |>
-          | Init_struct _ _ _ [] ->
-              if cursor' = [] then
+                Some { pos with cursor= { elem with kind= Init_array (new_idx, size_opt) } :: cursor' }
+          | Init_struct (_, _, _, []) ->
+              if List.is_empty cursor' then
                 (* OVERFLOWING *)
-                Just <| pos with cursor= [<| elem with is_overflowing= true |>] |>
+                Some { pos with cursor= [{ elem with is_overflowing= true }] }
               else
-                Maybe.bind (go_up pos) (go_next_going_up tagDefs)
-          | Init_struct tag_sym prev_membrs current_member ((memb_ident, memb_ty) :: next_membrs) ->
-              Just (<| pos with ty= memb_ty; cursor= <| elem with kind= Init_struct tag_sym (prev_membrs ++ [(current_member, pos.ty)]) memb_ident next_membrs |> :: cursor' |>)
-          | Init_union _ _ ->
-              if cursor' = [] then
+                Option.bind (go_up pos) (go_next_going_up tagDefs)
+          | Init_struct (tag_sym, prev_membrs, current_member, (memb_ident, memb_ty) :: next_membrs) ->
+              Some ({ pos with ty= memb_ty; cursor= { elem with kind= Init_struct (tag_sym, prev_membrs @ [(current_member, pos.ty)], memb_ident, next_membrs) } :: cursor' })
+          | Init_union _ ->
+              if List.is_empty cursor' then
                 (* OVERFLOWING *)
-                Just <| pos with cursor= [<| elem with is_overflowing= true |>] |>
+                Some { pos with cursor= [{ elem with is_overflowing= true }] }
               else
-                Maybe.bind (go_up pos) (go_next_going_up tagDefs)
+                Option.bind (go_up pos) (go_next_going_up tagDefs)
 
         end    
     | _ ->
-        error "TODO: do_next_in_same_level _"
-  end
+        Cerb_debug.error "TODO: do_next_in_same_level _"
 
 
-module E = Cabs_to_ail_effect
-let inline (>>=) = E.bind
+module E = struct
+  include Cabs_to_ail_effect
+  let return = State_exception.stExpect_return
+  let bind = State_exception.stExpect_bind
+  let constraint_violation loc v =
+    fun _ -> Exception.fail (loc, Errors.DESUGAR (Errors.Desugar_ConstraintViolation v))
+  let undef loc ub =
+    fun _ -> Exception.fail  (loc, Errors.DESUGAR (Errors.Desugar_UndefinedBehaviour ub))
+end
+let (>>=) = E.bind
 
 let find_struct_member tagDefs ident tag_sym =
   let (x, xs, flex_opt) = lookup_struct_members tagDefs tag_sym in
-  match List.findIndex (fun x -> fst x = ident) (x::xs) with
-    | Just i ->
-        match List.splitAt i (x::xs) with
+  match List.find_index (fun x -> Symbol.equal_identifier (fst x) ident) (x::xs) with
+    | Some i ->
+        begin match Lem_list.split_at i (x::xs) with
           | (prev, (_, ty) :: next) ->
-              Right (ty, prev, next)
+              Either.Right (ty, prev, next)
           | _ ->
-              error "Desugaring_init.find_struct_member"
+              Cerb_debug.error "Desugaring_init.find_struct_member"
         end
-    | Nothing ->
+    | None ->
         let is_flexible_array_member =
           match flex_opt with
-            | Just (Ctype.FlexibleArrayMember _ flex_ident _ _) ->
-                ident = flex_ident
-            | Nothing ->
-                false
-          end in
+            | Some (Ctype.FlexibleArrayMember (_, flex_ident, _, _)) ->
+                Symbol.equal_identifier ident flex_ident
+            | None ->
+                false in
         Left is_flexible_array_member
-  end
 
 let find_union_member tagDefs ident tag_sym =
   let (x, xs) = lookup_union_members tagDefs tag_sym in
-  List.lookup ident (x::xs)
+  List.assoc_opt ident (x::xs)
 
-import AilSyntax
 
-type desugaring_init_funcs = <|
-  desugar_expression: Cabs.cabs_expression -> E.desugM (AilSyntax.expression unit);
-  is_integer_constant_expression: AilSyntax.expression unit -> E.desugM bool;
-  is_initializer_constant_expression_or_string_literal: AilSyntax.expression unit -> E.desugM bool;
-  evaluate_integer_constant_expression: Loc.t -> maybe Ctype.ctype -> AilSyntax.expression unit -> E.desugM integer;
-|>
+type desugaring_init_funcs = {
+  desugar_expression: Cabs.cabs_expression -> (unit AilSyntax.expression) E.desugM;
+  is_integer_constant_expression: unit AilSyntax.expression -> bool E.desugM;
+  is_initializer_constant_expression_or_string_literal: unit AilSyntax.expression -> bool E.desugM;
+  evaluate_integer_constant_expression: Cerb_location.t -> Ctype.ctype option -> unit AilSyntax.expression -> Z.t E.desugM;
+}
 
 let liftM = function
-  | Just z ->
+  | Some z ->
       E.return z
-  | Nothing ->
-      error "TODO: liftM fail"
-end
+  | None ->
+      Cerb_debug.error "TODO: liftM fail"
 
 
 let rec go_top_of_block pos =
   match go_up_stop_at_block pos with
-    | Nothing ->
+    | None ->
         pos
-    | Just pos' ->
+    | Some pos' ->
       go_top_of_block pos'
-  end
 
 
 let rec moveTo_aux tagDefs funcs is_top (ty_acc, cursor_acc) desigs =
@@ -290,153 +290,121 @@ let rec moveTo_aux tagDefs funcs is_top (ty_acc, cursor_acc) desigs =
     | [] ->
         E.return (ty_acc, cursor_acc)
     | Cabs.Desig_array e :: desigs' ->
-        let loc = Loc.locOf e in
+        let loc = Loc.locOf_cabs_expr e in
         let common e =
           funcs.desugar_expression e               >>= fun d_e ->
           funcs.is_integer_constant_expression d_e >>= function
             | false ->
                 E.constraint_violation loc Constraint.IllegalTypeArrayDesignator
             | true ->
-              funcs.evaluate_integer_constant_expression loc Nothing d_e >>= fun idx ->
-              if idx < 0 then
+              funcs.evaluate_integer_constant_expression loc None d_e >>= fun idx ->
+              if Z.(lt idx zero) then
                 E.constraint_violation loc Constraint.IllegalSizeArrayDesignator
               else
-                E.return idx
-          end in
-        match unatomic ty_acc with
-          | Ctype _ (Array elem_ty (Just size)) ->
+                E.return idx in
+        begin match unatomic ty_acc with
+          | Ctype (_, Array (elem_ty, Some size)) ->
               common e >>= fun idx ->
               let new_elem =
-                if idx >= size then
+                if Z.geq idx size then
                   (* TODO: let* () = Eff.warn "array designator is larger than array" in *)
-                  <| is_block= is_top; is_overflowing= true; kind= Init_array (size-1) (Just size) |>
+                  { is_block= is_top; is_overflowing= true; kind= Init_array (Z.pred size, Some size) }
                 else
-                  <| is_block= is_top; is_overflowing= false; kind= Init_array idx (Just size) |> in
+                  { is_block= is_top; is_overflowing= false; kind= Init_array (idx, Some size) } in
               moveTo_aux (elem_ty, new_elem :: cursor_acc) desigs'
-          | Ctype _ (Array elem_ty Nothing) ->
+          | Ctype (_, Array (elem_ty, None)) ->
               common e >>= fun idx ->
-              let new_elem = <| is_block= is_top; is_overflowing= false; kind= Init_array idx Nothing |> in
+              let new_elem = { is_block= is_top; is_overflowing= false; kind= Init_array (idx, None) } in
               moveTo_aux (elem_ty, new_elem :: cursor_acc) desigs'
           | _ ->
               E.constraint_violation loc Constraint.IllegalArrayDesignatorUsage
         end
     | Cabs.Desig_member ident :: desigs' ->
-        let loc = Loc.locOf ident in
-        match unatomic ty_acc with
-          | Ctype _ (Struct tag_sym) ->
-            match find_struct_member tagDefs ident tag_sym with
+        let loc = Loc.locOf_identifier ident in
+        begin match unatomic ty_acc with
+          | Ctype (_, Struct tag_sym) ->
+            begin match find_struct_member tagDefs ident tag_sym with
               | Right (new_ty, prev, next) ->
-                  let elem' = <| is_block= is_top; is_overflowing= false; kind= Init_struct tag_sym prev ident next |> in
+                  let elem' = { is_block= is_top; is_overflowing= false; kind= Init_struct (tag_sym, prev, ident, next) } in
                   moveTo_aux (new_ty, elem' :: cursor_acc) desigs'
               | Left is_flexible_array_member ->
                   if is_flexible_array_member then
                     E.constraint_violation loc (Constraint.IllegalMemberDesignatorFlexibleArrayMember ident)
                   else
-                    E.constraint_violation loc (Constraint.IllegalMemberDesignator ident ty_acc)
+                    E.constraint_violation loc (Constraint.IllegalMemberDesignator (ident, ty_acc))
             end
-          | Ctype _ (Union tag_sym) ->
-              match find_union_member tagDefs ident tag_sym with
-                | Just new_ty ->
-                    let elem' = <| is_block= is_top; is_overflowing= false; kind= Init_union tag_sym ident |> in
+          | Ctype (_, Union tag_sym) ->
+              begin match find_union_member tagDefs ident tag_sym with
+                | Some new_ty ->
+                    let elem' = { is_block= is_top; is_overflowing= false; kind= Init_union (tag_sym, ident) } in
                     moveTo_aux (new_ty, elem' :: cursor_acc) desigs'
-                | Nothing ->
-                    E.constraint_violation loc (Constraint.IllegalMemberDesignator ident ty_acc)
+                | None ->
+                    E.constraint_violation loc (Constraint.IllegalMemberDesignator (ident, ty_acc))
               end
           | _ ->
               E.constraint_violation loc Constraint.IllegalMemberDesignatorUsage
         end
-  end
 
 let moveTo tagDefs funcs pos = function
-  | Nothing ->
+  | None ->
       E.return pos
-  | Just desigs ->
+  | Some desigs ->
       liftM (go_up (go_top_of_block pos))                       >>= fun pos            ->
       moveTo_aux tagDefs funcs true (pos.ty, pos.cursor) desigs >>= fun (ty', cursor') ->
-      E.return <| pos with ty= ty'; cursor= cursor' |>
-end
+      E.return { pos with ty= ty'; cursor= cursor' }
 
-val     on_list: forall 'a 'b. 'a -> (bool -> 'a -> 'b -> E.desugM 'a) -> list 'b -> E.desugM 'a
 let rec on_list pos f = function
   | [] ->
-      E.return  pos
+      E.return pos
   | [x] ->
       f true pos x
   | x :: xs ->
       f false pos x >>= fun pos' ->
       on_list pos' f xs
-end
 
 
 type init_element =
-  | Elem_array of integer
+  | Elem_array of Z.t
   | Elem_member of Symbol.identifier
   | Elem_union
-type init_path = list init_element
+[@@deriving ord]
+type init_path = init_element list
+[@@deriving ord]
 
-let stringFromInit_element = function
-  | Elem_array n ->
-      "[" ^ show n ^ "]"
-  | Elem_member ident ->
-      "." ^ show ident
-  | Elem_union ->
-      ".UNION"
-end
+module InitPathMap = Map.Make(struct
+  type t = init_path
+  let compare = compare_init_path
+end)
 
-
-instance (SetType init_element)
-  let setElemCompare elem1 elem2 =
-    let ord = function
-      | Elem_array _ ->
-          (0 : nat)
-      | Elem_member _ ->
-          1
-      | Elem_union ->
-          2
-    end in
-    match (elem1, elem2) with
-      | (Elem_array n1, Elem_array n2) ->
-          setElemCompare n1 n2
-      | (Elem_member ident1, Elem_member ident2) ->
-          setElemCompare ident1 ident2
-      | _ ->
-          setElemCompare (ord elem1) (ord elem2)
-    end
-end
+type init_map = (unit AilSyntax.expression) InitPathMap.t
 
 
-let stringFromInit_path xs =
-  String.concat "" (List.map stringFromInit_element xs)
-
-
-val to_init_path: list init_cursor_elem -> init_path
 let to_init_path cursor =
   let aux elem =
     match elem.kind with
-      | Init_array n _ ->
+      | Init_array (n, _) ->
           Elem_array n
-      | Init_struct _ _ ident _ ->
+      | Init_struct (_, _, ident, _) ->
           Elem_member ident
-      | Init_union _ ident ->
-          Elem_union
-    end in
-  List.map aux (List.reverse cursor)
+      | Init_union (_, ident) ->
+          Elem_union in
+  List.map aux (List.rev cursor)
 
 let rec interp_initializer_aux tagDefs funcs is_static_or_thread inits_acc is_inner max_index pos = function
   | Cabs.Init_expr e ->
       funcs.desugar_expression e >>= fun d_e ->
-      funcs.is_initializer_constant_expression_or_string_literal d_e >>= function
+      funcs.is_initializer_constant_expression_or_string_literal d_e >>= begin function
         | false ->
             if is_static_or_thread then
               (* STD §6.7.9#4 *)
-              E.constraint_violation (Loc.locOf d_e) Constraint.IllegalStorageClassStaticOrThreadInitializer
+              E.constraint_violation (Loc.locOf_ail_expr d_e) Constraint.IllegalStorageClassStaticOrThreadInitializer
             else
               E.return ()
         | true ->
             E.return ()
       end >>= fun () ->
       if false (* is_compound_literal OR string literal *) then
-        error "TODO: explode the elements"
+        Cerb_debug.error "TODO: explode the elements"
       else
         (* NOTE: we dealing with a scalar, so we go down to a leaf *)
         let pos = go_bottom tagDefs pos in
@@ -444,16 +412,15 @@ let rec interp_initializer_aux tagDefs funcs is_static_or_thread inits_acc is_in
           if cursor_overflowing pos.cursor then
             inits_acc
           else
-            Map.insert (to_init_path pos.cursor) d_e inits_acc in
+            InitPathMap.add (to_init_path pos.cursor) d_e inits_acc in
         E.return (max_index, inits_acc', false, pos)
-  | Cabs.Init_list loc xs ->
+  | Cabs.Init_list (loc, xs) ->
       if AilTypesAux.is_scalar (unatomic pos.ty) then
         match xs with
-          | [(Nothing, Cabs.Init_expr e)] ->
+          | [(None, Cabs.Init_expr e)] ->
               interp_initializer_aux tagDefs funcs is_static_or_thread inits_acc is_inner max_index pos (Cabs.Init_expr e)
           | _ ->
               E.undef loc Undefined.UB081_scalar_initializer_not_single_expression
-        end
       else
         (* NOTE: we go on step down (an mark the opening of a block { ... }) *)
         (* NOTE: this moves the cursor to the first member/index of the struct/array *)
@@ -469,16 +436,15 @@ let rec interp_initializer_aux tagDefs funcs is_static_or_thread inits_acc is_in
             else match pos'.cursor with
               | [] -> max_index
               | elem :: _ ->
-                  match elem.kind with
-                    | Init_array idx Nothing ->
-                        if idx > max_index then idx else max_index
+                  begin match elem.kind with
+                    | Init_array (idx, None) ->
+                        if Z.gt idx max_index then idx else max_index
                     | _ ->
                         max_index
-                  end
-            end in
+                  end in
           (* NOTE: we recursively interpret the inner initializer (this may move the cursor) *)
           (* NOTE: the max_index doesn't matter here because we can only have an aray with unknown size at the top-level *)
-          interp_initializer_aux tagDefs funcs is_static_or_thread inits_acc true 0 pos' init
+          interp_initializer_aux tagDefs funcs is_static_or_thread inits_acc true Z.zero pos' init
             >>= fun (_, inits_acc', finished_list, pos') ->
           begin if is_last then
             if not is_inner then
@@ -508,84 +474,85 @@ let rec interp_initializer_aux tagDefs funcs is_static_or_thread inits_acc is_in
           E.return (max_index', inits_acc', pos')
         ) xs >>= fun (max_index, inits, pos) ->
         E.return (max_index, inits, true, pos)
-end
 
 let interp_initializer_ tagDefs funcs is_static_or_thread pos xs =
-  interp_initializer_aux tagDefs funcs is_static_or_thread Map.empty false 0 pos xs >>= fun (max_index, inits, _, last_pos) ->
+  interp_initializer_aux tagDefs funcs is_static_or_thread InitPathMap.empty false Z.zero pos xs >>= fun (max_index, inits, _, last_pos) ->
   E.return (max_index, inits, last_pos)
 
 
-let desugar_init tagDefs funcs is_static_or_thread ty init =
-  let pos = <| block_ty= ty; ty= ty; cursor= []; in_block= false |> in
+let desugar_init tagDefs f1 f2 f3 f4 is_static_or_thread ty init =
+  let funcs =
+    { desugar_expression= f1
+    ; is_integer_constant_expression= f2
+    ; is_initializer_constant_expression_or_string_literal= f3
+    ; evaluate_integer_constant_expression= f4 } in
+  let pos = { block_ty= ty; ty= ty; cursor= []; in_block= false } in
   interp_initializer_ tagDefs funcs is_static_or_thread pos init >>= fun (size, init_map, last_pos) ->
   let ty' =
     match ty with
-      | Ctype annots (Array elem_ty Nothing) ->
-          Ctype annots (Array elem_ty (Just (size + 1)))
+      | Ctype (annots, Array (elem_ty, None)) ->
+          Ctype (annots, Array (elem_ty, Some (Z.succ size)))
       | _ ->
-          ty
-    end in
-  E.return (ty', init_map, last_pos)
+          ty in
+  E.return (ty', init_map(*, last_pos*))
 
 
-val constructValue: map Symbol.sym tag_definition -> map init_path (AilSyntax.expression unit) -> Ctype.ctype -> AilSyntax.expression unit
-let rec constructValue_aux tagDefs path init_map (Ctype.Ctype _ ty as cty) =
-  let loc = Loc.other "Cabs_to_ail.constructValue" in
-  let wrap_expr expr_ = AilSyntax.AnnotatedExpression () [] loc expr_ in
+let rec constructValue_aux tagDefs path init_map (Ctype.Ctype (_, ty) as cty) =
+  let loc = Cerb_location.other "Cabs_to_ail.constructValue" in
+  let wrap_expr expr_ = AilSyntax.AnnotatedExpression ((), [], loc, expr_) in
   match ty with
-    | Ctype.Array _ Nothing ->
-        error "constructValue_aux: Array Nothing"
-    | Ctype.Array elem_ty (Just n) ->
+    | Ctype.Array (_, None) ->
+        Cerb_debug.error "constructValue_aux: Array None"
+    | Ctype.Array (elem_ty, Some n) ->
         let es =
           List.map (fun i ->
-            Just (constructValue_aux tagDefs (path ++ [Elem_array i]) init_map elem_ty)
+            Some (constructValue_aux tagDefs (path @ [Elem_array i]) init_map elem_ty)
           ) (Utils.mkListN n) in
-        wrap_expr (AilSyntax.AilEarray false(*TODO*) elem_ty es)
+        wrap_expr (AilSyntax.AilEarray (false(*TODO*), elem_ty, es))
     | Ctype.Struct tag_sym ->
-        match Map.lookup tag_sym tagDefs with
-          | Just (Struct_definition _ _ isAnonymous xs _) ->
+        begin match Pmap.lookup tag_sym tagDefs with
+          | Some (Struct_definition (_, _, isAnonymous, xs, _)) ->
               let () = if isAnonymous then
-                Debug.print_debug 2 [] (fun () ->
+                Cerb_debug.print_debug 2 [] (fun () ->
                   "constructValue_aux: this may be WRONG ==> anonymous Struct"
                 )
               else () in
               let membrs = List.map (fun (memb_ident, (_, _, _, memb_ty)) ->
                 (* TODO: this is only correct if the first member was the one initialised *)
-                (memb_ident, Just (constructValue_aux tagDefs (path ++ [Elem_member memb_ident]) init_map memb_ty))
+                (memb_ident, Some (constructValue_aux tagDefs (path @ [Elem_member memb_ident]) init_map memb_ty))
               ) xs in
-              wrap_expr (AilSyntax.AilEstruct tag_sym membrs)
+              wrap_expr (AilSyntax.AilEstruct (tag_sym, membrs))
           | _ ->
-              error "constructValue_aux, Struct"
+              Cerb_debug.error "constructValue_aux, Struct"
         end
     | Ctype.Union tag_sym ->
-        match Map.lookup tag_sym tagDefs with
-          | Just (Union_definition _ _ isAnonymous ((first_memb_ident, (_, _, _, first_memb_ty)) :: _)) ->
+        begin match Pmap.lookup tag_sym tagDefs with
+          | Some (Union_definition (_, _, isAnonymous, (first_memb_ident, (_, _, _, first_memb_ty)) :: _)) ->
               let () = if isAnonymous then
-                Debug.print_debug 2 [] (fun () ->
+                Cerb_debug.print_debug 2 [] (fun () ->
                   "constructValue_aux: this may be WRONG ==> anonymous Union"
                 )
               else () in
-              let () = Debug.print_debug 0 [] (fun () ->
+              let () = Cerb_debug.print_debug 0 [] (fun () ->
                 "constructValue_aux: is WRONG for union ==> always assigning the first member"
               ) in
               wrap_expr begin
-                AilSyntax.AilEunion tag_sym first_memb_ident
-                  (Just (constructValue_aux tagDefs (path ++ [Elem_union]) init_map first_memb_ty))
+                AilSyntax.AilEunion (tag_sym, first_memb_ident,
+                  Some (constructValue_aux tagDefs (path @ [Elem_union]) init_map first_memb_ty))
               end
           | _ ->
-              error "constructValue_aux, Union"
+              Cerb_debug.error "constructValue_aux, Union"
         end
     | Ctype.Atomic ty' ->
         (* TODO: check this *)
         constructValue_aux tagDefs path init_map ty'
     | _ ->
-        match Map.lookup path init_map with
-          | Nothing ->
+        begin match InitPathMap.find_opt path init_map with
+          | None ->
               mk_zeroInit tagDefs cty
-          | Just e ->
+          | Some e ->
               e
         end
-  end
 
 let constructValue tagDefs init_map ty =
   constructValue_aux tagDefs [] init_map ty
