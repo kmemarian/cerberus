@@ -23,7 +23,7 @@ module Dir_heap_types = struct
   (* Directory references          *)
   (*-------------------------------*)
 
-  type dh_dir_ref = Dir_ref of inode  (*o with sexp_of o*) (* coverage:sexp*)
+  type dh_dir_ref = Dir_ref of inode  (*o [@@deriving sexp_of] o*) (* coverage:sexp*)
 
   instance (Eq dh_dir_ref)
     let (=) = unsafe_structural_equality
@@ -44,7 +44,7 @@ module Dir_heap_types = struct
   (* File references               *)
   (*-------------------------------*)
 
-  type dh_file_ref = File_ref of inode  (*o with sexp_of o*) (* coverage:sexp*)
+  type dh_file_ref = File_ref of inode  (*o [@@deriving sexp_of] o*) (* coverage:sexp*)
 
   instance (Eq dh_file_ref)
     let (=) = unsafe_structural_equality
@@ -64,7 +64,7 @@ module Dir_heap_types = struct
   (* Directories                   *)
   (*-------------------------------*)
 
-  type dh_entry = entry dh_dir_ref dh_file_ref  (*o with sexp_of o*) (* coverage:sexp*)
+  type dh_entry = entry dh_dir_ref dh_file_ref  (*o [@@deriving sexp_of] o*) (* coverage:sexp*)
 
 (*o
   let sexp_of_fmap = Fs_spec.Fs_types.sexp_of_fmap
@@ -86,7 +86,7 @@ o*)
     dhd_atime : float_t;      (** Last access time *)                    (* coverage:sexp *)
     dhd_mtime : float_t;      (** Last modification time *)              (* coverage:sexp *)
     dhd_ctime : float_t;      (** Last status change time *)             (* coverage:sexp *)
-  |> (*o with sexp_of o*)                                                (* coverage:sexp *)
+  |> (*o [@@deriving sexp_of] o*)                                        (* coverage:sexp *)
 
   (* for impl marshalling, we need to avoid using fmaps *)
   type dh_mdir = <|                                                      (* coverage:sexp *)
@@ -105,7 +105,7 @@ o*)
     dhmd_atime : float_t;      (** Last access time *)                   (* coverage:sexp *)
     dhmd_mtime : float_t;      (** Last modification time *)             (* coverage:sexp *)
     dhmd_ctime : float_t;      (** Last status change time *)            (* coverage:sexp *)
-  |>  (*o with sexp_of o*)                                               (* coverage:sexp *)
+  |>  (*o [@@deriving sexp_of] o*)                                       (* coverage:sexp *)
 
   let dh_mdir_of_dir d = <| (* coverage:unused *)
     dhmd_entries=(fmap_bindings d.dhd_entries);
@@ -180,7 +180,7 @@ o*)
     dhf_atime : float_t;      (** Last access time *)               (* coverage:sexp *)
     dhf_mtime : float_t;      (** Last modification time *)         (* coverage:sexp *)
     dhf_ctime : float_t;      (** Last status change time *)        (* coverage:sexp *)
-  |>  (*o with sexp_of o*)                                          (* coverage:sexp *)
+  |>  (*o [@@deriving sexp_of] o*)                                  (* coverage:sexp *)
 
   (* an empty file with default settings *)
   val dh_default_file : dh_file
@@ -210,7 +210,7 @@ o*)
        [(free_list, last_used)]. free_list contains explicitly free ones, 
        and last_used is the smallest used one, so all bigger ones are free *)
     dhs_free_inodes : list inode * inode                (* coverage:sexp *)
-  |> (*o with sexp_of o*)                               (* coverage:sexp*)
+  |> (*o [@@deriving sexp_of] o*)                       (* coverage:sexp*)
 
   (* an initial fs-state containing just the root directory *)
   val dh_initial_state_fs : dir_heap_state_fs
@@ -236,7 +236,7 @@ o*)
   (* Configuration state *)
   type dir_heap_state_config = <|             (* coverage:sexp *)
     dhs_sysconfig : fmap sysconf_value nat    (* coverage:sexp *)
-  |>  (*o with sexp_of o*)                    (* coverage:sexp *)
+  |>  (*o [@@deriving sexp_of] o*)            (* coverage:sexp *)
 
   val dh_initial_state_config : dir_heap_state_config
   let dh_initial_state_config = <|
@@ -248,7 +248,7 @@ o*)
   type dir_heap_state = <|                    (* coverage:sexp *)
     dhs_state_fs     : dir_heap_state_fs;     (* coverage:sexp *)
     dhs_state_config : dir_heap_state_config; (* coverage:sexp *)
-  |> (*o with sexp_of o*)                     (* coverage:sexp *)
+  |> (*o [@@deriving sexp_of] o*)             (* coverage:sexp *)
 
   val dh_initial_state : dir_heap_state
   let dh_initial_state = <|
@@ -259,9 +259,9 @@ o*)
   (* instantiations of types that are exposed in the interface used by fs_test *)
   type dh_environment = environment dh_dir_ref dh_file_ref dir_heap_state
 
-  type dh_os_state = ty_os_state dh_dir_ref dh_file_ref dir_heap_state (*o with sexp_of o*) (* coverage:sexp*)
+  type dh_os_state = ty_os_state dh_dir_ref dh_file_ref dir_heap_state (*o [@@deriving sexp_of] o*) (* coverage:sexp*)
 
-  type dh_os_state_or_special = os_state_or_special dh_dir_ref dh_file_ref dir_heap_state (*o with sexp_of o*) (* coverage:sexp*)
+  type dh_os_state_or_special = os_state_or_special dh_dir_ref dh_file_ref dir_heap_state (*o [@@deriving sexp_of] o*) (* coverage:sexp*)
 
 
 end 

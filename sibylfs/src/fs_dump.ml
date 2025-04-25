@@ -32,27 +32,27 @@ type file = {
   file_node : int;
   file_size : int;
   file_sha  : string;
-} with sexp
+} [@@deriving sexp]
 
 type dir = {
   dir_path : string;
   dir_node : int;
-} with sexp
+} [@@deriving sexp]
 
 type symlink = {
   link_path : string;
   link_val  : string;
-} with sexp
+} [@@deriving sexp]
 
 type error = Fs_spec.Fs_types.error * string * string (* call, path *)
-with sexp
+[@@deriving sexp]
 
 type entry =
 | DE_file    of file
 | DE_dir     of dir
 | DE_symlink of symlink
 | DE_error   of error
-with sexp
+[@@deriving sexp]
 
 let path = function
   | DE_file    { file_path = p }
@@ -60,7 +60,7 @@ let path = function
   | DE_symlink { link_path = p }
   | DE_error   (_,_,p)           -> p
 
-type t = entry list with sexp
+type t = entry list [@@deriving sexp]
 
 
 (* dumping the spec state *)

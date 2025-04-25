@@ -1,9 +1,4 @@
 # fix lem bugs
-s/let |||> /let (|||>) /
-s/let ||| /let (|||) /
-s/>>=/(>>=)/g
-s/|||/(|||)/g
-s/<(|||)>/(<|||>)/g
 s/Fs_types\.//g
 s/Fs_arch\.//g
 s/Fs_permissions\.//g
