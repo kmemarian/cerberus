@@ -40,25 +40,25 @@ module Fs_types = struct
   (* miscellaneous types           *)
   (*-------------------------------*)
 
-  type ty_bytes = List_array.t (*o with sexp o*) (* FIXME may want to change this to string? or parameterize? FIXME also want option of null pointer; FIXME also there are bytes passed in by user and bytes used to store file data, and these are probably not the same *) (* coverage:sexp *)
+  type ty_bytes = List_array.t (*o [@@deriving sexp] o*) (* FIXME may want to change this to string? or parameterize? FIXME also want option of null pointer; FIXME also there are bytes passed in by user and bytes used to store file data, and these are probably not the same *) (* coverage:sexp *)
 
-  type file_contents = ty_bytes (*o with sexp_of o*) (* really a map from index to ... *) (* coverage:sexp *)
-  type name = string (*o with sexp o*) (* shortest component of a filename - doesn't include /; may be empty; may be . or .. *) (* coverage:sexp *)
+  type file_contents = ty_bytes (*o [@@deriving sexp_of] o*) (* really a map from index to ... *) (* coverage:sexp *)
+  type name = string (*o [@@deriving sexp] o*) (* shortest component of a filename - doesn't include /; may be empty; may be . or .. *) (* coverage:sexp *)
 (*  type ty_dirname = list string
   type ty_filename = list string (* non-empty *) *)
 
-  type size_t = nat (*o with sexp o*) (* unsigned integer of at least 16 bits http://stackoverflow.com/questions/2550774/what-is-size-t-in-c *) (* FIXME note that these parameters are never added to, or subtracted, or otherwise operated on in this spec, they are only supplied by user, or returned e.g. as result of a read; thus we don't need to worry about the fact that they may use a finite number of bits *) (* coverage:sexp *)
+  type size_t = nat (*o [@@deriving sexp] o*) (* unsigned integer of at least 16 bits http://stackoverflow.com/questions/2550774/what-is-size-t-in-c *) (* FIXME note that these parameters are never added to, or subtracted, or otherwise operated on in this spec, they are only supplied by user, or returned e.g. as result of a read; thus we don't need to worry about the fact that they may use a finite number of bits *) (* coverage:sexp *)
 
-  type off_t = int (*o with sexp o*) (* singed integer type; FIXME cross reference this with posix *) (* coverage:sexp *)
+  type off_t = int (*o [@@deriving sexp] o*) (* singed integer type; FIXME cross reference this with posix *) (* coverage:sexp *)
 
-  type float_t = Float of nat (*o with sexp o*) (* FIXME *) (* coverage:sexp *)
+  type float_t = Float of nat (*o [@@deriving sexp] o*) (* FIXME *) (* coverage:sexp *)
 
 
   (*-------------------------------*)
   (* cstring                       *)
   (*-------------------------------*)
 
-  type cstring = CS_Null | CS_Some of string (*o with sexp o*) (* coverage:sexp *)
+  type cstring = CS_Null | CS_Some of string (*o [@@deriving sexp] o*) (* coverage:sexp *)
 
   val string_of_cstring : cstring -> string
   let string_of_cstring cs = match cs with
@@ -79,7 +79,7 @@ module Fs_types = struct
   (* File descriptors, per process *)
   (*-------------------------------*)
 
-  type ty_fd = FD of nat (*o with sexp o*) (* coverage:sexp *)
+  type ty_fd = FD of nat (*o [@@deriving sexp] o*) (* coverage:sexp *)
   let ty_fd_compare (FD n0) (FD n1) = compare n0 n1
 
   instance ( SetType ty_fd ) 
@@ -94,7 +94,7 @@ module Fs_types = struct
   (* directory handles, per process*)
   (*-------------------------------*)
 
-  type ty_dh = DH of nat (*o with sexp o*) (* coverage:sexp *)
+  type ty_dh = DH of nat (*o [@@deriving sexp] o*) (* coverage:sexp *)
   let ty_dh_compare (DH n0) (DH n1) = compare n0 n1
   instance ( SetType ty_dh ) 
     let setElemCompare = ty_dh_compare
@@ -108,7 +108,7 @@ module Fs_types = struct
   (* Inodes                        *)
   (*-------------------------------*)
 
-  type inode = Inode of nat (*o with sexp o*) (* coverage:sexp *)
+  type inode = Inode of nat (*o [@@deriving sexp] o*) (* coverage:sexp *)
   let inode_compare (Inode n0) (Inode n1) = compare n0 n1
 
   instance ( SetType inode ) 
@@ -193,7 +193,7 @@ module Fs_types = struct
     | EHOSTUNREACH    (* coverage:sexp *)
     | ELOOP           (* coverage:sexp *)
     | EOVERFLOW       (* coverage:sexp *)
-    | EUNKNOWNERR of int (*o with sexp o*) (* coverage:sexp *)
+    | EUNKNOWNERR of int (*o [@@deriving sexp] o*) (* coverage:sexp *)
 
   instance (Eq error)
     let (=) = unsafe_structural_equality
@@ -205,7 +205,7 @@ module Fs_types = struct
   (* Errors or Values              *)
   (*-------------------------------*)
 
-  type error_or_value 'a = Error of error | Value of 'a (*o with sexp o*) (* coverage:sexp *)
+  type error_or_value 'a = Error of error | Value of 'a (*o [@@deriving sexp] o*) (* coverage:sexp *)
 
   val error_or_valueEqual : forall 'a. Eq 'a => error_or_value 'a -> error_or_value 'a -> bool
   let error_or_valueEqual eov1 eov2 = (match (eov1, eov2) with
@@ -231,7 +231,7 @@ module Fs_types = struct
   (* Open flags                    *)
   (*-------------------------------*)
 
-  type int_open_flags = int32 (*o with sexp o*) (* coverage:sexp *)
+  type int_open_flags = int32 (*o [@@deriving sexp] o*) (* coverage:sexp *)
 
   (* from unix.mli *)
   (* FIXME extend these to use open flags listed here http://pubs.opengroup.org/onlinepubs/9699919799/ *)
@@ -255,7 +255,7 @@ module Fs_types = struct
     | O_SYNC                      (** Writes complete as Synchronised I/O file                           (* coverage:sexp *)
                                       integrity completion *)                                            (* coverage:sexp *)
     | O_TRUNC                     (** Truncate to 0 length if existing *)                                (* coverage:sexp *)
-    | O_TTY_INIT (*o with sexp_of o*) (* coverage:sexp*)
+    | O_TTY_INIT (*o [@@deriving sexp_of] o*) (* coverage:sexp*)
 
   instance (Eq open_flag)
     let (=) = unsafe_structural_equality
@@ -301,7 +301,7 @@ module Fs_types = struct
   (* File permissions              *)
   (*-------------------------------*)
 
-  type file_perm = File_perm of int32 (*o with sexp o*) (* coverage:sexp *) (* TODO: actually only 12 bit, perhaps change *)
+  type file_perm = File_perm of int32 (*o [@@deriving sexp] o*) (* coverage:sexp *) (* TODO: actually only 12 bit, perhaps change *)
 
   val dest_file_perm : file_perm -> int32
   let dest_file_perm (File_perm p) = p
@@ -311,7 +311,7 @@ module Fs_types = struct
   (* Seek commands for lseek       *)
   (*-------------------------------*)
 
-  type int_seek_command = int (*o with sexp o*) (* coverage:sexp *)
+  type int_seek_command = int (*o [@@deriving sexp] o*) (* coverage:sexp *)
 
   (* from unix.mli *)
   type seek_command =                                                                        (* coverage:sexp *)
@@ -319,7 +319,7 @@ module Fs_types = struct
     | SEEK_CUR (** indicates positions relative to the current position *)                   (* coverage:sexp *)
     | SEEK_END (** indicates positions relative to the end of the file *)                    (* coverage:sexp *)
     | SEEK_DATA (** indicates positions relative to the current position that contain data *)(* coverage:sexp *)
-    | SEEK_HOLE (*o with sexp_of o*) (** indicates positions relative to the current positions that do not contain data *) (* coverage:sexp*) 
+    | SEEK_HOLE (*o [@@deriving sexp_of] o*) (** indicates positions relative to the current positions that do not contain data *) (* coverage:sexp*)
 
   instance (Eq seek_command)
     let (=) = unsafe_structural_equality
@@ -338,7 +338,7 @@ module Fs_types = struct
   | S_IFREG  (* regular *)                                                                               (* coverage:sexp *)
   | S_IFDIR  (* directory *)                                                                             (* coverage:sexp *)
   | S_IFLNK  (* symbolic link *)                                                                         (* coverage:sexp *)
-  | S_IFSOCK (*o with sexp o*) (* socket *)            (* not handled in this spec *)(* coverage:sexp *)
+  | S_IFSOCK (*o [@@deriving sexp] o*) (* socket *)            (* not handled in this spec *)(* coverage:sexp *)
 
   instance (Eq file_kind)
     let (=) = unsafe_structural_equality
@@ -350,7 +350,7 @@ module Fs_types = struct
   (* User and group ids            *)
   (*-------------------------------*)
 
-  type uid = User_id of nat (*o with sexp o*) (* coverage:sexp *)
+  type uid = User_id of nat (*o [@@deriving sexp] o*) (* coverage:sexp *)
   let uid_compare (User_id n0) (User_id n1) = compare n0 n1 (* coverage:unused *)
   instance ( SetType uid ) 
     let setElemCompare = uid_compare
@@ -361,7 +361,7 @@ module Fs_types = struct
   end
   let root_uid : uid = User_id 0 
 
-  type gid = Group_id of nat (*o with sexp o*) (* coverage:sexp *)
+  type gid = Group_id of nat (*o [@@deriving sexp] o*) (* coverage:sexp *)
   let gid_compare (Group_id n0) (Group_id n1) = compare n0 n1 (* coverage:unused *)
   instance ( SetType gid ) 
     let setElemCompare = gid_compare
@@ -388,7 +388,7 @@ module Fs_types = struct
          st_atime : float_t;           (** Last access time *)                                (* coverage:sexp *)
          st_mtime : float_t;           (** Last modification time *)                          (* coverage:sexp *)
          st_ctime : float_t;           (** Last status change time *)                         (* coverage:sexp *)
-      |> (*o with sexp o*) (* coverage:sexp *)
+      |> (*o [@@deriving sexp] o*) (* coverage:sexp *)
 
 
   (*-------------------------------*)
@@ -401,7 +401,7 @@ module Fs_types = struct
     | RV_bytes of ty_bytes (* FIXME add init return type *)      (* coverage:sexp *)
     | RV_names of list name                                      (* coverage:sexp *)
     | RV_stats of ty_stats                                       (* coverage:sexp *)
-    | RV_file_perm of file_perm (*o with sexp o*) (* coverage:sexp *)
+    | RV_file_perm of file_perm (*o [@@deriving sexp] o*) (* coverage:sexp *)
 
   instance (Eq ret_value)
     let (=) = unsafe_structural_equality
@@ -427,7 +427,7 @@ module Fs_types = struct
      to point to these. Here we use abstract dir_ref for directories and file_refs for all
      other files. Notice, that the Posix standard considers a directory to be a special file. 
      In the following we differ from that notation. *)     
-  type entry 'dir_ref 'file_ref = Dir_ref_entry of 'dir_ref | File_ref_entry of 'file_ref (*o with sexp_of o*) (* coverage:sexp*)
+  type entry 'dir_ref 'file_ref = Dir_ref_entry of 'dir_ref | File_ref_entry of 'file_ref (*o [@@deriving sexp_of] o*) (* coverage:sexp*)
 
   val is_dir_ref_entry : forall 'dir_ref 'file_ref. entry 'dir_ref 'file_ref -> bool
   let is_dir_ref_entry e =
@@ -463,7 +463,7 @@ module Fs_types = struct
      "/" ~ Name_list("",[""]); 
      "" ~ Name_list("",[]) 
   *)
-  type ty_name_list = Name_list of (name * list name) (*o with sexp_of o*) (* coverage:sexp*)
+  type ty_name_list = Name_list of (name * list name) (*o [@@deriving sexp_of] o*) (* coverage:sexp*)
 
   val ty_name_list_to_list : ty_name_list -> list name
   let ty_name_list_to_list (tnl : ty_name_list) : list name =
@@ -540,8 +540,8 @@ module Fs_types = struct
     rp_nl: ty_name_list; (* the original input for resolution *)                                                                 (* coverage:sexp *)
     rp_ns: list name;    (* the realpath of the entry, this is a simple, absolute path, i.e.                                     (* coverage:sexp *)
          not []; not [""]; ["";""] ~ "/"; first entry is empty; no . and .. entries; no further empty entries (absolute paths) *)(* coverage:sexp *)
-  |> (*o with sexp_of o*) (* coverage:sexp*)
-  type ty_realpath 'dir_ref 'file_ref = RP_ok of ty_realpath_rec 'dir_ref | RP_err of (error * ty_name_list) (*o with sexp_of o*) (* coverage:sexp*)
+  |> (*o [@@deriving sexp_of] o*) (* coverage:sexp*)
+  type ty_realpath 'dir_ref 'file_ref = RP_ok of ty_realpath_rec 'dir_ref | RP_err of (error * ty_name_list) (*o [@@deriving sexp_of] o*) (* coverage:sexp*)
     
   val wf_ty_realpath_rec : forall 'dir_ref. ty_realpath_rec 'dir_ref -> bool
   let wf_ty_realpath_rec rp = is_simple_absolute_path rp.rp_ns (* coverage:unused *)
@@ -576,7 +576,7 @@ module Fs_types = struct
   | RN_file of ('dir_ref * name * 'file_ref * ty_realpath_rec 'dir_ref)              (* coverage:sexp *)
   | RN_none of ('dir_ref * name * ty_realpath_rec 'dir_ref)                          (* coverage:sexp *)
   | RN_error of (error * rn_error_extra 'dir_ref 'file_ref)                          (* coverage:sexp *)
-  (*o with sexp_of o*) (* coverage:sexp*) 
+  (*o [@@deriving sexp_of] o*) (* coverage:sexp*) 
   (* invariant: if RN_file ns, then not (ns.ends_with_slash2) *)
   (* invariant: if RN_error then ns.ends_with_slash2 TT: I don't understand this invariant. Does it really hold?*)
   (* invariant: iff RN_error (_, {re_nl=Just nl, re_rn=Just X}) then X = RN_file and nl ends in slash *)
@@ -622,7 +622,7 @@ module Fs_types = struct
 
   (* see description of sysconf *)
   type sysconf_value = (* coverage:sexp*)
-    | SC_SYMLOOP_MAX (*o with sexp_of o*) (* coverage:sexp*)
+    | SC_SYMLOOP_MAX (*o [@@deriving sexp_of] o*) (* coverage:sexp*)
 (* The following values are not used so far. They are commented out in order to keep track of
    which values are actually used. 
 
@@ -780,7 +780,7 @@ module Fs_types = struct
         *)        
     | FS_PWRITE of (res_name 'dir_ref 'file_ref * ty_bytes * size_t * off_t) (* coverage:sexp*) 
         (* This is the write version of [FS_PREAD]. See above. *)
-    | FS_OPEN_CLOSE of (res_name 'dir_ref 'file_ref * int_open_flags * maybe file_perm) (*o with sexp_of o*) (* coverage:sexp*)
+    | FS_OPEN_CLOSE of (res_name 'dir_ref 'file_ref * int_open_flags * maybe file_perm) (*o [@@deriving sexp_of] o*) (* coverage:sexp*)
         (* operation at fs level - perform an open with side-effects and then discard any resulting info; 
            similar to an open followed by an immediate close on the fd at os level *)
 
@@ -800,7 +800,7 @@ module Fs_types = struct
     | FS_UNLINK of res_name 'dir_ref 'file_ref                                    (* coverage:sexp *)
     | FS_CHMOD of (res_name 'dir_ref 'file_ref * file_perm)                       (* coverage:sexp *)
     | FS_CHOWN of (res_name 'dir_ref 'file_ref * uid * gid)                       (* coverage:sexp *)
-    | FS_EXTENDED_CMD of ty_fs_ext_command 'dir_ref 'file_ref (*o with sexp_of o*)(* coverage:sexp *)
+    | FS_EXTENDED_CMD of ty_fs_ext_command 'dir_ref 'file_ref (*o [@@deriving sexp_of] o*)(* coverage:sexp *)
 
 
   val res_names_of_ty_fs_command : forall 'dir_ref 'file_ref. 
@@ -835,7 +835,7 @@ module Fs_types = struct
     | OS_DET_PREAD of (ty_fd * size_t * off_t) (* deterministic version of pread *)                                         (* coverage:sexp *)
     | OS_DET_READ of (ty_fd * size_t) (* deterministic version of read *)                                                   (* coverage:sexp *)
     | OS_DET_PWRITE of (ty_fd * ty_bytes * size_t * off_t) (* deterministic version of pwrite *)                            (* coverage:sexp *)
-    | OS_DET_WRITE of (ty_fd * ty_bytes * size_t) (*o with sexp o*) (* deterministic version of write *)(* coverage:sexp *)
+    | OS_DET_WRITE of (ty_fd * ty_bytes * size_t) (*o [@@deriving sexp] o*) (* deterministic version of write *)(* coverage:sexp *)
 
   val paths_of_ty_os_ext_command : ty_os_ext_command -> list cstring
   let paths_of_ty_os_ext_command cmd = (match cmd with
@@ -874,7 +874,7 @@ module Fs_types = struct
     | OS_CHOWN of (cstring * uid * gid)                       (* coverage:sexp *)
     | OS_CHDIR of cstring                                     (* coverage:sexp *)
     | OS_LSEEK of (ty_fd * off_t * int_seek_command)          (* coverage:sexp *)
-    | OS_EXTENDED_CMD of ty_os_ext_command (*o with sexp o*)  (* coverage:sexp *)
+    | OS_EXTENDED_CMD of ty_os_ext_command (*o [@@deriving sexp] o*)  (* coverage:sexp *)
    
 
   val paths_of_ty_os_command : ty_os_command -> list cstring
@@ -915,7 +915,7 @@ module Fs_types = struct
 
   (* a representation of the available architectures *)
   type ty_arch =
-      ARCH_LINUX | ARCH_POSIX | ARCH_MAC_OS_X | ARCH_FREEBSD (*o with sexp_of o*)    (* coverage:sexp*)
+      ARCH_LINUX | ARCH_POSIX | ARCH_MAC_OS_X | ARCH_FREEBSD (*o [@@deriving sexp_of] o*)    (* coverage:sexp*)
   instance (Eq ty_arch)
     let (=) = unsafe_structural_equality
     let (<>) = unsafe_structural_inequality
@@ -924,19 +924,19 @@ module Fs_types = struct
   (* the spec is parameterized by various traits, combined to form an "architecture" *)
   type architecture = <|                                                                                                                               (* coverage:sexp *)
     arch_abs_path_slash_slash: bool; (* whether an absolute path can start with a double slash - POSIX has maybe implementation defined *)             (* coverage:sexp *)
-    arch_linux_non_posix: bool; (* Linux specific behaviour that is not POSIX compliant FIXME not used? *)                                                             (* coverage:sexp *)
+    arch_linux_non_posix: bool; (* Linux specific behaviour that is not POSIX compliant FIXME not used? *)                                             (* coverage:sexp *)
     arch_link_directories: bool; (* whether the implementation allows links on dirs; not supported in this spec *)                                     (* coverage:sexp *)
-    arch_open_flags_of_int: int_open_flags -> finset open_flag  (*o [@sexp.opaque] o*);                                                                   (* coverage:sexp *)
-    arch_int_of_open_flags: finset open_flag -> int_open_flags  (*o [@sexp.opaque] o*);                                                                   (* coverage:sexp *)
-    arch_seek_command_of_int : int_seek_command -> maybe seek_command (*o [@sexp.opaque] o*);                                                             (* coverage:sexp *)
-    arch_int_of_seek_command : seek_command -> int_seek_command  (*o [@sexp.opaque] o*);                                                                  (* coverage:sexp *)
+    arch_open_flags_of_int: int_open_flags -> finset open_flag  (*o [@sexp.opaque] o*);                                                                (* coverage:sexp *)
+    arch_int_of_open_flags: finset open_flag -> int_open_flags  (*o [@sexp.opaque] o*);                                                                (* coverage:sexp *)
+    arch_seek_command_of_int : int_seek_command -> maybe seek_command (*o [@sexp.opaque] o*);                                                          (* coverage:sexp *)
+    arch_int_of_seek_command : seek_command -> int_seek_command  (*o [@sexp.opaque] o*);                                                               (* coverage:sexp *)
                                                                                                                                                        (* coverage:sexp *)
     arch_allows_dir_read : bool; (* allow reading from a directory? If set to false, reading a directory needs readdir command instead of read. *)     (* coverage:sexp *)
     arch_group_from_parent_dir: bool; (* Should new directories inherit the group of their parent dir? If set false, they use                          (* coverage:sexp *)
       the effective group id of the process instead. *)                                                                                                (* coverage:sexp *)
     arch_allows_removing_from_protected_dir_if_writeable : bool (* Allow deleting files and directories from protected directories, if the file or dir (* coverage:sexp *)
       is writeable? see posix/dir_protect.md *)                                                                                                        (* coverage:sexp *)
-  |>(*o with sexp_of o*) (* coverage:sexp*)                                                                                                            (* coverage:sexp *)
+  |>(*o [@@deriving sexp_of] o*) (* coverage:sexp*)                                                                                                    (* coverage:sexp *)
 
   type ignore_j5f (* to force trailing comment above, see lem issue #174 *)
 
@@ -956,7 +956,7 @@ module Fs_types = struct
     pops_chown_dir: 'jimpl -> (uid * gid) -> 'dir_ref -> 'jimpl;
 
     pops_uid_is_superuser : 'jimpl -> uid -> bool
-  |> (*o with sexp_of o*)
+  |> (*o [@@deriving sexp_of] o*)
 
 
   (* a dummy implementation of perm_ops with no-ops everywhere *)
@@ -1006,7 +1006,7 @@ module Fs_types = struct
        'jimpl -> (* parent dir *) 'dir_ref -> 'dir_ref  -> bool; 
      cp_has_file_restricted_delete_privilege : bool -> 'jimpl -> (* parent dir *) 'dir_ref -> 'file_ref -> bool; 
 
-  |> (*o with sexp_of o*)
+  |> (*o [@@deriving sexp_of] o*)
 
 (* NOTE: this definition is needed otherwise the presence of the following # causes the previous comment to be lost in the generated OCaml *)
 let _protect_comment = ()
@@ -1025,10 +1025,10 @@ let _protect_comment = ()
      These functions are part of the [fs_ops] record defined below.
      Here only a few auxiliary datatypes are defined.*)
 
-  type ty_od_handle 'dir_ref = OD_handle of (nat * 'dir_ref) (*o with sexp_of o*) (* coverage:sexp*) (* todo: perhaps make it a type variable *)
+  type ty_od_handle 'dir_ref = OD_handle of (nat * 'dir_ref) (*o [@@deriving sexp_of] o*) (* coverage:sexp*) (* todo: perhaps make it a type variable *)
   
   type ty_od_entry = OD_removed of name (* coverage:sexp*) 
-                   | OD_added of name (*o with sexp_of o*) (* coverage:sexp*)
+                   | OD_added of name (*o [@@deriving sexp_of] o*) (* coverage:sexp*)
 
   (*-------------------------------*)
   (* Filesystem operations         *)
@@ -1062,7 +1062,7 @@ let _protect_comment = ()
     fops_observe_dir_register : 'jimpl -> 'dir_ref -> ('jimpl * ty_od_handle 'dir_ref);
     fops_observe_dir : 'jimpl -> ty_od_handle 'dir_ref -> ('jimpl * list ty_od_entry);
     fops_observe_dir_unregister : 'jimpl -> ty_od_handle 'dir_ref -> 'jimpl;
-  |> (*o with sexp_of o*)
+  |> (*o [@@deriving sexp_of] o*)
 
 
   (*-------------------------------*)
@@ -1078,14 +1078,14 @@ let _protect_comment = ()
     env_perm_ops: perm_ops 'dir_ref 'file_ref 'jimpl  (*o [@sexp.opaque] o*);        (* coverage:sexp *)
   
 # 1067 "t_fs_spec.lem_cppo"
-  |> (*o with sexp_of o*) (* coverage:sexp*)
+  |> (*o [@@deriving sexp_of] o*) (* coverage:sexp*)
 
 
   (*-------------------------------*)
   (* Process ids                   *)
   (*-------------------------------*)
 
-  type ty_pid = Pid of nat (*o with sexp o*) (* coverage:sexp *)
+  type ty_pid = Pid of nat (*o [@@deriving sexp] o*) (* coverage:sexp *)
   let ty_pid_compare (Pid n0) (Pid n1) = compare n0 n1
   instance ( SetType ty_pid ) 
     let setElemCompare = ty_pid_compare
@@ -1109,7 +1109,7 @@ let _protect_comment = ()
     | OS_RETURN of (ty_pid * error_or_value ret_value) (* coverage:sexp *)
     | OS_CREATE of (ty_pid * uid * gid)                (* coverage:sexp *)
     | OS_DESTROY of ty_pid                             (* coverage:sexp *)
-    | OS_TAU (*o with sexp o*) (* coverage:sexp *)
+    | OS_TAU (*o [@@deriving sexp] o*) (* coverage:sexp *)
 
 
   (*-------------------------------*)
@@ -1117,7 +1117,7 @@ let _protect_comment = ()
   (*-------------------------------*)
 
   (* open file descriptions, per host *)
-  type ty_fid = FID of nat (*o with sexp_of o*) (* coverage:sexp*)
+  type ty_fid = FID of nat (*o [@@deriving sexp_of] o*) (* coverage:sexp*)
   let ty_fid_compare (FID n0) (FID n1) = compare n0 n1
 
   instance ( SetType ty_fid ) 
@@ -1139,7 +1139,7 @@ let _protect_comment = ()
       (* the entries of the directory that still need to be reported by readdir. This list will never contain duplicates. *) (* coverage:sexp *)
     dhs_may_report : list name; (* the entries of the directory that may, but does not need to be still reported.            (* coverage:sexp *)
       This list might contain duplicates, which indicates that these entries might be reported twice. *)                     (* coverage:sexp *)
-  |> (*o with sexp_of o*) (* coverage:sexp*)
+  |> (*o [@@deriving sexp_of] o*) (* coverage:sexp*)
 
 
   (*-------------------------------*)
@@ -1149,7 +1149,7 @@ let _protect_comment = ()
   type fd_state = <| (* coverage:sexp*) 
     fds_fid: ty_fid; (* coverage:sexp*) 
     fds_FD_CLOEXEC: bool; (* FIXME how to test? *) (* coverage:sexp*) 
-  |> (*o with sexp_of o*) (* coverage:sexp*)
+  |> (*o [@@deriving sexp_of] o*) (* coverage:sexp*)
 
 (*o
   let sexp_of_finset f x = sexp_of_list f (list_from_finset x)
@@ -1159,21 +1159,21 @@ o*)
   (* file identifier states        *)
   (*-------------------------------*)
 
-  type fid_open_closed_state = FID_OPEN | FID_CLOSED (*o with sexp_of o*) (* coverage:sexp*)
+  type fid_open_closed_state = FID_OPEN | FID_CLOSED (*o [@@deriving sexp_of] o*) (* coverage:sexp*)
 
   type fid_state 'dir_ref 'file_ref = <|                                                           (* coverage:sexp *)
     fids_offset: nat; (* cannot be negative *)                                                     (* coverage:sexp *)
     fids_entry: entry 'dir_ref 'file_ref;                                                          (* coverage:sexp *)
     fids_oflags: finset open_flag;   (* flags that were provided on creation *)(* coverage:sexp *)
     fids_open_or_closed: fid_open_closed_state; (* coverage:sexp*) 
-  |> (*o with sexp_of o*) (* coverage:sexp*)
+  |> (*o [@@deriving sexp_of] o*) (* coverage:sexp*)
 
 
   (*-------------------------------*)
   (* per process states            *)
   (*-------------------------------*)
 
-  type ty_pps_pid_run_state = RUNNING | BLOCKED_CALL of ty_os_command | PENDING_RETURN of (error_or_value ret_value) (*o with sexp_of o*) (* coverage:sexp*)
+  type ty_pps_pid_run_state = RUNNING | BLOCKED_CALL of ty_os_command | PENDING_RETURN of (error_or_value ret_value) (*o [@@deriving sexp_of] o*) (* coverage:sexp*)
 
 (*o
   let sexp_of_fmap a b x = x |> (fmap_bindings (* coverage:sexp *)
@@ -1195,7 +1195,7 @@ o*)
     pps_effective_gid : gid;                                              (* coverage:sexp *)
     pps_real_gid      : gid;                                              (* coverage:sexp *)
     pps_saved_gid     : gid;                                              (* coverage:sexp *)
-  |> (*o with sexp_of o*)                                                 (* coverage:sexp *)
+  |> (*o [@@deriving sexp_of] o*)                                         (* coverage:sexp *)
 
   (*-------------------------------*)
   (* operating system states       *)
@@ -1204,10 +1204,10 @@ o*)
   type ty_os_state 'dir_ref 'file_ref 'jimpl = <|                 (* coverage:sexp *)
     oss_pid_table: fmap ty_pid (per_process_state 'dir_ref);      (* coverage:sexp *)
     oss_fid_table: fmap ty_fid (fid_state 'dir_ref 'file_ref);    (* coverage:sexp *)
-    oss_group_table: fmap gid (finset uid) (*o [@sexp.opaque] o*);   (* coverage:sexp *)
+    oss_group_table: fmap gid (finset uid) (*o [@sexp.opaque] o*);(* coverage:sexp *)
     oss_fs_state: 'jimpl;                                         (* coverage:sexp *)
     oss_env: environment 'dir_ref 'file_ref 'jimpl                (* coverage:sexp *)
-  |> (*o with sexp_of o*)                                         (* coverage:sexp *)
+  |> (*o [@@deriving sexp_of] o*)                                 (* coverage:sexp *)
 
   val os_state_to_fs_state : forall 'dir_ref 'file_ref 'jimpl. ty_os_state 'dir_ref 'file_ref 'jimpl -> 'jimpl
   let os_state_to_fs_state s0 = s0.oss_fs_state (*coverage:unused*)
@@ -1227,7 +1227,7 @@ o*)
      to stop and say that we don't know what happens. Another reason
      is that we just did not get around (yet) modeling some less common
      parts of the specification. *)
-  type monad_special_state = Impossible | Implementation_defined | Unspecified | Undefined | FIXME (*o with sexp o*) (* coverage:sexp *)
+  type monad_special_state = Impossible | Implementation_defined | Unspecified | Undefined | FIXME (*o [@@deriving sexp] o*) (* coverage:sexp *)
 
   (* Since we also support non-determinism, a monad state is either a (finite) set of normal states or of special states. *)
   type monad_state 'impl 'ja = 
@@ -1299,7 +1299,7 @@ o*)
 
   type os_state_or_special 'dir_ref 'file_ref 'impl =                   (* coverage:sexp*)
     | OS_normal of (ty_os_state 'dir_ref 'file_ref 'impl)               (* coverage:sexp*)
-    | OS_special of (monad_special_state * string) (*o with sexp_of o*) (* coverage:sexp*)
+    | OS_special of (monad_special_state * string) (*o [@@deriving sexp_of] o*) (* coverage:sexp*)
 
   let is_OS_normal s = (match s with | OS_normal s -> true | _ -> false end) (* coverage:unused *)
   let is_OS_special s = (match s with | OS_special s -> true | _ -> false end) (* coverage:unused *)
@@ -2451,8 +2451,8 @@ module The_monad = struct
     let result_states = run_fsmonad u s0 in
     (finset_bigunion_image (fsm_bind_process_single_state f) result_states))
 
-  val (>>=) : forall 'impl 'a 'b. fsmonad 'impl 'a -> ('a -> fsmonad 'impl 'b) -> fsmonad 'impl 'b
-  let (>>=) = fsm_bind
+  val        (>>=) : forall 'impl 'a 'b. fsmonad 'impl 'a -> ('a -> fsmonad 'impl 'b) -> fsmonad 'impl 'b
+  let inline (>>=) = fsm_bind
 
 
   (*---------------------------------*)
@@ -2650,11 +2650,11 @@ module The_monad = struct
 
   (* define infix notations for parallel composition operators *)  
 
-  val (<|||>) : forall 'impl 'a 'b. fsmonad 'impl 'a -> fsmonad 'impl 'b -> fsmonad 'impl ('a * 'b)
-  let (<|||>) = fsm_parallel_composition
+  val        (<|||>) : forall 'impl 'a 'b. fsmonad 'impl 'a -> fsmonad 'impl 'b -> fsmonad 'impl ('a * 'b)
+  let inline (<|||>) = fsm_parallel_composition
 
-  val (|||) : forall 'impl. fsmonad 'impl ret_value -> fsmonad 'impl ret_value -> fsmonad 'impl ret_value
-  let (|||) = fsm_parallel_composition_drop
+  val        (|||) : forall 'impl. fsmonad 'impl ret_value -> fsmonad 'impl ret_value -> fsmonad 'impl ret_value
+  let inline (|||) = fsm_parallel_composition_drop
 
 
 

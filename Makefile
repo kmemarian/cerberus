@@ -43,15 +43,6 @@ util:
 		$(Q)dune build $(DUNEFLAGS) _build/profiling-auto/$@/$@.cma _build/profiling-auto/$@/$@.cmxa
 	endif
 
-.PHONY: sibylfs
-sibylfs: sibylfs-src
-	@echo "[DUNE] library [$@]"
-	$(Q)dune build $(DUNEFLAGS) _build/default/$@/$@.cma _build/default/$@/$@.cmxa
-	ifdef PROFILING
-		$(Q)dune build $(DUNEFLAGS) _build/profiling/$@/$@.cma _build/profiling/$@/$@.cmxa
-		$(Q)dune build $(DUNEFLAGS) _build/profiling/$@/$@.cma _build/profiling-auto/$@/$@.cmxa
-	endif
-
 .PHONY: cerberus
 cerberus: prelude-src
 	@echo "[DUNE] cerberus"
@@ -212,65 +203,12 @@ elab_pp:
 	$(addprefix -i ,$(filter-out frontend/model/translation.lem,$(LEM_SRC))) frontend/model/translation.lem
 	cd generated_tex; lualatex Translation.tex
 
-
-#### LEM sources for sibylfs
-SIBYLFS_LEM = dir_heap.lem fs_prelude.lem fs_spec.lem list_array.lem \
-              sibylfs.lem
-SIBYLFS_ML  = abstract_string.ml fs_dict_wrappers.ml fs_interface.ml \
-              fs_dump.ml fs_printer.ml lem_support.ml
-SIBYLFS_MLI = abstract_string.mli fs_dict_wrappers.mli fs_interface.mli \
-              lem_support.mli
-
-SIBYLFS_LEM_ML  = $(addsuffix .ml, $(basename $(SIBYLFS_LEM)))
-
-SIBYLFS_LEM_SRC = $(addprefix sibylfs/src/, $(SIBYLFS_LEM))
-SIBYLFS_ML_SRC  = $(addprefix sibylfs/src/, $(SIBYLFS_ML))
-SIBYLFS_MLI_SRC = $(addprefix sibylfs/src/, $(SIBYLFS_MLI))
-
-SIBYLFS_LEM_TRG = $(addprefix sibylfs/generated/, $(SIBYLFS_LEM_ML))
-SIBYLFS_ML_TRG  = $(addprefix sibylfs/generated/, $(SIBYLFS_ML))
-SIBYLFS_MLI_TRG = $(addprefix sibylfs/generated/, $(SIBYLFS_MLI))
-
-SIBYLFS_SRC = $(SIBYLFS_LEM_SRC) $(SIBYLFS_ML_SRC) $(SIBYLFS_MLI_SRC)
-SIBYLFS_TRG = $(SIBYLFS_LEM_TRG) $(SIBYLFS_ML_TRG) $(SIBYLFS_MLI_TRG)
-
-SIBYLFS_SED = sibylfs/patch_all_ml.sed sibylfs/patch/dir_heap.sed \
-              sibylfs/patch/fs_prelude.sed sibylfs/patch/fs_spec.sed
-####
-
-SIBYLFS_SRC_DIR = sibylfs/generated
-
-# All targets generated at once thanks to [&:].
-$(SIBYLFS_TRG)&: $(SIBYLFS_SRC) $(SIBYLFS_SED)
-	@echo "[MKDIR] $(SIBYLFS_SRC_DIR)"
-	$(Q)mkdir -p $(SIBYLFS_SRC_DIR)
-	@echo "[LEM] generating files in [$(SIBYLFS_SRC_DIR)] (log in [sibylfs/lem.log])"
-	$(Q)lem -wl_unused_vars ign -wl_rename err -wl_comp_message ign \
-	  -wl_pat_exh ign -outdir $(SIBYLFS_SRC_DIR) -ocaml \
-    $(SIBYLFS_LEM_SRC) 2> sibylfs/lem.log
-	@echo "[CP] $(SIBYLFS_MLI_TRG)"
-	$(Q)cp $(SIBYLFS_MLI_SRC) $(SIBYLFS_SRC_DIR)
-	@echo "[CP] $(SIBYLFS_ML_TRG)"
-	$(Q)cp $(SIBYLFS_ML_SRC) $(SIBYLFS_SRC_DIR)
-	@echo "[SED] patching things up in [$(SIBYLFS_SRC_DIR)]"
-	$(Q)$(SEDI) -f sibylfs/patch/dir_heap.sed   sibylfs/generated/dir_heap.ml
-	$(Q)$(SEDI) -f sibylfs/patch/fs_prelude.sed sibylfs/generated/fs_prelude.ml
-	$(Q)$(SEDI) -f sibylfs/patch/fs_spec.sed    sibylfs/generated/fs_spec.ml
-	$(Q)$(SEDI) -f sibylfs/patch_all_ml.sed $(SIBYLFS_LEM_TRG) $(SIBYLFS_ML_TRG)
-
 .PHONY: prelude-src
-prelude-src: $(OCAML_SRC) sibylfs-src
-
-.PHONY: sibylfs-src
-sibylfs-src: $(SIBYLFS_TRG)
+prelude-src: $(OCAML_SRC)
 
 .PHONY: clean-prelude-src
 clean-prelude-src:
 	$(Q)rm -rf $(PRELUDE_SRC_DIR)
-
-.PHONY: clean-sibylfs-src
-clean-sibylfs-src:
-	$(Q)rm -rf $(SIBYLFS_SRC_DIR)
 
 .PHONY: clean
 clean:
@@ -279,7 +217,7 @@ clean:
 	$(Q)rm -rf _build/
 
 .PHONY: distclean
-distclean: clean clean-prelude-src clean-sibylfs-src
+distclean: clean clean-prelude-src
 	$(Q)rm -rf tmp config.json
 
 .PHONY: cerberus-lib

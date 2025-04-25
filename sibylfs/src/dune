@@ -1,0 +1,43 @@
+(library
+ (name sibylfs)
+ (public_name cerberus-lib.sibylfs)
+ (synopsis "Sibylfs")
+ (flags (:standard -w -3-8-9-27-33-39))
+ (preprocess (pps ppx_sexp_conv))
+ (modules abstract_string dir_heap fs_dict_wrappers fs_dump
+  fs_prelude fs_printer fs_spec lem_support list_array sibylfs)
+ (wrapped false)
+ (libraries unix sha lem ppx_sexp_conv sexplib))
+
+(rule
+ (targets
+  dir_heap.ml
+  fs_prelude.ml
+  fs_spec.ml
+  list_array.ml
+  sibylfs.ml
+  )
+ (deps
+  dir_heap.lem
+  fs_prelude.lem
+  fs_spec.lem
+  list_array.lem
+  sibylfs.lem
+  )
+  (action
+   (progn
+    (run
+     lem
+     -wl_unused_vars ign
+     -wl_rename err
+     -wl_comp_message ign
+     -wl_pat_exh ign
+     -ocaml
+     %{deps}
+    )
+    (run ../sedi.sh -f %{dep:../patch/dir_heap.sed} dir_heap.ml)
+    (run ../sedi.sh -f %{dep:../patch/fs_prelude.sed} fs_prelude.ml)
+    (run ../sedi.sh -f %{dep:../patch/fs_spec.sed} fs_spec.ml)
+    (run ../sedi.sh -f %{dep:../patch_all_ml.sed} %{targets})
+   ))
+)
