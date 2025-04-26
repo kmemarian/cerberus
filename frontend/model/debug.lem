@@ -16,6 +16,17 @@ type domain =
   | DB_memory
 
 declare ocaml target_rep type domain = `Cerb_debug.domain`
+declare ocaml target_rep function DB_clexer = `Cerb_debug.DB_clexer`
+declare ocaml target_rep function DB_cparser = `Cerb_debug.DB_cparser`
+declare ocaml target_rep function DB_desugaring = `Cerb_debug.DB_desugaring`
+declare ocaml target_rep function DB_ail_typing = `Cerb_debug.DB_ail_typing`
+declare ocaml target_rep function DB_elaboration = `Cerb_debug.DB_elaboration`
+declare ocaml target_rep function DB_core_typing = `Cerb_debug.DB_core_typing`
+declare ocaml target_rep function DB_core_dynamics = `Cerb_debug.DB_core_dynamics`
+declare ocaml target_rep function DB_driver = `Cerb_debug.DB_driver`
+declare ocaml target_rep function DB_concurrency = `Cerb_debug.DB_concurrency`
+declare ocaml target_rep function DB_driver_step = `Cerb_debug.DB_driver_step`
+declare ocaml target_rep function DB_memory = `Cerb_debug.DB_memory`
 
 val get_level: unit -> nat
 declare ocaml target_rep function get_level   = `Cerb_debug.get_debug_level`

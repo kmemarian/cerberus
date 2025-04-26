@@ -113,23 +113,6 @@ let fresh_action_id' =
   )
 
 
-
-
-(* Now using the State monad infix operators *)
-let inline (>>=) = State.bind
-let inline (>>) m f = State.bind m (fun _ -> f)
-
-
-
-
-
-
-
-
-
-
-
-
 module E = struct
   let core_run_return =
     SEU.return
@@ -183,7 +166,9 @@ module E = struct
   let fresh_action_id =
     SEU.runS fresh_action_id'
 end
-open SEU.Operators
+let inline (>>=)      = SEU.bind
+let inline (>>) m1 m2 = SEU.bind m1 (fun () -> m2)
+let inline (<$>)      = SEU.fmap
 
 
 type action_request =

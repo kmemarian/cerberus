@@ -6,13 +6,6 @@ ifeq (,$(shell command -v lem 2> /dev/null))
 $(error "Compilation requires [lem].")
 endif
 
-# GNU vs BSD
-ifeq (GNU,$(shell sed --version 2>&1 > /dev/null && echo GNU))
-SEDI = sed -i
-else
-SEDI = sed -i ''
-endif
-
 # Trick to avoid printing the commands.
 # To enable the printing of commands, use [make Q= ...],
 Q = @
@@ -116,108 +109,23 @@ cerberus-web: prelude-src config.json tmp/
 ui:
 	make -C public
 
-#### LEM sources for the frontend
-LEM_RENAMED = global.lem loc.lem debug.lem decode.lem
-
-LEM_PRELUDE       = utils.lem annot.lem bimap.lem \
-                    dlist.lem enum.lem state.lem symbol.lem \
-                    exception.lem product.lem float.lem any.lem
-LEM_CABS          = cabs.lem undefined.lem constraint.lem integerType.lem ctype.lem
-LEM_AIL           = typingError.lem errorMonad.lem ailSyntax.lem genTypes.lem
-LEM_CTYPE_AUX     = ctype_aux.lem
-LEM_CORE          = core.lem errors.lem core_aux.lem core_linking.lem
-LEM_CORE_TYPING   = core_typing.lem core_typing_aux.lem core_typing_effect.lem
-LEM_UTILS         = boot.lem exception_undefined.lem multiset.lem \
-                    state_exception.lem state_exception_undefined.lem \
-                    std.lem monadic_parsing.lem fs.lem trace_event.lem \
-										cerb_attributes.lem
-LEM_AIL_TYPING    = range.lem integerImpl.lem ailTypesAux.lem \
-                    ailSyntaxAux.lem ailWf.lem ailTyping.lem genTypesAux.lem \
-                    genTyping.lem
-LEM_CABS_TO_AIL   = cabs_to_ail_aux.lem scope_table.lem \
-                    desugaring_init.lem cabs_to_ail_effect.lem cabs_to_ail.lem mini_pipeline.lem
-LEM_CORE_TO_CORE  = core_sequentialise.lem core_indet.lem core_rewrite.lem \
-                    core_unstruct.lem
-LEM_CORE_DYNAMICS = core_run_aux.lem core_eval.lem core_run.lem core_reduction.lem core_reduction_aux.lem driver.lem
-LEM_ELABORATION   = translation_effect.lem translation_aux.lem translation.lem 
-LEM_DEFACTO       = mem_common.lem defacto_memory_types.lem \
-                    defacto_memory_aux.lem defacto_memory.lem mem.lem \
-                    mem_aux.lem
-LEM_CONC_INTERF   = cmm_aux.lem
-LEM_CONC          = cmm_csem.lem cmm_op.lem linux.lem
-
-LEM_CN            = cn.lem cn_desugaring.lem
-
-LEM_SRC_AUX       = $(LEM_PRELUDE) \
-                    $(LEM_CN) \
-                    $(LEM_CABS) \
-                    $(addprefix ail/, $(LEM_AIL)) \
-                    $(LEM_CTYPE_AUX) \
-                    builtins.lem formatted.lem pp.lem implementation.lem \
-                    $(LEM_DEFACTO) \
-                    $(LEM_UTILS) \
-                    nondeterminism.lem \
-                    $(LEM_CONC_INTERF) \
-                    $(LEM_CORE) \
-                    $(LEM_CORE_TYPING) \
-                    $(addprefix ail/, $(LEM_AIL_TYPING)) \
-                    $(LEM_CABS_TO_AIL) \
-                    $(LEM_CORE_TO_CORE) \
-                    $(LEM_CORE_DYNAMICS) \
-                    $(LEM_ELABORATION)
-
-LEM_SRC_RENAMED = $(addprefix frontend/model/, $(LEM_RENAMED))
-
-LEM_SRC_NOT_RENAMED = $(addprefix frontend/model/, $(LEM_SRC_AUX)) \
-					$(addprefix frontend/concurrency/, $(LEM_CONC))
-
-LEM_SRC = $(LEM_SRC_RENAMED) \
-					$(LEM_SRC_NOT_RENAMED)
-####
-
-PRELUDE_SRC_DIR = ocaml_frontend/generated
-OCAML_SRC = $(addprefix $(PRELUDE_SRC_DIR)/, $(addsuffix .ml, $(notdir $(basename $(LEM_SRC_NOT_RENAMED))))) \
-						$(addprefix $(PRELUDE_SRC_DIR)/lem_, $(addsuffix .ml, $(notdir $(basename $(LEM_RENAMED)))))
-
-# All targets generated at once thanks to [&:].
-$(OCAML_SRC)&: $(LEM_SRC)
-	@echo "[MKDIR] $(PRELUDE_SRC_DIR)"
-	$(Q)mkdir -p $(PRELUDE_SRC_DIR)
-	@echo "[LEM] generating files in [$(PRELUDE_SRC_DIR)] (log in [ocaml_frontend/lem.log])"
-	$(Q)lem -wl ign -wl_rename warn -wl_pat_red err -wl_pat_exh warn \
-    -outdir $(PRELUDE_SRC_DIR) -cerberus_pp -ocaml \
-    $(LEM_SRC) 2> ocaml_frontend/lem.log || (>&2 cat ocaml_frontend/lem.log; exit 1)
-	@echo "[SED] patching things up in [$(PRELUDE_SRC_DIR)]"
-	$(Q)$(SEDI) -e "s/open Operators//" $(PRELUDE_SRC_DIR)/core_run.ml
-	$(Q)$(SEDI) -e "s/open Operators//" $(PRELUDE_SRC_DIR)/driver.ml
-	$(Q)$(SEDI) -e "s/Lem_debug.DB_/Cerb_debug.DB_/g" $(OCAML_SRC)
-	$(Q)$(SEDI) -e "1 s/.*/&[@@@warning \"-8\"]/" $(PRELUDE_SRC_DIR)/cmm_csem.ml
-	$(Q)$(SEDI) -e "1 s/.*/&[@@@warning \"-8\"]/" $(PRELUDE_SRC_DIR)/cmm_op.ml
-
-# Elaboration PP stuff
-elab_pp:
-	@echo "[MKDIR] $(PRELUDE_SRC_DIR)"
-	$(Q)mkdir -p generated_tex
-	$(Q)lem -wl ign -wl_rename warn -wl_pat_red err -wl_pat_exh warn \
-	-outdir generated_tex -cerberus_pp -tex \
-	$(addprefix -i ,$(filter-out frontend/model/translation.lem,$(LEM_SRC))) frontend/model/translation.lem
-	cd generated_tex; lualatex Translation.tex
-
-.PHONY: prelude-src
-prelude-src: $(OCAML_SRC)
-
-.PHONY: clean-prelude-src
-clean-prelude-src:
-	$(Q)rm -rf $(PRELUDE_SRC_DIR)
+# # Elaboration PP stuff
+# elab_pp:
+# 	@echo "[MKDIR] $(PRELUDE_SRC_DIR)"
+# 	$(Q)mkdir -p generated_tex
+# 	$(Q)lem -wl ign -wl_rename warn -wl_pat_red err -wl_pat_exh warn \
+# 	-outdir generated_tex -cerberus_pp -tex \
+# 	$(addprefix -i ,$(filter-out frontend/model/translation.lem,$(LEM_SRC))) frontend/model/translation.lem
+# 	cd generated_tex; lualatex Translation.tex
 
 .PHONY: clean
 clean:
 	$(Q)rm -f coq/*.{glob,vo,vok}
 	$(Q)rm -f webcerb.concrete webcerb.symbolic cerberus-webserver
-	$(Q)rm -rf _build/
+	$(Q)dune clean
 
 .PHONY: distclean
-distclean: clean clean-prelude-src
+distclean: clean
 	$(Q)rm -rf tmp config.json
 
 .PHONY: cerberus-lib
