@@ -5,4 +5,6 @@
 
 (dirs util sibylfs frontend ocaml_frontend memory parsers backend tools runtime coq)
 
-
+(alias
+ (name default)
+ (deps (package cerberus)))

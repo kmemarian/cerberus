@@ -5,7 +5,7 @@
  (flags (:standard -w -27-32-67))
  (modules :standard)
  (wrapped false)
- (libraries cerb_frontend))
+ (libraries cerberus-lib.frontend))
 
 (ocamllex core_lexer)
 (menhir

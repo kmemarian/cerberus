@@ -1,0 +1,5 @@
+pin-depends: [
+  ["coq-struct-tact.~dev" "git+https://github.com/uwplse/StructTact.git"]
+  ["coq-sail-stdpp.~dev" "git+https://github.com/rems-project/coq-sail.git#f319aad33cce5581a378e0d29238af1e885b3eec"]
+  ["coq-cheri-capabilities.~dev" "git+https://github.com/rems-project/coq-cheri-capabilities.git#2f02c44ad061d4da30136dc9dbc06c142c94fdaf"]
+]
