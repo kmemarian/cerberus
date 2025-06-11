@@ -42,7 +42,9 @@ let string_of_cparser_cause = function
       "unexpected token " ^ str
   | Cparser_non_standard_string_concatenation ->
       "unsupported non-standard concatenation of string literals"
-  | Cparser_extra_semi AFTER_FUNCTION ->
+  | Cparser_extra_semi AFTER_NONFUNCTION_EXTERNAL ->
+      "found a extra semicolon after a non-function external declaration"
+    | Cparser_extra_semi AFTER_FUNCTION ->
       "found a semicolon after a function definition"
   | Cparser_extra_semi INSIDE_STRUCT ->
       "found an extra semicolon inside a struct definition"
