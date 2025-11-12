@@ -51,6 +51,7 @@ type core_run_cause =
   | Reached_end_of_proc
   | Unknown_impl
   | Unresolved_symbol of Loc.t * Symbol.sym (* found an unresolved symbolic name in core_eval *)
+  | Constrained (* Symbolic execution (needing PEconstrained) is no longer supported *)
 
 (* semicolon after a function definition and other places (is an extension it least since C++11) *)
 type extra_semi_context =
@@ -122,5 +123,7 @@ instance (Show core_run_cause)
         "Unknown_impl"
     | Unresolved_symbol _ sym ->
         "Unresolved_symbol[" ^ show sym ^ "]"
+    | Constrained ->
+        "Constrained"
   end
 end
