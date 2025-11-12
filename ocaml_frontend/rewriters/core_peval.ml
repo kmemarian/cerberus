@@ -265,12 +265,6 @@ let rec subst_sym_pexpr2 sym z (Pexpr (annot, bTy, pexpr_)) =
     | PEval _
     | PEundef _ ->
         wrap pexpr_
-    | PEconstrained xs ->
-        wrap begin
-          PEconstrained begin
-            List.map (fun (constrs, pe) -> (constrs, subst_sym_pexpr2 sym z pe)) xs
-          end
-        end
     | PEerror (str, pe) ->
         wrap (PEerror (str, subst_sym_pexpr2 sym z pe))
     | PEctor (ctor, pes) ->
