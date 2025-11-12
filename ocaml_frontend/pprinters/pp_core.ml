@@ -70,7 +70,6 @@ let precedence_pexpr = function
   | PEundef _
   | PEerror _
   | PEval _
-  | PEconstrained _
   | PEsym _
   | PEimpl _
   | PEctor _
@@ -445,13 +444,6 @@ let pp_pexpr pe =
           pp_keyword "error" ^^ P.parens (P.dquotes (!^ str) ^^ P.comma ^^^ pp pe)
       | PEval cval ->
           pp_value cval
-      | PEconstrained xs ->
-          pp_keyword "constrained" ^^ P.parens (
-            comma_list (fun (cs, pe) ->
-              P.brackets (Pp_mem.pp_mem_constraint Impl_mem.pp_integer_value cs) ^^^
-              P.equals ^^ P.rangle ^^ pp pe
-            ) xs
-          )
       | PEsym sym ->
           pp_symbol sym
       | PEimpl iCst ->

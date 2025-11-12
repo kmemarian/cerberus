@@ -507,6 +507,8 @@ let string_of_core_run_cause = function
       "unknown implementation constant"
   | Unresolved_symbol (loc, sym) ->
       "unresolved symbol: " ^ (Pp_utils.to_plain_string (Pp_ail.pp_id sym)) ^ " at " ^ Cerb_location.location_to_string loc
+  | Constrained ->
+      "symbolic execution (PEconstrained) is longer supported"
 
 let string_of_core_parser_cause = function
   | Core_lexer (Core_lexer_invalid_symbol c) ->
