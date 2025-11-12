@@ -255,8 +255,6 @@ let set_uid file =
       | PEsym s -> PEsym s
       | PEimpl impl -> PEimpl impl
       | PEval v -> PEval v
-      | PEconstrained cs ->
-        PEconstrained (List.mapi (fun i (m, pe) -> (m, set_pe pe)) cs)
       | PEundef (loc, undef) -> PEundef (loc, undef)
       | PEerror (err, pe) -> PEerror (err, set_pe pe)
       | PEctor (ctor, pes) -> PEctor (ctor, List.map set_pe pes)

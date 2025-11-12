@@ -130,18 +130,11 @@ let get_thread_states =
   ND.return dr_st.core_state.Core_run.thread_states
 
 
-val     print_eval_conv_aux: driver_state -> Core_run.thread_state -> Core.pexpr -> Mem.memM (either Errors.error (Undefined.t Core.value))
-let rec print_eval_conv_aux dr_st th_st pe =
+val print_eval_conv_aux: driver_state -> Core_run.thread_state -> Core.pexpr -> Mem.memM (either Errors.error (Undefined.t Core.value))
+let print_eval_conv_aux dr_st th_st pe =
   match Core_eval.eval_pexpr_aux2 (Loc.other "Driver.print_eval_conv_aux") Nothing dr_st.core_extern th_st.Core_run.env (Just dr_st.layout_state) dr_st.core_file pe with
   | Exception.Result (Undefined.Defined (Right cval)) ->
       ND.return (Right (Undefined.Defined cval))
-  | Exception.Result (Undefined.Defined (Left (Core.Pexpr _ () (Core.PEconstrained xs)))) ->
-      ND.msum "printf_eval_conv" begin
-        List.map (fun (cs, pe) ->
-            ( "printf_eval_conv_pe_constrained"
-            , ND.addConstraints "printf_eval_conv" cs >> print_eval_conv_aux dr_st th_st pe
-            )) xs
-        end
   | Exception.Result (Undefined.Defined _) ->
       error "print_eval_conv: should be a value or PEconstrained"
   | Exception.Result (Undefined.Undef loc undef) ->
