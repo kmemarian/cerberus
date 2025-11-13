@@ -616,7 +616,6 @@ module BmcInline = struct
         else begin
           get_proc_expr >>= fun proc_expr ->
           let (cont_syms, cont_expr) = Option.get (find_labeled_continuation
-                            Sym.instance_Basic_classes_Eq_Symbol_sym_dict
                             label proc_expr) in
           assert (List.length pelist = List.length cont_syms);
           let sub_map = List.fold_right2
