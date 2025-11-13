@@ -126,7 +126,7 @@ ui:
 	make -C public
 
 #### LEM sources for the frontend
-LEM_RENAMED = global.lem loc.lem debug.lem decode.lem
+LEM_RENAMED = global.lem loc.lem debug.lem decode.lem core_aux.lem
 
 LEM_PRELUDE       = utils.lem annot.lem bimap.lem \
                     dlist.lem enum.lem state.lem symbol.lem \
@@ -134,7 +134,7 @@ LEM_PRELUDE       = utils.lem annot.lem bimap.lem \
 LEM_CABS          = cabs.lem undefined.lem constraint.lem integerType.lem ctype.lem
 LEM_AIL           = typingError.lem errorMonad.lem ailSyntax.lem genTypes.lem
 LEM_CTYPE_AUX     = ctype_aux.lem
-LEM_CORE          = core.lem errors.lem core_aux.lem core_linking.lem
+LEM_CORE          = core.lem errors.lem core_linking.lem
 LEM_CORE_TYPING   = core_typing.lem core_typing_aux.lem core_typing_effect.lem
 LEM_UTILS         = boot.lem exception_undefined.lem multiset.lem \
                     state_exception.lem state_exception_undefined.lem \
