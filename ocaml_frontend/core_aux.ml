@@ -23,7 +23,7 @@ module ND = Nondeterminism
 
 
 (*val     core_object_type_of_ctype: ctype -> maybe core_object_type*)
-let rec core_object_type_of_ctype (Ctype( _, ty1)):(core_object_type)option=
+let rec core_object_type_of_ctype (Ctype( _, ty1)) =
    ((match ty1 with
    | Void ->
        None
@@ -56,7 +56,7 @@ let rec core_object_type_of_ctype (Ctype( _, ty1)):(core_object_type)option=
   ))
 
 
-let rec loadedValueFromMemValue mem_val : core_object_type * loaded_value=
+let rec loadedValueFromMemValue mem_val =
    (let () = (Cerb_debug.print_debug 6 [] (fun () ->
     "loadedValueFromMemValue ==> " ^ Impl_mem.string_of_mem_value mem_val
   )) in
@@ -81,7 +81,7 @@ let rec loadedValueFromMemValue mem_val : core_object_type * loaded_value=
 
 
 (*val valueFromMemValue: Mem.mem_value -> core_object_type * value*)
-let valueFromMemValue mem_val:core_object_type*value=
+let valueFromMemValue mem_val =
    (let () = (Cerb_debug.print_debug 6 [] (fun () ->
     "valueFromMemValue ==> " ^ Impl_mem.string_of_mem_value mem_val
   )) in
@@ -104,7 +104,7 @@ let valueFromMemValue mem_val:core_object_type*value=
     (fun sym1 ident mem_val -> (OTy_union sym1, Vloaded (LVspecified (OVunion( sym1, ident, mem_val))))))
 
 (*val     memValueFromValue: ctype -> value -> maybe Mem.mem_value*)
-let rec memValueFromValue ty1 cval:(Impl_mem.mem_value)option=
+let rec memValueFromValue ty1 cval =
    (let (Ctype( annots1, ty_)) = (unatomic ty1) in
   (match (ty_, cval) with
     | (_, Vunit) ->
@@ -184,18 +184,18 @@ let rec memValueFromValue ty1 cval:(Impl_mem.mem_value)option=
 (* Core pattern builders **************************************************** *)
 
 (*val mk_empty_pat: core_base_type -> pattern*)
-let mk_empty_pat bTy:(Symbol.sym)generic_pattern=
+let mk_empty_pat bTy =
    (Pattern( [], (CaseBase (None, bTy))))
 
 (*val mk_sym_pat_: forall 'sym. list Annot.annot -> maybe 'sym -> core_base_type -> generic_pattern 'sym*)
-let mk_sym_pat_ annots1 msym bTy:'sym generic_pattern=
+let mk_sym_pat_ annots1 msym bTy =
    (Pattern( annots1, (CaseBase (msym, bTy))))
 
 (*val mk_sym_pat: Symbol.sym -> core_base_type -> pattern*)
-let mk_sym_pat sym1 bty:(Symbol.sym)generic_pattern=  (mk_sym_pat_ [] (Some sym1) bty)
+let mk_sym_pat sym1 bty =  (mk_sym_pat_ [] (Some sym1) bty)
 
 (*val mk_tuple_pat: list pattern -> pattern*)
-let mk_tuple_pat:((Symbol.sym)generic_pattern)list ->(Symbol.sym)generic_pattern=  ((function
+let mk_tuple_pat =  ((function
   | [] ->
       Cerb_debug.error "[Core_aux.mk_tuple_pat] called with |pats| = 0"
   | [pat] ->
@@ -205,34 +205,34 @@ let mk_tuple_pat:((Symbol.sym)generic_pattern)list ->(Symbol.sym)generic_pattern
 ))
 
 (*val mk_specified_pat_: forall 'bty 'sym. list Annot.annot -> generic_pattern 'sym -> generic_pattern 'sym*)
-let mk_specified_pat_ annots1 pat:'sym generic_pattern=
+let mk_specified_pat_ annots1 pat =
    (Pattern( annots1, (CaseCtor( Cspecified, [pat]))))
 
 (*val mk_specified_pat: pattern -> pattern*)
-let mk_specified_pat pat:(Symbol.sym)generic_pattern=  (mk_specified_pat_ [] pat)
+let mk_specified_pat pat =  (mk_specified_pat_ [] pat)
 
 (*val mk_unspecified_pat_: forall 'bty 'sym. list Annot.annot -> generic_pattern 'sym -> generic_pattern 'sym*)
-let mk_unspecified_pat_ annots1 pat:'sym generic_pattern=
+let mk_unspecified_pat_ annots1 pat =
    (Pattern( annots1, (CaseCtor( Cunspecified, [pat]))))
 
 (*val mk_unspecified_pat: pattern -> pattern*)
-let mk_unspecified_pat pat:(Symbol.sym)generic_pattern=  (mk_unspecified_pat_ [] pat)
+let mk_unspecified_pat pat =  (mk_unspecified_pat_ [] pat)
 
 
 (* Core pexpr builders  ***************************************************** *)
 (*val annotate_integer_type_pexpr : integerType -> pexpr -> pexpr*)
-let annotate_integer_type_pexpr ity (Pexpr( annots1, (), expr_)):((unit),(Symbol.sym))generic_pexpr=
+let annotate_integer_type_pexpr ity (Pexpr( annots1, (), expr_)) =
    (Pexpr( (Avalue (Ainteger ity) :: annots1), (), expr_))
 
 (*val maybe_annotate_integer_type_pexpr : ctype -> pexpr -> pexpr*)
-let maybe_annotate_integer_type_pexpr (Ctype( _, ty_)) pe:((unit),(Symbol.sym))generic_pexpr=
+let maybe_annotate_integer_type_pexpr (Ctype( _, ty_)) pe =
    ((match ty_ with
     | Basic (Integer ity) -> annotate_integer_type_pexpr ity pe
     | _ -> pe
   ))
 
 (*val mk_sym_pe: Symbol.sym -> pexpr*)
-let mk_sym_pe sym1:((unit),(Symbol.sym))generic_pexpr=
+let mk_sym_pe sym1 =
    (Pexpr( [], (), (PEsym sym1)))
 
 (* TODO: mk_impl_pe *)
@@ -240,55 +240,55 @@ let mk_sym_pe sym1:((unit),(Symbol.sym))generic_pexpr=
 (* TODO: PEval Vconstrained, Vobject *)
 
 (*val mk_integer_pe: integer -> pexpr*)
-let mk_integer_pe n:((unit),(Symbol.sym))generic_pexpr=
+let mk_integer_pe n =
    (Pexpr( [], (), (PEval (Vobject (OVinteger (Impl_mem.integer_ival n))))))
 
 (*val mk_floating_value_pe: Mem.floating_value -> pexpr*)
-let mk_floating_value_pe fval:((unit),(Symbol.sym))generic_pexpr=
+let mk_floating_value_pe fval =
    (Pexpr( [], (), (PEval (Vobject (OVfloating fval)))))
 
 (*val mk_nullptr_pe: ctype -> pexpr*)
-let mk_nullptr_pe ref_ty:((unit),(Symbol.sym))generic_pexpr=
+let mk_nullptr_pe ref_ty =
    (Pexpr( [], (), (PEval (Vobject (OVpointer (Impl_mem.null_ptrval ref_ty))))))
 
 (*val mk_specified_pe: pexpr -> pexpr*)
-let mk_specified_pe pe:((unit),(Symbol.sym))generic_pexpr=
+let mk_specified_pe pe =
      (Pexpr( [], (), (PEctor( Cspecified, [pe]))))
 
 (*val mk_unspecified_pe: ctype -> pexpr*)
-let mk_unspecified_pe ty1:((unit),(Symbol.sym))generic_pexpr=
+let mk_unspecified_pe ty1 =
    (Pexpr( [], (), (PEval (Vloaded (LVunspecified ty1)))))
 
 (*val mk_array_pe: list pexpr -> pexpr*)
-let mk_array_pe pes:((unit),(Symbol.sym))generic_pexpr=
+let mk_array_pe pes =
    (Pexpr( [], (), (PEctor( Carray, pes))))
 
 (*val mk_unit_pe: pexpr*)
-let mk_unit_pe:((unit),(Symbol.sym))generic_pexpr=
+let mk_unit_pe =
    (Pexpr( [], (), (PEval Vunit)))
 
 
-let mk_boolean_v:bool ->value=  ((function
+let mk_boolean_v =  ((function
   | true -> Vtrue
   | false -> Vfalse
   ))
 
 (*val mk_boolean_pe: bool -> pexpr*)
-let mk_boolean_pe b:((unit),(Symbol.sym))generic_pexpr=
+let mk_boolean_pe b =
    (Pexpr( [], (), (PEval (mk_boolean_v b))))
 
 (* TODO: PEval Vtrue, Vfalse *)
 
 (*val mk_ail_ctype_pe: ctype -> pexpr*)
-let mk_ail_ctype_pe ty1:((unit),(Symbol.sym))generic_pexpr=
+let mk_ail_ctype_pe ty1 =
    (Pexpr( [], (), (PEval (Vctype ty1))))
 
 (*val mk_ctype_pe: ctype -> pexpr*)
-let mk_ctype_pe ty1:((unit),(Symbol.sym))generic_pexpr=
+let mk_ctype_pe ty1 =
    (Pexpr( [], (), (PEval (Vctype ty1))))
 
 (*val     mk_list_pe: core_base_type -> list pexpr -> pexpr*)
-let rec mk_list_pe bTy pes:((unit),(Symbol.sym))generic_pexpr=
+let rec mk_list_pe bTy pes =
    (Pexpr( [], (), (match pes with
     | [] ->
         PEctor( (Cnil bTy), [])
@@ -297,7 +297,7 @@ let rec mk_list_pe bTy pes:((unit),(Symbol.sym))generic_pexpr=
   )))
 
 (*val mk_tuple_pe: list pexpr -> pexpr*)
-let mk_tuple_pe:(((unit),(Symbol.sym))generic_pexpr)list ->((unit),(Symbol.sym))generic_pexpr=  ((function
+let mk_tuple_pe =  ((function
   | [] ->
       Cerb_debug.error "Core_aux.mk_tuple_pe []"
   | [pe] ->
@@ -307,7 +307,7 @@ let mk_tuple_pe:(((unit),(Symbol.sym))generic_pexpr)list ->((unit),(Symbol.sym))
 ))
 
 (*val mk_ivmax_pe: pexpr -> pexpr*)
-let mk_ivmax_pe pe:((unit),(Symbol.sym))generic_pexpr=
+let mk_ivmax_pe pe =
    (Pexpr( [], (), (PEctor( Civmax, [pe]))))
 
 (*
@@ -317,68 +317,68 @@ let mk_ivmin_pe pe =
 *)
 
 (*val mk_sizeof_pe: pexpr -> pexpr*)
-let mk_sizeof_pe pe:((unit),(Symbol.sym))generic_pexpr=
+let mk_sizeof_pe pe =
    (Pexpr( [], (), (PEctor( Civsizeof, [pe]))))
 
 (*val mk_alignof_pe: pexpr -> pexpr*)
-let mk_alignof_pe pe:((unit),(Symbol.sym))generic_pexpr=
+let mk_alignof_pe pe =
    (Pexpr( [], (), (PEctor( Civalignof, [pe]))))
 
 (*val mk_nullcap_pe: bool -> pexpr*)
-let mk_nullcap_pe is_signed:((unit),(Symbol.sym))generic_pexpr=
+let mk_nullcap_pe is_signed =
    (Pexpr( [], (), (PEctor( (CivNULLcap is_signed), []))))
 
 (*val mk_undef_pe: Loc.t -> Undefined.undefined_behaviour -> pexpr*)
-let mk_undef_pe loc1 ub:((unit),(Symbol.sym))generic_pexpr=
+let mk_undef_pe loc1 ub =
    (Pexpr( [], (), (PEundef( loc1, ub))))
 
 (*val mk_error_pe: string -> pexpr -> pexpr*)
-let mk_error_pe str pe:((unit),(Symbol.sym))generic_pexpr=
+let mk_error_pe str pe =
    (Pexpr( [], (), (PEerror( str, pe))))
 
 (*val mk_not_pe: pexpr -> pexpr*)
-let mk_not_pe pe:((unit),(Symbol.sym))generic_pexpr=
+let mk_not_pe pe =
    (Pexpr( [], (), (PEnot pe)))
 
 (*val mk_op_pe: binop -> pexpr -> pexpr -> pexpr*)
-let mk_op_pe bop pe1 pe2:((unit),(Symbol.sym))generic_pexpr=
+let mk_op_pe bop pe1 pe2 =
    (Pexpr( [], (), (PEop( bop, pe1, pe2))))
 
 (*val mk_conv_int_pe: integerType -> pexpr -> pexpr*)
-let mk_conv_int_pe ity pe:((unit),(Symbol.sym))generic_pexpr=
+let mk_conv_int_pe ity pe =
    (Pexpr( [], (), (PEconv_int( ity, pe))))
 
 (*val mk_wrapI_pe: integerType -> iop -> pexpr -> pexpr -> pexpr*)
-let mk_wrapI_pe ity iop1 pe1 pe2:((unit),(Symbol.sym))generic_pexpr=
+let mk_wrapI_pe ity iop1 pe1 pe2 =
    (Pexpr( [], (), (PEwrapI( ity, iop1, pe1, pe2))))
 
 (*val mk_catch_exceptional_condition_pe: integerType -> iop -> pexpr -> pexpr -> pexpr*)
-let mk_catch_exceptional_condition_pe ity iop1 pe1 pe2:((unit),(Symbol.sym))generic_pexpr=
+let mk_catch_exceptional_condition_pe ity iop1 pe1 pe2 =
    (Pexpr( [], (), (PEcatch_exceptional_condition( ity, iop1, pe1, pe2))))
 
 (*val mk_let_pe: pattern -> pexpr -> pexpr -> pexpr*)
-let mk_let_pe pat pe1 pe2:((unit),(Symbol.sym))generic_pexpr=
+let mk_let_pe pat pe1 pe2 =
    (Pexpr( [], (), (PElet( pat, pe1, pe2))))
 
 
 (*val mk_if_pe: pexpr -> pexpr -> pexpr -> pexpr*)
-let mk_if_pe pe1 pe2 pe3:((unit),(Symbol.sym))generic_pexpr=
+let mk_if_pe pe1 pe2 pe3 =
    (Pexpr( [], (), (PEif( pe1, pe2, pe3))))
 
 (*val mk_array_shift: pexpr -> ctype -> pexpr -> pexpr*)
-let mk_array_shift pe1 ty1 pe2:((unit),(Symbol.sym))generic_pexpr=
+let mk_array_shift pe1 ty1 pe2 =
    (Pexpr( [], (), (PEarray_shift( pe1, ty1, pe2))))
 
 (*val mk_member_shift_pe: pexpr -> Symbol.sym -> Symbol.identifier -> pexpr*)
-let mk_member_shift_pe pe1 tag_sym member_ident:((unit),(Symbol.sym))generic_pexpr=
+let mk_member_shift_pe pe1 tag_sym member_ident =
    (Pexpr( [], (), (PEmember_shift( pe1, tag_sym, member_ident))))
 
 (*val mk_memop_pe: Mem_common.pure_memop -> list pexpr -> pexpr*)
-let mk_memop_pe mop pes:((unit),(Symbol.sym))generic_pexpr=
+let mk_memop_pe mop pes =
    (Pexpr( [], (), (PEmemop( mop, pes))))
 
 (*val mk_case_pe: pexpr -> list (pattern * pexpr) -> pexpr*)
-let mk_case_pe pe pat_pes:((unit),(Symbol.sym))generic_pexpr=
+let mk_case_pe pe pat_pes =
    (Pexpr( [], (), (PEcase( pe, pat_pes))))
 
 (* integerType is the type annotation placed on the 0 literal *)
@@ -386,47 +386,47 @@ let mk_case_pe pe pat_pes:((unit),(Symbol.sym))generic_pexpr=
  * instead of doing something special here
  *)
 (*val mk_neg_pe: integerType -> pexpr -> pexpr*)
-let mk_neg_pe ity pe:((unit),(Symbol.sym))generic_pexpr=
+let mk_neg_pe ity pe =
    (Pexpr( [], (), (PEop( OpSub, (annotate_integer_type_pexpr ity (mk_integer_pe( (Nat_big_num.of_int 0)))), pe))))
 
 (*val mk_struct_pe: Symbol.sym -> list (Symbol.identifier * pexpr) -> pexpr*)
-let mk_struct_pe tag_sym xs:((unit),(Symbol.sym))generic_pexpr=
+let mk_struct_pe tag_sym xs =
    (Pexpr( [], (), (PEstruct( tag_sym, xs))))
 
 (*val mk_union_pe: Symbol.sym -> Symbol.identifier -> pexpr -> pexpr*)
-let mk_union_pe tag_sym memb_ident pe:((unit),(Symbol.sym))generic_pexpr=
+let mk_union_pe tag_sym memb_ident pe =
    (Pexpr( [], (), (PEunion( tag_sym, memb_ident, pe))))
 
 (*val mk_memberof_pe: Symbol.sym -> Symbol.identifier -> pexpr -> pexpr*)
-let mk_memberof_pe tag_sym memb_ident pe:((unit),(Symbol.sym))generic_pexpr=
+let mk_memberof_pe tag_sym memb_ident pe =
    (Pexpr( [], (), (PEmemberof( tag_sym, memb_ident, pe))))
 
 (*val mk_value_pe: value -> pexpr*)
-let mk_value_pe cval:((unit),(Symbol.sym))generic_pexpr=
+let mk_value_pe cval =
    (Pexpr( [], (), (PEval cval)))
 
 (*val mk_cfunction_pe: pexpr -> pexpr*)
-let mk_cfunction_pe pe:((unit),(Symbol.sym))generic_pexpr=
+let mk_cfunction_pe pe =
    (Pexpr( [], (), (PEcfunction pe)))
 
 (*val mk_std_pe: string -> pexpr -> pexpr*)
-let mk_std_pe std (Pexpr( annot1, bty, pe_)):((unit),(Symbol.sym))generic_pexpr=
+let mk_std_pe std (Pexpr( annot1, bty, pe_)) =
    (Pexpr( ((Astd std)::annot1), bty, pe_))
 
 (*val mk_std_undef_pe: Loc.t -> string -> Undefined.undefined_behaviour -> pexpr*)
-let mk_std_undef_pe loc1 std ub:((unit),(Symbol.sym))generic_pexpr=  (mk_std_pe std (mk_undef_pe loc1 ub))
+let mk_std_undef_pe loc1 std ub =  (mk_std_pe std (mk_undef_pe loc1 ub))
 
 (*val mk_std_pair_pe: string -> pexpr * pexpr -> pexpr * pexpr*)
-let mk_std_pair_pe std (pe1, pe2):((unit),(Symbol.sym))generic_pexpr*((unit),(Symbol.sym))generic_pexpr=
+let mk_std_pair_pe std (pe1, pe2) =
    (mk_std_pe std pe1, mk_std_pe std pe2)
 
 
 (*val mk_call_pe: name -> list pexpr -> pexpr*)
-let mk_call_pe nm pes:((unit),(Symbol.sym))generic_pexpr=
+let mk_call_pe nm pes =
    (Pexpr( [], (), (PEcall( nm, pes))))
 
 (*val mk_are_compatible: pexpr -> pexpr -> pexpr*)
-let mk_are_compatible pe1 pe2:((unit),(Symbol.sym))generic_pexpr=
+let mk_are_compatible pe1 pe2 =
    (Pexpr( [], (), (PEare_compatible( pe1, pe2))))
 
 
@@ -435,7 +435,7 @@ let mk_are_compatible pe1 pe2:((unit),(Symbol.sym))generic_pexpr=
 (* Some common undef *)
 
 (*val mk_undef_exceptional_condition: Loc.t -> pexpr*)
-let mk_undef_exceptional_condition loc1:((unit),(Symbol.sym))generic_pexpr=
+let mk_undef_exceptional_condition loc1 =
    (mk_std_undef_pe loc1 "§6.5#5" Undefined.UB036_exceptional_condition)
 
 
@@ -455,7 +455,7 @@ val integer_encode_pe:     pexpr -> pexpr -> pexpr
 val integer_decode_pe:     pexpr -> pexpr -> pexpr
 *)
 
-let bitwise_complement_pe pe1 pe2:((unit),(Symbol.sym))generic_pexpr=
+let bitwise_complement_pe pe1 pe2 =
    (Pexpr( [], (), (PEctor( CivCOMPL, [pe1; pe2]))))
 (*
   Pexpr [] () (PEcall (Impl Implementation.Bitwise_complement) [pe1; pe2])
@@ -468,52 +468,52 @@ let integer_decode_pe pe1 pe2 =
 *)
 
 (* Some aliases for positive actions *)
-let pcreate loc1 al ty1 pref:('c,'b,'a)generic_expr=
+let pcreate loc1 al ty1 pref =
    (Expr( [], (Eaction (Paction( Pos, (Action( loc1, 
   (), (Create( al, ty1, pref)))))))))
-let pcreate_readonly loc1 al ty1 init1 pref:('c,'b,'a)generic_expr=
+let pcreate_readonly loc1 al ty1 init1 pref =
    (Expr( [], (Eaction (Paction( Pos, (Action( loc1, 
   (), (CreateReadOnly(  al, ty1, init1, pref)))))))))
 (*
 let palloc loc al e pref =
   Expr [] (Eaction (Paction Pos (Action loc default (Alloc al e pref))))
 *)
-let pkill loc1 kind1 x:('c,'b,'a)generic_expr=
+let pkill loc1 kind1 x =
    (Expr( [], (Eaction (Paction( Pos, (Action( loc1, 
   (), (Kill( kind1, x)))))))))
-let pstore loc1 ty1 x n mo1:('c,'b,'a)generic_expr=
+let pstore loc1 ty1 x n mo1 =
    (Expr( [], (Eaction (Paction( Pos, (Action( loc1, 
   (), (Store0( false, ty1, x, n, mo1)))))))))
-let pstore_lock loc1 ty1 x n mo1:('c,'b,'a)generic_expr=
+let pstore_lock loc1 ty1 x n mo1 =
    (Expr( [], (Eaction (Paction( Pos, (Action( loc1, 
   (), (Store0( true, ty1, x, n, mo1)))))))))
-let pload loc1 ty1 x mo1:('c,'b,'a)generic_expr=
+let pload loc1 ty1 x mo1 =
    (Expr( [], (Eaction (Paction( Pos, (Action( loc1, 
   (), (Load0( ty1, x, mo1)))))))))
 (*
 let prmw loc ty x n1 n2 mo1 mo2 =
   Expr [] (Eaction (Paction Pos (Action loc default (RMW ty x n1 n2 mo1 mo2))))
 *)
-let pcompare_exchange_strong loc1 ty1 x n1 n2 mo1 mo2:('c,'b,'a)generic_expr=
+let pcompare_exchange_strong loc1 ty1 x n1 n2 mo1 mo2 =
    (Expr( [], (Eaction (Paction( Pos, (
         Action( loc1, 
   (), (CompareExchangeStrong( ty1, x, n1, n2, mo1, mo2)))))))))
-let pcompare_exchange_weak loc1 ty1 x n1 n2 mo1 mo2:('c,'b,'a)generic_expr=
+let pcompare_exchange_weak loc1 ty1 x n1 n2 mo1 mo2 =
    (Expr( [], (Eaction (Paction( Pos, (
         Action( loc1, 
   (), (CompareExchangeWeak( ty1, x, n1, n2, mo1, mo2)))))))))
-let plinux_load loc1 ty1 x mo1:('c,'b,'a)generic_expr=
+let plinux_load loc1 ty1 x mo1 =
    (Expr( [], (Eaction (Paction( Pos, (Action( loc1, 
   (), (LinuxLoad( ty1, x, mo1)))))))))
-let plinux_store loc1 ty1 x n mo1:('c,'b,'a)generic_expr=
+let plinux_store loc1 ty1 x n mo1 =
    (Expr( [], (Eaction (Paction( Pos, (Action( loc1, 
   (), (LinuxStore( ty1, x, n, mo1)))))))))
-let plinux_rmw loc1 ty1 x n mo1:('c,'b,'a)generic_expr=
+let plinux_rmw loc1 ty1 x n mo1 =
    (Expr( [], (Eaction (Paction( Pos, (Action( loc1, 
   (), (LinuxRMW( ty1, x, n, mo1)))))))))
 
 (*import Global Cmm_csem*)
-let seq_rmw loc1 with_forward ty1 oTy x sym1 upd:('a,(unit),(Symbol.sym))generic_expr=
+let seq_rmw loc1 with_forward ty1 oTy x sym1 upd =
    (let backend = (Cerb_global.backend_name ()) in
   if (backend = "Cn") || (backend = "Bmc") then
     (* TODO: compatibility mode for Cn, until SeqRMW is supported *)
@@ -651,7 +651,7 @@ end
 *)
 
 (*val maybe_annotate_integer_type : ctype -> expr unit -> expr unit*)
-let maybe_annotate_integer_type (Ctype( _, ty_)) (Expr( annots1, expr_)):((unit),(unit),(Symbol.sym))generic_expr=
+let maybe_annotate_integer_type (Ctype( _, ty_)) (Expr( annots1, expr_)) =
    (let annots1 = ((match ty_ with
     | Basic (Integer ity) -> Avalue (Ainteger ity) :: annots1
     | _ -> annots1
@@ -659,7 +659,7 @@ let maybe_annotate_integer_type (Ctype( _, ty_)) (Expr( annots1, expr_)):((unit)
   Expr( annots1, expr_))
 
 (*val     mk_sseqs: list (pattern * expr unit) -> (expr unit -> expr unit)*)
-let rec mk_sseqs pat_es:((unit),(unit),(Symbol.sym))generic_expr ->((unit),(unit),(Symbol.sym))generic_expr=
+let rec mk_sseqs pat_es =
    (fun z ->
   (match pat_es with
     | [] ->
@@ -689,14 +689,14 @@ end
 *)
 
 
-let mk_unseq:(('b,(unit),'a)generic_expr)list ->('b,(unit),'a)generic_expr=  ((function
+let mk_unseq =  ((function
   | []  -> Expr( [], (Epure (Pexpr( [], (), (PEval Vunit)))))
   | [e] -> e
   | es  -> Expr( [], (Eunseq es))
 ))
 
 (*val     mk_unit_sseq: list (expr unit) -> (expr unit -> expr unit)*)
-let rec mk_unit_sseq es:((unit),(unit),(Symbol.sym))generic_expr ->((unit),(unit),(Symbol.sym))generic_expr=
+let rec mk_unit_sseq es =
    (fun z ->
     (match es with
       | [] ->
@@ -710,7 +710,7 @@ let rec mk_unit_sseq es:((unit),(unit),(Symbol.sym))generic_expr ->((unit),(unit
     ))
 
 
-let rec concat_sseq (((Expr( annot1, e_)) as e)) e':('b,'a,(Symbol.sym))generic_expr=
+let rec concat_sseq (((Expr( annot1, e_)) as e)) e' =
     ((match e_ with
      | Esseq( pat, e1, e2)                 -> Expr( annot1, (Esseq( pat, e1, (concat_sseq e2 e'))))
      | Epure (Pexpr( _, _, (PEval Vunit))) -> e'
@@ -719,7 +719,7 @@ let rec concat_sseq (((Expr( annot1, e_)) as e)) e':('b,'a,(Symbol.sym))generic_
 
 
 (*val valueFromPexpr: pexpr -> maybe value*)
-let valueFromPexpr:((unit),(Symbol.sym))generic_pexpr ->(value)option=  ((function
+let valueFromPexpr =  ((function
   | Pexpr( _, (), (PEval cval)) ->
       Some ((*flatten_constrained_value*) cval)
   | _ ->
@@ -727,7 +727,7 @@ let valueFromPexpr:((unit),(Symbol.sym))generic_pexpr ->(value)option=  ((functi
   ))
 
 (*val valueFromPexprs: list pexpr -> maybe (list value)*)
-let valueFromPexprs pes:((value)list)option=
+let valueFromPexprs pes =
    (List.fold_right (fun pe acc_opt ->
     (match (valueFromPexpr pe, acc_opt) with
       | (Some cval, Some acc) ->
@@ -749,7 +749,7 @@ let valueFromPexprs pes:((value)list)option=
 
 (* check if a symbolic names is part of a pattern *)
 (*val in_pattern: Symbol.sym -> pattern -> bool*)
-let rec in_pattern sym1 (Pattern( _, pat)):bool=
+let rec in_pattern sym1 (Pattern( _, pat)) =
    ((match pat with
     | CaseBase (sym_opt, _) ->
         Lem.option_case false (fun sym' -> (match (sym1, sym') with
@@ -774,7 +774,7 @@ let rec in_pattern sym1 (Pattern( _, pat)):bool=
 
 
 (*val     subst_sym_pexpr: Symbol.sym -> value -> pexpr -> pexpr*)
-let rec subst_sym_pexpr sym1 cval (Pexpr( annot1, bty, pexpr_)):((unit),(Symbol.sym))generic_pexpr=
+let rec subst_sym_pexpr sym1 cval (Pexpr( annot1, bty, pexpr_)) =
    (Pexpr( annot1, bty, (match pexpr_ with
     | PEsym sym' ->
         if (match (sym1, sym') with
@@ -850,7 +850,7 @@ let rec subst_sym_pexpr sym1 cval (Pexpr( annot1, bty, pexpr_)):((unit),(Symbol.
 
 
 (*val     subst_sym_expr: forall 'a. Symbol.sym -> value -> expr 'a -> expr 'a*)
-let rec subst_sym_expr sym1 cval (Expr( annot1, expr_)):('a,(unit),(Symbol.sym))generic_expr=
+let rec subst_sym_expr sym1 cval (Expr( annot1, expr_)) =
    (Expr( annot1, (match expr_ with
     | Epure pe ->
         Epure (subst_sym_pexpr sym1 cval pe)
@@ -925,7 +925,7 @@ let rec subst_sym_expr sym1 cval (Expr( annot1, expr_)):('a,(unit),(Symbol.sym))
 *)
   )))
 
-and subst_sym_action_ sym1 cval:((unit),(Symbol.sym))generic_action_ ->((unit),(Symbol.sym))generic_action_=  ((function
+and subst_sym_action_ sym1 cval =  ((function
   | Create( pe1, pe2, pref) ->
       Create( (subst_sym_pexpr sym1 cval pe1), (subst_sym_pexpr sym1 cval pe2), pref)
   | CreateReadOnly( pe1, pe2, pe3, pref) ->
@@ -978,15 +978,15 @@ and subst_sym_action_ sym1 cval:((unit),(Symbol.sym))generic_action_ ->((unit),(
       LinuxRMW( (subst_sym_pexpr sym1 cval pe1), (subst_sym_pexpr sym1 cval pe2),
         (subst_sym_pexpr sym1 cval pe3), mo1)
 ))
-and subst_sym_action sym1 cval (Action( loc1, bs, act_)):('a,(unit),(Symbol.sym))generic_action=
+and subst_sym_action sym1 cval (Action( loc1, bs, act_)) =
    (Action( loc1, bs, (subst_sym_action_ sym1 cval act_)))
-and subst_sym_paction sym1 cval (Paction( p, act)):('a,(unit),(Symbol.sym))generic_paction=
+and subst_sym_paction sym1 cval (Paction( p, act)) =
    (Paction( p, (subst_sym_action sym1 cval act)))
 
 
 
 (*val     subst_pattern_val: forall 'a. pattern -> value -> expr 'a -> expr 'a*)
-let rec subst_pattern_val (Pattern( _, pat)) cval expr1:('a,(unit),(Symbol.sym))generic_expr=
+let rec subst_pattern_val (Pattern( _, pat)) cval expr1 =
    (
   (* TODO (maybe), Carray, Civmax, Civmin, Civsizeof, Civalignof *)(match (pat, cval) with
     | (CaseBase (None, _), _) ->
@@ -1077,7 +1077,7 @@ let rec subst_pattern_val (Pattern( _, pat)) cval expr1:('a,(unit),(Symbol.sym))
 (* substitute in an expression a symbolic name with a (pure) expression *)
 (* NOTE: this is usually unsound to use if pe' doesn't evaluate to a defined value or generates memory constraints *)
 (*val     unsafe_subst_sym_pexpr: Symbol.sym -> pexpr -> pexpr -> pexpr*)
-let rec unsafe_subst_sym_pexpr sym1 ((Pexpr( annot1, bty, pe_') as pe')) (Pexpr( _, _, pe_)):((unit),(Symbol.sym))generic_pexpr=
+let rec unsafe_subst_sym_pexpr sym1 ((Pexpr( annot1, bty, pe_') as pe')) (Pexpr( _, _, pe_)) =
    (Pexpr( annot1, bty, (match pe_ with
     | PEsym sym' ->
         if (match (sym1, sym') with
@@ -1154,7 +1154,7 @@ let rec unsafe_subst_sym_pexpr sym1 ((Pexpr( annot1, bty, pe_') as pe')) (Pexpr(
 
 (* NOTE: this is usually unsound to use if pe' doesn't evaluate to a defined value or generates memory constraints *)
 (*val     unsafe_subst_sym_expr: forall 'a. Symbol.sym -> pexpr -> expr 'a -> expr 'a*)
-let rec unsafe_subst_sym_expr sym1 pe' (Expr( annot1, expr_)):('a,(unit),(Symbol.sym))generic_expr=
+let rec unsafe_subst_sym_expr sym1 pe' (Expr( annot1, expr_)) =
    (Expr( annot1, (match expr_ with
     | Epure pe ->
         Epure (unsafe_subst_sym_pexpr sym1 pe' pe)
@@ -1228,7 +1228,7 @@ let rec unsafe_subst_sym_expr sym1 pe' (Expr( annot1, expr_)):('a,(unit),(Symbol
 
 
 (* NOTE: this is usually unsound to use if pe' doesn't evaluate to a defined value or generates memory constraints *)
-and unsafe_subst_sym_action_ a pe':((unit),(Symbol.sym))generic_action_ ->((unit),(Symbol.sym))generic_action_=  ((function
+and unsafe_subst_sym_action_ a pe' =  ((function
   | Create( pe1, pe2, pref) ->
       Create( (unsafe_subst_sym_pexpr a pe' pe1), (unsafe_subst_sym_pexpr a pe' pe2), pref)
   | CreateReadOnly( pe1, pe2, pe3, pref) ->
@@ -1285,9 +1285,9 @@ and unsafe_subst_sym_action_ a pe':((unit),(Symbol.sym))generic_action_ ->((unit
         CompareExchangeWeak (unsafe_subst_sym_pexpr a pe' pe1) (unsafe_subst_sym_pexpr a pe' pe2) (unsafe_subst_sym_pexpr a pe' pe3) (unsafe_subst_sym_pexpr a pe' pe4) mo1 mo2
 *)
   ))
-and unsafe_subst_sym_action a pe' (Action( loc1, bs, act_)):('a,(unit),(Symbol.sym))generic_action=
+and unsafe_subst_sym_action a pe' (Action( loc1, bs, act_)) =
    (Action( loc1, bs, (unsafe_subst_sym_action_ a pe' act_)))
-and unsafe_subst_sym_paction a pe' (Paction( p, act)):('a,(unit),(Symbol.sym))generic_paction=
+and unsafe_subst_sym_paction a pe' (Paction( p, act)) =
    (Paction( p, (unsafe_subst_sym_action a pe' act)))
 
 (* TODO: [unsafe_subst_pattern _as v e] substitute the symbols _as with the corresponding
@@ -1296,7 +1296,7 @@ and unsafe_subst_sym_paction a pe' (Paction( p, act)):('a,(unit),(Symbol.sym))ge
    pattern *)
 (* NOTE: this is usually unsound to use if pe' doesn't evaluate to a defined value or generates memory constraints *)
 (*val     unsafe_subst_pattern: forall 'a. pattern -> pexpr -> expr 'a -> expr 'a*)
-let rec unsafe_subst_pattern (Pattern( _, pat)) pe' expr1:('a,(unit),(Symbol.sym))generic_expr=
+let rec unsafe_subst_pattern (Pattern( _, pat)) pe' expr1 =
   
    ((match (pat, pe') with
     | (CaseBase (None, _), _) ->
@@ -1373,7 +1373,7 @@ let rec unsafe_subst_pattern (Pattern( _, pat)) pe' expr1:('a,(unit),(Symbol.sym
   ))
 
 (*val     subst_pattern: forall 'a. pattern -> pexpr -> expr 'a -> maybe (expr 'a)*)
-let rec subst_pattern (Pattern( _, pat)) pe' expr1:(('a,(unit),(Symbol.sym))generic_expr)option=
+let rec subst_pattern (Pattern( _, pat)) pe' expr1 =
   
    ((match (pat, pe') with
     | (CaseBase (None, _), _) ->
@@ -1419,7 +1419,7 @@ let rec subst_pattern (Pattern( _, pat)) pe' expr1:(('a,(unit),(Symbol.sym))gene
 
 
 (*val     to_pure: forall 'a. expr 'a -> maybe pexpr*)
-let rec to_pure (Expr( annot1, expr_)):(((unit),(Symbol.sym))generic_pexpr)option= (
+let rec to_pure (Expr( annot1, expr_)) = (
    (*(expr : expr 'a)*)let to_pure_aux pat pe1 e2=
      ((match subst_pattern pat pe1 e2 with
       | Some e -> to_pure e
@@ -1512,7 +1512,7 @@ let rec to_pure (Expr( annot1, expr_)):(((unit),(Symbol.sym))generic_pexpr)optio
 ))
 
 (* val     to_pures: forall 'a. list (expr 'a) -> maybe (list pexpr)*)
-and to_pures (es: ( 'a expr) list):((((unit),(Symbol.sym))generic_pexpr)list)option=
+and to_pures es =
    (List.fold_right (fun e acc_opt ->
     (match (to_pure e, acc_opt) with
       | (Some pe, Some acc) ->
@@ -1524,7 +1524,7 @@ and to_pures (es: ( 'a expr) list):((((unit),(Symbol.sym))generic_pexpr)list)opt
 
 
 (*val subst_wait: forall 'a. Mem_common.thread_id -> value -> expr 'a -> expr 'a*)
-let rec subst_wait tid1 v (Expr( annot1, expr_)):('a,(unit),(Symbol.sym))generic_expr=
+let rec subst_wait tid1 v (Expr( annot1, expr_)) =
    (Expr( annot1, (match expr_ with
   | Epure _ ->
       expr_
@@ -1590,7 +1590,7 @@ let rec subst_wait tid1 v (Expr( annot1, expr_)):('a,(unit),(Symbol.sym))generic
 
 
 
-let rec find_labeled_continuation sym1 (Expr( annot1, expr_)):('a list*('c,'b,'a)generic_expr)option=
+let rec find_labeled_continuation sym1 (Expr( annot1, expr_)) =
    ((match expr_ with
     | Epure _ ->
         None
@@ -1732,7 +1732,7 @@ let rec has_sseqs expr =
 
 
 (*val     match_pattern: pattern -> value -> maybe (list (Symbol.sym * value))*)
-let rec match_pattern (Pattern( _, pat)) cval:((Symbol.sym*value)list)option=
+let rec match_pattern (Pattern( _, pat)) cval =
    ((match (pat, cval) with
     | (CaseBase (None, _), _) ->
         Some []
@@ -1766,7 +1766,7 @@ let rec match_pattern (Pattern( _, pat)) cval:((Symbol.sym*value)list)option=
   ))
 
 (*val     select_case: forall 'a. (Symbol.sym -> value -> 'a -> 'a) -> value -> list (pattern * 'a) -> maybe 'a*)
-let rec select_case subst_sym cval:((Symbol.sym)generic_pattern*'a)list ->'a option=  ((function
+let rec select_case subst_sym cval =  ((function
   | [] ->
       None
   | (pat, pe) :: pat_pes' ->
@@ -1793,36 +1793,36 @@ let isConstrainedValue cval =
 *)
 
 (*val mk_pure_e: forall 'a. pexpr -> expr 'a*)
-let mk_pure_e pe:('a,(unit),(Symbol.sym))generic_expr=
+let mk_pure_e pe =
    (Expr( [], (Epure pe)))
 
 (*val mk_value_e: forall 'a. value -> expr 'a*)
-let mk_value_e cval:('a,(unit),(Symbol.sym))generic_expr=
+let mk_value_e cval =
    (mk_pure_e (mk_value_pe cval))
 
 (*val mk_skip_e: expr unit*)
-let mk_skip_e:((unit),(unit),(Symbol.sym))generic_expr=
+let mk_skip_e =
    (Expr( [], (Epure (Pexpr( [], (), (PEval Vunit))))))
 
 
 (*val mk_unseq_e: forall 'a. list (expr 'a) -> expr 'a*)
-let mk_unseq_e es:('a,(unit),(Symbol.sym))generic_expr=
+let mk_unseq_e es =
    (Expr( [], (Eunseq es)))
 
 (*val mk_case_e: pexpr -> list (pattern * expr unit) -> expr unit*)
-let mk_case_e pe pat_es:((unit),(unit),(Symbol.sym))generic_expr=
+let mk_case_e pe pat_es =
    (Expr( [], (Ecase( pe, pat_es))))
 
 (*val mk_wseq_e: forall 'a. pattern -> expr 'a -> expr 'a -> expr 'a*)
-let mk_wseq_e pat e1 e2:('a,(unit),(Symbol.sym))generic_expr=
+let mk_wseq_e pat e1 e2 =
    (Expr( [], (Ewseq( pat, e1, e2))))
 
 (*val mk_sseq_e: forall 'a. pattern -> expr 'a -> expr 'a -> expr 'a*)
-let mk_sseq_e pat e1 e2:('a,(unit),(Symbol.sym))generic_expr=
+let mk_sseq_e pat e1 e2 =
    (Expr( [], (Esseq( pat, e1, e2))))
 
 (*val mk_save_e_: list annot -> (Symbol.sym * core_base_type) -> list (Symbol.sym * ((core_base_type * maybe (Ctype.ctype * pass_by_value_or_pointer)) * pexpr)) -> expr unit -> expr unit*)
-let mk_save_e_ annots1 sym_ty sym_ty_pes e:((unit),(unit),(Symbol.sym))generic_expr=
+let mk_save_e_ annots1 sym_ty sym_ty_pes e =
    (Expr( annots1, (Esave( sym_ty, sym_ty_pes, e))))
 
 (*
@@ -1832,39 +1832,39 @@ let mk_save_e sym_ty sym_ty_pes e =
 *)
 
 (*val mk_run_e: Symbol.sym -> list pexpr -> expr unit*)
-let mk_run_e sym1 pes:((unit),(unit),(Symbol.sym))generic_expr=
+let mk_run_e sym1 pes =
    (Expr( [], (Erun( (), sym1, pes))))
 
 (*val mk_nd_e: list (expr unit) -> expr unit*)
-let mk_nd_e es:((unit),(unit),(Symbol.sym))generic_expr=
+let mk_nd_e es =
    (Expr( [], (End es)))
 
 (*val mk_if_e_: list annot -> pexpr -> expr unit -> expr unit -> expr unit*)
-let mk_if_e_ annots1 pe e1 e2:((unit),(unit),(Symbol.sym))generic_expr=
+let mk_if_e_ annots1 pe e1 e2 =
    (Expr( annots1, (Eif( pe, e1, e2))))
 
 (*val mk_if_e: pexpr -> expr unit -> expr unit -> expr unit*)
-let mk_if_e pe e1 e2:((unit),(unit),(Symbol.sym))generic_expr=
+let mk_if_e pe e1 e2 =
    (Expr( [], (Eif( pe, e1, e2))))
 
 (*val mk_let_e: pattern -> pexpr -> expr unit -> expr unit*)
-let mk_let_e pat pe e:((unit),(unit),(Symbol.sym))generic_expr=
+let mk_let_e pat pe e =
    (Expr( [], (Elet( pat, pe, e))))
 
 (*val mk_ccall_e_: list annot -> pexpr -> pexpr -> list pexpr -> expr unit*)
-let mk_ccall_e_ annots1 cty pe pes:((unit),(unit),(Symbol.sym))generic_expr=
+let mk_ccall_e_ annots1 cty pe pes =
    (Expr( annots1, (Eccall( (), cty, pe, pes))))
 
 (*val mk_memop_e: Mem_common.memop -> list pexpr -> expr unit*)
-let mk_memop_e mop pes:((unit),(unit),(Symbol.sym))generic_expr=
+let mk_memop_e mop pes =
    (Expr( [], (Ememop( mop, pes))))
 
 (*val mk_wait_e: forall 'a. Mem_common.thread_id -> expr 'a*)
-let mk_wait_e tid1:('a,(unit),(Symbol.sym))generic_expr=
+let mk_wait_e tid1 =
    (Expr( [], (Ewait tid1)))
 
 (*val add_loc: Loc.t -> expr unit -> expr unit*)
-let add_loc loc1 (Expr( annot1, expr_)):((unit),(unit),(Symbol.sym))generic_expr=
+let add_loc loc1 (Expr( annot1, expr_)) =
    (let pred = ((function
     | Aloc _ -> true
     | _ -> false
@@ -1877,23 +1877,23 @@ let add_loc loc1 (Expr( annot1, expr_)):((unit),(unit),(Symbol.sym))generic_expr
   )), expr_))
 
 (*val add_stmt: expr unit -> expr unit*)
-let add_stmt (Expr( annot1, expr_)):((unit),(unit),(Symbol.sym))generic_expr=
+let add_stmt (Expr( annot1, expr_)) =
    (Expr( (Astmt :: annot1), expr_))
 
 (*val add_expr: expr unit -> expr unit*)
-let add_expr (Expr( annot1, expr_)):((unit),(unit),(Symbol.sym))generic_expr=
+let add_expr (Expr( annot1, expr_)) =
    (Expr( (Aexpr :: annot1), expr_))
 
 (*val add_std: string -> expr unit -> expr unit*)
-let add_std str (Expr( annot1, expr_)):((unit),(unit),(Symbol.sym))generic_expr=
+let add_std str (Expr( annot1, expr_)) =
    (Expr( (Astd str :: annot1), expr_))
 
 (*val add_stds: list string -> expr unit -> expr unit*)
-let add_stds strs (Expr( annot1, expr_)):((unit),(unit),(Symbol.sym))generic_expr=
+let add_stds strs (Expr( annot1, expr_)) =
    (Expr( ( List.rev_append (List.rev (Lem_list.map (fun z -> Astd z) strs)) annot1), expr_))
 
 (*val add_attrs: Annot.attributes -> expr unit -> expr unit*)
-let add_attrs attrs1 ((Expr( annot1, expr_) as expr1)):((unit),(unit),(Symbol.sym))generic_expr=
+let add_attrs attrs1 ((Expr( annot1, expr_) as expr1)) =
    ((match attrs1 with
     | Attrs [] ->
         expr1
@@ -1902,11 +1902,11 @@ let add_attrs attrs1 ((Expr( annot1, expr_) as expr1)):((unit),(unit),(Symbol.sy
   ))
 
 (*val add_annot: Annot.annot -> expr unit -> expr unit*)
-let add_annot annot1 (Expr( annots1, expr_)):((unit),(unit),(Symbol.sym))generic_expr=
+let add_annot annot1 (Expr( annots1, expr_)) =
    (Expr( (annot1 :: annots1), expr_))
 
 (*val add_annots: list Annot.annot -> expr unit -> expr unit*)
-let add_annots annots1 (Expr( annots2, expr_)):((unit),(unit),(Symbol.sym))generic_expr=
+let add_annots annots1 (Expr( annots2, expr_)) =
    (Expr( ( List.rev_append (List.rev annots1) annots2), expr_))
 
 type 'a collect_saves_state = {
@@ -1914,17 +1914,17 @@ type 'a collect_saves_state = {
   closed_acc: (Symbol.sym, ( (Symbol.sym * core_base_type)list * 'a Core.expr)) Pmap.map; (*Core.labeled_continuations 'a; *)
 }
 
-let empty_saves:'a collect_saves_state=  ({ tmp_acc= (Pmap.empty (fun sym1 sym2->ordCompare 
+let empty_saves =  ({ tmp_acc= (Pmap.empty (fun sym1 sym2->ordCompare 
   Symbol.instance_Basic_classes_Eq_Symbol_sym_dict Symbol.instance_Basic_classes_Ord_Symbol_sym_dict sym1 sym2)); closed_acc= (Pmap.empty (fun sym1 sym2->ordCompare 
   Symbol.instance_Basic_classes_Eq_Symbol_sym_dict Symbol.instance_Basic_classes_Ord_Symbol_sym_dict sym1 sym2)) })
 
-let union_saves st1 st2:'a collect_saves_state=
+let union_saves st1 st2 =
    ({ tmp_acc= (Pmap.union st1.tmp_acc st2.tmp_acc);
      closed_acc= (Pmap.union st1.closed_acc st2.closed_acc) })
 
 (* NOTE: assumes the expression is well formed/typed *)
 (*val     collect_saves_aux: forall 'a. collect_saves_state 'a -> expr 'a -> collect_saves_state 'a*)
-let rec collect_saves_aux st (Expr( annots1, expr_)):'a collect_saves_state=
+let rec collect_saves_aux st (Expr( annots1, expr_)) =
    ((match expr_ with
     | Epure _ ->
         st
@@ -1995,7 +1995,7 @@ let rec collect_saves_aux st (Expr( annots1, expr_)):'a collect_saves_state=
   ))
 
 (*val collect_saves: forall 'a. expr 'a -> map Symbol.sym (list (Symbol.sym * core_base_type) * expr 'a)*) (*Core.labeled_continuations 'a *)
-let collect_saves expr1:((Symbol.sym),((Symbol.sym*core_base_type)list*'a expr))Pmap.map=
+let collect_saves expr1 =
    (let st = (collect_saves_aux { tmp_acc= (Pmap.empty (fun sym1 sym2->ordCompare 
   Symbol.instance_Basic_classes_Eq_Symbol_sym_dict Symbol.instance_Basic_classes_Ord_Symbol_sym_dict sym1 sym2)); closed_acc= (Pmap.empty (fun sym1 sym2->ordCompare 
   Symbol.instance_Basic_classes_Eq_Symbol_sym_dict Symbol.instance_Basic_classes_Ord_Symbol_sym_dict sym1 sym2)) } expr1) in
@@ -2021,17 +2021,17 @@ type 'a m_collect_saves_state = {
   m_closed_acc: 'a m_labeled_continuations;
 }
 
-let m_empty_saves:'a m_collect_saves_state=  ({ m_tmp_acc= (Pmap.empty (fun sym1 sym2->ordCompare 
+let m_empty_saves =  ({ m_tmp_acc= (Pmap.empty (fun sym1 sym2->ordCompare 
   Symbol.instance_Basic_classes_Eq_Symbol_sym_dict Symbol.instance_Basic_classes_Ord_Symbol_sym_dict sym1 sym2)); m_closed_acc= (Pmap.empty (fun sym1 sym2->ordCompare 
   Symbol.instance_Basic_classes_Eq_Symbol_sym_dict Symbol.instance_Basic_classes_Ord_Symbol_sym_dict sym1 sym2)) })
 
-let m_union_saves st1 st2:'a m_collect_saves_state=
+let m_union_saves st1 st2 =
    ({ m_tmp_acc= (Pmap.union st1.m_tmp_acc st2.m_tmp_acc);
      m_closed_acc= (Pmap.union st1.m_closed_acc st2.m_closed_acc) })
 
 (* NOTE: assumes the expression is well formed/typed *)
 (*val     m_collect_saves_aux: forall 'a. m_collect_saves_state 'a -> expr 'a -> m_collect_saves_state 'a*)
-let rec m_collect_saves_aux st (Expr( annots1, expr_)):'a m_collect_saves_state=
+let rec m_collect_saves_aux st (Expr( annots1, expr_)) =
    ((match expr_ with
     | Epure _ ->
         st
@@ -2109,7 +2109,7 @@ let rec m_collect_saves_aux st (Expr( annots1, expr_)):'a m_collect_saves_state=
   ))
 
 (*val m_collect_saves: forall 'a. expr 'a -> m_labeled_continuations 'a*)
-let m_collect_saves expr1:((Symbol.sym),(core_base_type*(Symbol.sym*((core_base_type*(ctype*pass_by_value_or_pointer)option)*pexpr))list*'a expr*(annot)list))Pmap.map=
+let m_collect_saves expr1 =
    (let st = (m_collect_saves_aux { m_tmp_acc= (Pmap.empty (fun sym1 sym2->ordCompare 
   Symbol.instance_Basic_classes_Eq_Symbol_sym_dict Symbol.instance_Basic_classes_Ord_Symbol_sym_dict sym1 sym2)); m_closed_acc= (Pmap.empty (fun sym1 sym2->ordCompare 
   Symbol.instance_Basic_classes_Eq_Symbol_sym_dict Symbol.instance_Basic_classes_Ord_Symbol_sym_dict sym1 sym2)) } expr1) in
@@ -2122,7 +2122,7 @@ let m_collect_saves expr1:((Symbol.sym),(core_base_type*(Symbol.sym*((core_base_
 (*import Map_extra*)
 
 (*val collect_labeled_continuations_NEW: forall 'a. file 'a -> map Symbol.sym (map Symbol.sym (list (Symbol.sym * core_base_type) * expr 'a) (*Core.labeled_continuations 'a *))*)
-let collect_labeled_continuations_NEW file1:((Symbol.sym),(((Symbol.sym),((Symbol.sym*core_base_type)list*'a expr))Pmap.map))Pmap.map=
+let collect_labeled_continuations_NEW file1 =
    (
 (*  let xs =  *)Pmap.fold (fun fun_sym decl acc ->
     (match decl with
@@ -2150,7 +2150,7 @@ in
 
 
 (*val     update_env: pattern -> value -> list (map Symbol.sym value) -> list (map Symbol.sym value)*)
-let rec update_env_aux dict_Map_MapKeyType_a (Pattern( _, pat)) cval env1:('a,(value))Pmap.map=
+let rec update_env_aux dict_Map_MapKeyType_a (Pattern( _, pat)) cval env1 =
    (
   (* TODO (maybe), Carray, Civmax, Civmin, Civsizeof, Civalignof *)(match (pat, cval) with
     | (CaseBase (None, _), _) ->
@@ -2218,7 +2218,7 @@ let rec update_env_aux dict_Map_MapKeyType_a (Pattern( _, pat)) cval env1:('a,(v
                ^ ((string_of_int (List.length pats)) ^ (" -- " ^ String_core.string_of_value cval)))))
   ))
 
-let update_env pat cval:(((Symbol.sym),(value))Pmap.map)list ->(((Symbol.sym),(value))Pmap.map)list=  ((function
+let update_env pat cval =  ((function
   | [] ->
       Cerb_debug.error "Core_aux.update_env: found empty env"
   | env1::xs ->
@@ -2227,7 +2227,7 @@ let update_env pat cval:(((Symbol.sym),(value))Pmap.map)list ->(((Symbol.sym),(v
 ))
 
 
-let rec lookup_env sym1:(('b,'a)Pmap.map)list ->'a option=  ((function
+let rec lookup_env sym1 =  ((function
   | [] ->
       None
   | env1 :: xs ->
