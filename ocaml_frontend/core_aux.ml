@@ -311,264 +311,139 @@ let mk_undef_exceptional_condition loc1 =
 let bitwise_complement_pe = Pexpr.ctor2 CivCOMPL
 
 
-(* Some aliases for positive actions *)
-let pcreate loc1 al ty1 pref =
-  Expr ([], Eaction (Paction (Pos, Action (loc1, (), Create (al, ty1, pref)))))
+(* Core expr builders ****************************************************** *)
+module Expr = struct
+  let mk ?(annots = []) desc = Expr (annots, desc)
+end
 
-let pcreate_readonly loc1 al ty1 init1 pref =
-  Expr
-    ( [],
-      Eaction
-        (Paction (Pos, Action (loc1, (), CreateReadOnly (al, ty1, init1, pref))))
-    )
+let maybe_annotate_integer_type (Ctype (_, ty_)) (Expr (annots, desc)) =
+  let annots =
+    match ty_ with
+    | Basic (Integer ity) -> Avalue (Ainteger ity) :: annots
+    | _ -> annots
+  in
+  Expr (annots, desc)
 
-(*
-let palloc loc al e pref =
-  Expr [] (Eaction (Paction Pos (Action loc default (Alloc al e pref))))
-*)
+
+let mk_pure_e pe = Expr.mk (Epure pe)
+let mk_value_e cval = mk_pure_e (mk_value_pe cval)
+let mk_skip_e = mk_value_e Vunit
+
+let mk_memop_e mop pes = Expr.mk (Ememop (mop, pes))
+let mk_case_e pe pat_es = Expr.mk (Ecase (pe, pat_es))
+let mk_let_e pat pe e = Expr.mk (Elet (pat, pe, e))
+let mk_if_e_ annots pe e1 e2 = Expr.mk ~annots (Eif (pe, e1, e2))
+let mk_if_e pe e1 e2 = Expr.mk (Eif (pe, e1, e2))
+let mk_ccall_e_ annots cty pe pes = Expr.mk ~annots (Eccall ((), cty, pe, pes))
+let mk_unseq_e es = Expr.mk (Eunseq es)
+let mk_wseq_e pat e1 e2 = Expr.mk (Ewseq (pat, e1, e2))
+let mk_sseq_e pat e1 e2 = Expr.mk (Esseq (pat, e1, e2))
+let mk_nd_e es = Expr.mk (End es)
+let mk_save_e_ annots sym_ty sym_ty_pes e =
+  Expr.mk ~annots (Esave (sym_ty, sym_ty_pes, e))
+let mk_run_e sym pes = Expr.mk (Erun ((), sym, pes))
+let mk_wait_e tid = Expr.mk (Ewait tid)
+
+(* Core expr "smart" builders ************************************************)
+let mk_unseq = function
+  | [] -> mk_value_e Vunit
+  | [ e ] -> e
+  | es -> mk_unseq_e es
+
+let rec mk_unit_sseq es =
+ fun z ->
+  match es with
+  | [] -> z
+  | e :: es' -> mk_sseq_e (mk_empty_pat BTy_unit) e (mk_unit_sseq es' z)
+
+let rec mk_sseqs pat_es =
+ fun z ->
+  match pat_es with
+  | [] -> z
+  | (pat, e) :: pat_es' -> mk_sseq_e pat e (mk_sseqs pat_es' z)
+
+let rec concat_sseq (Expr (annots, e_) as e) e' =
+  match e_ with
+  | Esseq (pat, e1, e2) -> Expr.mk ~annots (Esseq (pat, e1, concat_sseq e2 e'))
+  | Epure (Pexpr (_, _, PEval Vunit)) -> e'
+  | _ -> mk_sseq_e (mk_empty_pat BTy_unit) e e'
+
+(* Core (positive) memory action builders **************************************)
+let pcreate loc al ty pref =
+  Expr.mk (Eaction (Paction (Pos, Action (loc, (), Create (al, ty, pref)))))
+
+let pcreate_readonly loc al ty init pref =
+  Expr.mk
+    (Eaction
+      (Paction
+        (Pos, Action (loc, (), CreateReadOnly (al, ty, init, pref)))))
+
 let pkill loc1 kind1 x =
-  Expr ([], Eaction (Paction (Pos, Action (loc1, (), Kill (kind1, x)))))
+  Expr.mk (Eaction (Paction (Pos, Action (loc1, (), Kill (kind1, x)))))
 
-let pstore loc1 ty1 x n mo1 =
-  Expr
-    ( [],
-      Eaction (Paction (Pos, Action (loc1, (), Store0 (false, ty1, x, n, mo1))))
-    )
+let pstore loc ty x n mo =
+  Expr.mk
+    (Eaction (Paction (Pos, Action (loc, (), Store0 (false, ty, x, n, mo)))))
 
-let pstore_lock loc1 ty1 x n mo1 =
-  Expr
-    ( [],
-      Eaction (Paction (Pos, Action (loc1, (), Store0 (true, ty1, x, n, mo1))))
-    )
+let pstore_lock loc ty x n mo =
+  Expr.mk
+    (Eaction (Paction (Pos, Action (loc, (), Store0 (true, ty, x, n, mo)))))
 
-let pload loc1 ty1 x mo1 =
-  Expr ([], Eaction (Paction (Pos, Action (loc1, (), Load0 (ty1, x, mo1)))))
+let pload loc ty x mo =
+  Expr.mk (Eaction (Paction (Pos, Action (loc, (), Load0 (ty, x, mo)))))
 
-(*
-let prmw loc ty x n1 n2 mo1 mo2 =
-  Expr [] (Eaction (Paction Pos (Action loc default (RMW ty x n1 n2 mo1 mo2))))
-*)
-let pcompare_exchange_strong loc1 ty1 x n1 n2 mo1 mo2 =
+let pcompare_exchange_strong loc ty x n1 n2 mo1 mo2 =
   Expr
     ( [],
       Eaction
         (Paction
            ( Pos,
-             Action (loc1, (), CompareExchangeStrong (ty1, x, n1, n2, mo1, mo2))
+             Action (loc, (), CompareExchangeStrong (ty, x, n1, n2, mo1, mo2))
            )) )
 
-let pcompare_exchange_weak loc1 ty1 x n1 n2 mo1 mo2 =
+let pcompare_exchange_weak loc ty x n1 n2 mo1 mo2 =
   Expr
     ( [],
       Eaction
         (Paction
            ( Pos,
-             Action (loc1, (), CompareExchangeWeak (ty1, x, n1, n2, mo1, mo2))
+             Action (loc, (), CompareExchangeWeak (ty, x, n1, n2, mo1, mo2))
            )) )
 
-let plinux_load loc1 ty1 x mo1 =
-  Expr ([], Eaction (Paction (Pos, Action (loc1, (), LinuxLoad (ty1, x, mo1)))))
+let plinux_load loc ty x mo =
+  Expr.mk (Eaction (Paction (Pos, Action (loc, (), LinuxLoad (ty, x, mo)))))
 
-let plinux_store loc1 ty1 x n mo1 =
-  Expr
-    ([], Eaction (Paction (Pos, Action (loc1, (), LinuxStore (ty1, x, n, mo1)))))
+let plinux_store loc ty x n mo =
+  Expr.mk
+    (Eaction (Paction (Pos, Action (loc, (), LinuxStore (ty, x, n, mo)))))
 
-let plinux_rmw loc1 ty1 x n mo1 =
-  Expr
-    ([], Eaction (Paction (Pos, Action (loc1, (), LinuxRMW (ty1, x, n, mo1)))))
+let plinux_rmw loc ty x n mo =
+  Expr.mk
+    (Eaction (Paction (Pos, Action (loc, (), LinuxRMW (ty, x, n, mo)))))
 
-(*import Global Cmm_csem*)
-let seq_rmw loc1 with_forward ty1 oTy x sym1 upd =
+let seq_rmw loc with_forward ty oTy x sym upd =
   let backend = Cerb_global.backend_name () in
   if backend = "Cn" || backend = "Bmc" then
     (* TODO: compatibility mode for Cn, until SeqRMW is supported *)
     if with_forward then
       Cerb_debug.error "TODO: Core_aux.seq_rmw (comptability mode) with_forward"
     else
-      Expr
-        ( [],
-          Ewseq
-            ( mk_sym_pat sym1 (*TODO*) (BTy_loaded oTy),
-              pload loc1 ty1 x Cmm_csem.NA,
+      Expr.mk
+        ( Ewseq
+            ( mk_sym_pat sym (*TODO*) (BTy_loaded oTy),
+              pload loc ty x Cmm_csem.NA,
               Expr
                 ( [],
                   Ewseq
                     ( mk_empty_pat BTy_unit,
-                      pstore loc1 ty1 x upd Cmm_csem.NA,
-                      Expr ([], Epure (mk_sym_pe sym1)) ) ) ) )
+                      pstore loc ty x upd Cmm_csem.NA,
+                      Expr.mk (Epure (mk_sym_pe sym)) ) ) ) )
   else
-    Expr
-      ( [],
-        Eaction
+    Expr.mk
+      ( Eaction
           (Paction
-             (Pos, Action (loc1, (), SeqRMW (with_forward, ty1, x, sym1, upd))))
-      )
+             (Pos, Action (loc, (), SeqRMW (with_forward, ty, x, sym, upd)))) )
 
-(*
-
-
-(*
-
-TODO: bring back structs/unions
-
-  let proj_member = function
-    | Ail.MEMBER ty               -> MEMBER (proj_ctype ty)
-    | Ail.BITFIELD ty w is_packed -> BITFIELD (proj_ctype ty) w is_packed
-  end in
-*)
-  match ty with
-    | Ctype.Void             -> Void
-    | Ctype.Basic bt         -> Basic bt
-    | Ctype.Array ty n       -> Array (proj_ctype ty) n
-    | Ctype.Function ty ps b -> Function (proj_ctype ty) (List.map (proj_ctype -| snd) ps) b
-    | Ctype.Pointer _ ty    -> Pointer (proj_ctype ty)
-    | Ctype.Atomic ty        -> Atomic (proj_ctype ty)
-(*
-    | Ail.STRUCT _ tag members -> STRUCT tag (List.map (fun (a, m) -> (a, proj_member m)) members)
-    | Ail.UNION  _ tag members -> UNION  tag (List.map (fun (a, m) -> (a, proj_member m)) members)
-    | Ail.ENUM id              -> ENUM id
-    | Ail.ATOMIC ty            -> ATOMIC (proj_ctype ty)
-    | Ail.TYPEDEF _            -> error "[Core_aux.proj_ctype] found a A.TYPEDEF"
-    | Ail.SIZE_T               -> SIZE_T
-    | Ail.INTPTR_T             -> INTPTR_T
-    | Ail.WCHAR_T              -> WCHAR_T
-    | Ail.CHAR16_T             -> CHAR16_T
-    | Ail.CHAR32_T             -> CHAR32_T
-*)
-end
-*)
-
-(*
-(* Bring back a Core.ctype into a Ail.ctype (with loss of qualifiers if coming from proj_ctype) *)
-let rec unproj_ctype ty =
-  Ctype.Ctype [] (match ty with
-    | Void ->
-        Ctype.Void
-    | Basic bty ->
-        Ctype.Basic bty
-    | Array ty n_opt ->
-        Ctype.Array (unproj_ctype ty) n_opt
-    | Function (qs, ty) qs_tys is_variadic ->
-        (* NOTE: there is a potential loss of information here for hasProto and
-           inside the parameters with isRegister. But this shouldn't matter to
-           the dynamics *)
-        Ctype.Function false (qs, unproj_ctype ty) (
-          List.map (fun (qs,ty) ->
-            (qs, unproj_ctype ty, false)
-          ) qs_tys
-        ) is_variadic
-    | Pointer qs ty ->
-        Ctype.Pointer qs (unproj_ctype ty)
-    | Atomic ty ->
-        Ctype.Atomic (unproj_ctype ty)
-    | Struct tag ->
-        Ctype.Struct tag
-    | Union tag ->
-        Ctype.Union tag
-  end)
-*)
-
-(*
-(*
-  let unproj_member = function
-    | MEMBER ty               -> Ail.MEMBER (unproj_ctype ty)
-    | BITFIELD ty w is_packed -> Ail.BITFIELD (unproj_ctype ty) w is_packed
-  end in
-*)
-  match ty with
-    | Void              -> Ctype.Void
-    | Basic bt          -> Ctype.Basic bt
-    | Array ty n        -> Ctype.Array (unproj_ctype ty) n
-    | Function ty tys b -> Ctype.Function (unproj_ctype ty) (List.map (Product.make Ctype.no_qualifiers -| unproj_ctype) tys) b
-    | Pointer ty        -> Ctype.Pointer Ctype.no_qualifiers (unproj_ctype ty)
-    | Atomic ty         -> Ctype.Atomic (unproj_ctype ty)
-(*
-    | STRUCT tag members -> Ail.STRUCT Ail.no_qualifiers tag (List.map (fun (a, m) -> (a, unproj_member m)) members)
-    | UNION  tag members -> Ail.UNION  Ail.no_qualifiers tag (List.map (fun (a, m) -> (a, unproj_member m)) members)
-    | ENUM id            -> Ail.ENUM id
-    | ATOMIC ty          -> Ail.ATOMIC (unproj_ctype ty)
-    | SIZE_T             -> Ail.SIZE_T
-    | INTPTR_T           -> Ail.INTPTR_T
-    | WCHAR_T            -> Ail.WCHAR_T
-    | CHAR16_T           -> Ail.CHAR16_T
-    | CHAR32_T           -> Ail.CHAR32_T
-*)
-end
-*)
-
-(*
-let rec mk_wseqs_aux end_e pat_es =
-  match pat_es with
-    | []               -> end_e
-    | (pat, e) :: pat_es' -> Ewseq pat e (mk_wseqs_aux end_e pat_es')
-end
-
-val mk_wseqs: expr unit -> list (pattern * expr unit) -> expr unit
-let mk_wseqs end_e = function
-  | [] ->
-      end_e
-  | [(_, e)] ->
-      e
-  | pat_es ->
-      mk_wseqs_aux end_e pat_es
-end
-*)
-
-(*val maybe_annotate_integer_type : ctype -> expr unit -> expr unit*)
-let maybe_annotate_integer_type (Ctype (_, ty_)) (Expr (annots1, expr_)) =
-  let annots1 =
-    match ty_ with
-    | Basic (Integer ity) -> Avalue (Ainteger ity) :: annots1
-    | _ -> annots1
-  in
-  Expr (annots1, expr_)
-
-(*val     mk_sseqs: list (pattern * expr unit) -> (expr unit -> expr unit)*)
-let rec mk_sseqs pat_es =
- fun z ->
-  match pat_es with
-  | [] -> z
-  | (pat, e) :: pat_es' -> Expr ([], Esseq (pat, e, mk_sseqs pat_es' z))
-
-(*
-(* val     mk_sseq: forall 'a. list (pattern * expr 'a) -> expr 'a *)
-let rec mk_sseq a_opts_es =
-  match a_opts_es with
-    | []               -> Eskip
-    | [(_, e)]         -> e
-    | (a_opts, e)::es' -> Esseq a_opts e (mk_sseq es')
-end
-
-(* val     mk_sseq': forall 'a. list (pattern * expr 'a) -> expr 'a -> expr 'a *)
-let rec mk_sseq' a_opts_es z =
-  match a_opts_es with
-    | []               -> z
-    | [(_, e)]         -> e
-    | (a_opts, e)::es' -> Esseq a_opts e (mk_sseq' es' z)
-end
-*)
-
-let mk_unseq = function
-  | [] -> Expr ([], Epure (mk_value_pe Vunit))
-  | [ e ] -> e
-  | es -> Expr ([], Eunseq es)
-
-(*val     mk_unit_sseq: list (expr unit) -> (expr unit -> expr unit)*)
-let rec mk_unit_sseq es =
- fun z ->
-  match es with
-  | [] -> z
-  (*
-      | [e] ->
-          e
-*)
-  | e :: es' -> Expr ([], Esseq (mk_empty_pat BTy_unit, e, mk_unit_sseq es' z))
-
-let rec concat_sseq (Expr (annot1, e_) as e) e' =
-  match e_ with
-  | Esseq (pat, e1, e2) -> Expr (annot1, Esseq (pat, e1, concat_sseq e2 e'))
-  | Epure (Pexpr (_, _, PEval Vunit)) -> e'
-  | _ -> Expr ([], Esseq (mk_empty_pat BTy_unit, e, e'))
 
 (*val valueFromPexpr: pexpr -> maybe value*)
 let valueFromPexpr = function
@@ -1572,71 +1447,6 @@ let rec select_case subst_sym cval =
               (fun (sym1, cval') acc -> subst_sym sym1 cval' acc)
               sym_cvals pe)))
 
-(*
-val isConstrainedValue: value -> bool
-let isConstrainedValue cval =
-  match flatten_constrained_value cval with
-    | Vconstrained _ ->
-        true
-    | _ ->
-        false
-  end
-*)
-
-(*val mk_pure_e: forall 'a. pexpr -> expr 'a*)
-let mk_pure_e pe = Expr ([], Epure pe)
-
-(*val mk_value_e: forall 'a. value -> expr 'a*)
-let mk_value_e cval = mk_pure_e (mk_value_pe cval)
-
-(*val mk_skip_e: expr unit*)
-let mk_skip_e = Expr ([], Epure (mk_value_pe Vunit))
-
-(*val mk_unseq_e: forall 'a. list (expr 'a) -> expr 'a*)
-let mk_unseq_e es = Expr ([], Eunseq es)
-
-(*val mk_case_e: pexpr -> list (pattern * expr unit) -> expr unit*)
-let mk_case_e pe pat_es = Expr ([], Ecase (pe, pat_es))
-
-(*val mk_wseq_e: forall 'a. pattern -> expr 'a -> expr 'a -> expr 'a*)
-let mk_wseq_e pat e1 e2 = Expr ([], Ewseq (pat, e1, e2))
-
-(*val mk_sseq_e: forall 'a. pattern -> expr 'a -> expr 'a -> expr 'a*)
-let mk_sseq_e pat e1 e2 = Expr ([], Esseq (pat, e1, e2))
-
-(*val mk_save_e_: list annot -> (Symbol.sym * core_base_type) -> list (Symbol.sym * ((core_base_type * maybe (Ctype.ctype * pass_by_value_or_pointer)) * pexpr)) -> expr unit -> expr unit*)
-let mk_save_e_ annots1 sym_ty sym_ty_pes e =
-  Expr (annots1, Esave (sym_ty, sym_ty_pes, e))
-
-(*
-val mk_save_e: (Symbol.sym * core_base_type) -> list (Symbol.sym * ((core_base_type * maybe (Ctype.ctype * pass_by_value_or_pointer)) * pexpr)) -> expr unit -> expr unit
-let mk_save_e sym_ty sym_ty_pes e =
-  Expr [] (Esave sym_ty sym_ty_pes e)
-*)
-
-(*val mk_run_e: Symbol.sym -> list pexpr -> expr unit*)
-let mk_run_e sym1 pes = Expr ([], Erun ((), sym1, pes))
-
-(*val mk_nd_e: list (expr unit) -> expr unit*)
-let mk_nd_e es = Expr ([], End es)
-
-(*val mk_if_e_: list annot -> pexpr -> expr unit -> expr unit -> expr unit*)
-let mk_if_e_ annots1 pe e1 e2 = Expr (annots1, Eif (pe, e1, e2))
-
-(*val mk_if_e: pexpr -> expr unit -> expr unit -> expr unit*)
-let mk_if_e pe e1 e2 = Expr ([], Eif (pe, e1, e2))
-
-(*val mk_let_e: pattern -> pexpr -> expr unit -> expr unit*)
-let mk_let_e pat pe e = Expr ([], Elet (pat, pe, e))
-
-(*val mk_ccall_e_: list annot -> pexpr -> pexpr -> list pexpr -> expr unit*)
-let mk_ccall_e_ annots1 cty pe pes = Expr (annots1, Eccall ((), cty, pe, pes))
-
-(*val mk_memop_e: Mem_common.memop -> list pexpr -> expr unit*)
-let mk_memop_e mop pes = Expr ([], Ememop (mop, pes))
-
-(*val mk_wait_e: forall 'a. Mem_common.thread_id -> expr 'a*)
-let mk_wait_e tid1 = Expr ([], Ewait tid1)
 
 (*val add_loc: Loc.t -> expr unit -> expr unit*)
 let add_loc loc1 (Expr (annot1, expr_)) =
