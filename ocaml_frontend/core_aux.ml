@@ -44,14 +44,13 @@ let rec core_object_type_of_ctype (Ctype (_, ty1)) =
       Some OTy_integer
 
 let rec loadedValueFromMemValue mem_val =
-  let () =
-    Cerb_debug.print_debug 6 [] (fun () ->
-        "loadedValueFromMemValue ==> " ^ Impl_mem.string_of_mem_value mem_val)
-  in
+  Cerb_debug.print_debug 6 [] (fun () ->
+      "loadedValueFromMemValue ==> " ^ Impl_mem.string_of_mem_value mem_val
+  );
   Impl_mem.case_mem_value mem_val
-    (fun ty1 ->
-      ( fromJust "loadedValueFromMemValue" (core_object_type_of_ctype ty1),
-        LVunspecified ty1 ))
+    (fun ty ->
+      ( fromJust "loadedValueFromMemValue" (core_object_type_of_ctype ty),
+        LVunspecified ty ))
     (fun _ _ ->
       Cerb_debug.error "[Core_aux.loadedValueFromMemValue] concurrency read")
     (fun _ ival -> (OTy_integer, LVspecified (OVinteger ival)))
@@ -72,20 +71,19 @@ let rec loadedValueFromMemValue mem_val =
           else
             ( OTy_array oTy,
               LVspecified (OVarray (lval :: Lem_list.map snd oTy_lvals)) ))
-    (fun sym1 xs -> (OTy_struct sym1, LVspecified (OVstruct (sym1, xs))))
-    (fun sym1 ident mem_val ->
-      (OTy_union sym1, LVspecified (OVunion (sym1, ident, mem_val))))
+    (fun sym xs -> (OTy_struct sym, LVspecified (OVstruct (sym, xs))))
+    (fun sym ident mem_val ->
+      (OTy_union sym, LVspecified (OVunion (sym, ident, mem_val))))
 
-(*val valueFromMemValue: Mem.mem_value -> core_object_type * value*)
+
 let valueFromMemValue mem_val =
-  let () =
-    Cerb_debug.print_debug 6 [] (fun () ->
-        "valueFromMemValue ==> " ^ Impl_mem.string_of_mem_value mem_val)
-  in
+  Cerb_debug.print_debug 6 [] (fun () ->
+      "valueFromMemValue ==> " ^ Impl_mem.string_of_mem_value mem_val
+  );
   Impl_mem.case_mem_value mem_val
-    (fun ty1 ->
-      ( fromJust "Core_aux.valueFromMemValue" (core_object_type_of_ctype ty1),
-        Vloaded (LVunspecified ty1) ))
+    (fun ty ->
+      ( fromJust "Core_aux.valueFromMemValue" (core_object_type_of_ctype ty),
+        Vloaded (LVunspecified ty) ))
     (fun _ _ ->
       Cerb_debug.error "[Core_aux.valueFromMemValue] concurrency read")
     (fun _ ival -> (OTy_integer, Vloaded (LVspecified (OVinteger ival))))
@@ -103,38 +101,32 @@ let valueFromMemValue mem_val =
         | oTy :: _ -> oTy
       in
       (OTy_array oTy, Vloaded (LVspecified (OVarray lvals))))
-    (fun sym1 xs ->
-      (OTy_struct sym1, Vloaded (LVspecified (OVstruct (sym1, xs)))))
-    (fun sym1 ident mem_val ->
-      (OTy_union sym1, Vloaded (LVspecified (OVunion (sym1, ident, mem_val)))))
+    (fun sym xs ->
+      (OTy_struct sym, Vloaded (LVspecified (OVstruct (sym, xs)))))
+    (fun sym ident mem_val ->
+      (OTy_union sym, Vloaded (LVspecified (OVunion (sym, ident, mem_val)))))
 
-(*val     memValueFromValue: ctype -> value -> maybe Mem.mem_value*)
-let rec memValueFromValue ty1 cval =
-  let (Ctype (annots1, ty_)) = unatomic ty1 in
+let rec memValueFromValue ty cval =
+  let (Ctype (_, ty_)) = unatomic ty in
   match (ty_, cval) with
-  | _, Vunit -> None
-  | _, Vtrue -> None
-  | _, Vfalse -> None
-  | _, Vlist (_, _) -> None
-  | _, Vtuple _ -> None
+  | _, Vunit
+  | _, Vtrue
+  | _, Vfalse
+  | _, Vlist _
+  | _, Vtuple _
   | _, Vctype _ -> None
   | _, Vloaded (LVunspecified ty') ->
       Some (Impl_mem.unspecified_mval ty') (* TODO: check ty = ty'? *)
-  | Basic (Integer ity), Vobject (OVinteger ival) ->
-      Some (Impl_mem.integer_value_mval ity ival)
+  | Basic (Integer ity), Vobject (OVinteger ival)
   | Basic (Integer ity), Vloaded (LVspecified (OVinteger ival)) ->
       Some (Impl_mem.integer_value_mval ity ival)
-  | Byte, Vobject (OVinteger ival) ->
-      Some (Impl_mem.integer_value_mval (Unsigned Ichar) ival)
+  | Byte, Vobject (OVinteger ival)
   | Byte, Vloaded (LVspecified (OVinteger ival)) ->
       Some (Impl_mem.integer_value_mval (Unsigned Ichar) ival)
-  | Basic (Floating fty), Vloaded (LVspecified (OVfloating fval)) ->
-      Some (Impl_mem.floating_value_mval fty fval)
+  | Basic (Floating fty), Vloaded (LVspecified (OVfloating fval))
   | Basic (Floating fty), Vobject (OVfloating fval) ->
       Some (Impl_mem.floating_value_mval fty fval)
-  | Pointer (_, ref_ty), Vobject (OVpointer ptr_val) ->
-      (* TODO: not sure about this *)
-      Some (Impl_mem.pointer_mval ref_ty ptr_val)
+  | Pointer (_, ref_ty), Vobject (OVpointer ptr_val) (* TODO: not sure about this *)
   | Pointer (_, ref_ty), Vloaded (LVspecified (OVpointer ptr_val)) ->
       Some (Impl_mem.pointer_mval ref_ty ptr_val)
   | Array (elem_ty, _), Vloaded (LVspecified (OVarray lvals)) ->
@@ -168,7 +160,7 @@ let rec memValueFromValue ty1 cval =
       let () =
         Cerb_debug.print_debug 5 [] (fun () ->
             "memValueFromValue("
-            ^ String_core_ctype.string_of_ctype (Ctype ([], ty_))
+            ^ String_core_ctype.string_of_ctype ty
             ^ ", "
             ^ String_core.string_of_value cval
             ^ ")")
