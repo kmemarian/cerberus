@@ -4,8 +4,6 @@ open Cerb_global
 (* Pipeline *)
 
 let (>>=) = Exception.except_bind
-(*let (>>) m f = m >>= fun _ -> f*)
-let (<$>)  = Exception.except_fmap
 let return = Exception.except_return
 
 let run_pp fout_opt doc =
@@ -508,7 +506,7 @@ let typed_core_passes (conf, io) core_file =
       io.pass_message "Core typechecking completed!"
   end >>= fun () ->
   (* TODO: for now assuming a single order comes from indet expressions *)
-  Core_indet.hackish_order <$> begin
+  begin
     if conf.rewrite_core then core_rewrite (conf, io) core_file
     else return core_file
   end >>= fun core_file' ->
@@ -555,16 +553,14 @@ let core_passes (conf, io) ~filename core_file =
       Remove_unspecs.rewrite_file core_file
     else
       core_file in
-  Core_indet.hackish_order <$> begin
-    if conf.sequentialise_core || conf.typecheck_core then
-      typed_core_passes (conf, io) core_file >>= fun (core_file, typed_core_file) ->
-      print_core (conf, io) ~filename typed_core_file >>= fun _ ->
-      return core_file
-    else if conf.rewrite_core then
-      core_rewrite (conf, io) core_file >>= print_core (conf, io) ~filename
-    else
-      print_core (conf, io) ~filename core_file
-  end
+  if conf.sequentialise_core || conf.typecheck_core then
+    typed_core_passes (conf, io) core_file >>= fun (core_file, typed_core_file) ->
+    print_core (conf, io) ~filename typed_core_file >>= fun _ ->
+    return core_file
+  else if conf.rewrite_core then
+    core_rewrite (conf, io) core_file >>= print_core (conf, io) ~filename
+  else
+    print_core (conf, io) ~filename core_file
 
 let interp_backend io core_file ~args ~batch ~fs ~driver_conf =
   let module D = Driver_ocaml in
