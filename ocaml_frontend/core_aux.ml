@@ -161,24 +161,7 @@ let rec memValueFromValue ty1 cval =
       else None
   | Union tag_sym1, Vloaded (LVspecified (OVunion (tag_sym2, ident, mem_val)))
     ->
-      if
-        match (tag_sym1, tag_sym2) with
-        | Symbol.Symbol (d1, n1, sd1), Symbol.Symbol (d2, n2, sd2) ->
-            if Digest.compare d1 d2 = 0 && n1 = n2 then
-              if
-                Cerb_debug.get_debug_level () >= 5
-                && unsafe_structural_inequality sd1 sd2
-              then
-                let () =
-                  Cerb_debug.print_debug 5 [] (fun () ->
-                      "[Symbol.symbolEqual] suspicious equality ==> "
-                      ^ Symbol.show_symbol_description sd1
-                      ^ " <-> "
-                      ^ Symbol.show_symbol_description sd2)
-                in
-                true
-              else true
-            else false
+      if Symbol.symbolEquality tag_sym1 tag_sym2
       then Some (Impl_mem.union_mval tag_sym1 ident mem_val)
       else None
   | _ ->
@@ -700,26 +683,7 @@ let valueFromPexprs pes =
 let rec in_pattern sym1 (Pattern (_, pat)) =
   match pat with
   | CaseBase (sym_opt, _) ->
-      Lem.option_case false
-        (fun sym' ->
-          match (sym1, sym') with
-          | Symbol.Symbol (d1, n1, sd1), Symbol.Symbol (d2, n2, sd2) ->
-              if Digest.compare d1 d2 = 0 && n1 = n2 then
-                if
-                  Cerb_debug.get_debug_level () >= 5
-                  && unsafe_structural_inequality sd1 sd2
-                then
-                  let () =
-                    Cerb_debug.print_debug 5 [] (fun () ->
-                        "[Symbol.symbolEqual] suspicious equality ==> "
-                        ^ Symbol.show_symbol_description sd1
-                        ^ " <-> "
-                        ^ Symbol.show_symbol_description sd2)
-                  in
-                  true
-                else true
-              else false)
-        sym_opt
+      Lem.option_case false (Symbol.symbolEquality sym1) sym_opt
   | CaseCtor (_, pats') -> List.exists (in_pattern sym1) pats'
 
 (*val     subst_sym_pexpr: Symbol.sym -> value -> pexpr -> pexpr*)
@@ -729,24 +693,7 @@ let rec subst_sym_pexpr sym1 cval (Pexpr (annot1, bty, pexpr_)) =
       bty,
       match pexpr_ with
       | PEsym sym' ->
-          if
-            match (sym1, sym') with
-            | Symbol.Symbol (d1, n1, sd1), Symbol.Symbol (d2, n2, sd2) ->
-                if Digest.compare d1 d2 = 0 && n1 = n2 then
-                  if
-                    Cerb_debug.get_debug_level () >= 5
-                    && unsafe_structural_inequality sd1 sd2
-                  then
-                    let () =
-                      Cerb_debug.print_debug 5 [] (fun () ->
-                          "[Symbol.symbolEqual] suspicious equality ==> "
-                          ^ Symbol.show_symbol_description sd1
-                          ^ " <-> "
-                          ^ Symbol.show_symbol_description sd2)
-                    in
-                    true
-                  else true
-                else false
+          if Symbol.symbolEquality sym1 sym'
           then PEval cval
           else pexpr_
       | PEimpl _ -> pexpr_
@@ -877,24 +824,7 @@ let rec subst_sym_expr sym1 cval (Expr (annot1, expr_)) =
           in
           if
             List.exists
-              (fun (z, _) ->
-                match (sym1, z) with
-                | Symbol.Symbol (d1, n1, sd1), Symbol.Symbol (d2, n2, sd2) ->
-                    if Digest.compare d1 d2 = 0 && n1 = n2 then
-                      if
-                        Cerb_debug.get_debug_level () >= 5
-                        && unsafe_structural_inequality sd1 sd2
-                      then
-                        let () =
-                          Cerb_debug.print_debug 5 [] (fun () ->
-                              "[Symbol.symbolEqual] suspicious equality ==> "
-                              ^ Symbol.show_symbol_description sd1
-                              ^ " <-> "
-                              ^ Symbol.show_symbol_description sd2)
-                        in
-                        true
-                      else true
-                    else false)
+              (fun (z, _) -> Symbol.symbolEquality sym1 z)
               sym_bTy_pes
           then
             let () =
@@ -946,24 +876,7 @@ and subst_sym_action_ sym1 cval =
          subst_sym_pexpr sym1 cval pe1,
          subst_sym_pexpr sym1 cval pe2,
          sym',
-         if
-           match (sym1, sym') with
-           | Symbol.Symbol (d1, n1, sd1), Symbol.Symbol (d2, n2, sd2) ->
-               if Digest.compare d1 d2 = 0 && n1 = n2 then
-                 if
-                   Cerb_debug.get_debug_level () >= 5
-                   && unsafe_structural_inequality sd1 sd2
-                 then
-                   let () =
-                     Cerb_debug.print_debug 5 [] (fun () ->
-                         "[Symbol.symbolEqual] suspicious equality ==> "
-                         ^ Symbol.show_symbol_description sd1
-                         ^ " <-> "
-                         ^ Symbol.show_symbol_description sd2)
-                   in
-                   true
-                 else true
-               else false
+         if Symbol.symbolEquality sym1 sym'
          then pe3
          else subst_sym_pexpr sym1 cval pe3 )
  | RMW0 (pe1, pe2, pe3, pe4, mo1, mo2) ->
@@ -1078,24 +991,7 @@ let rec unsafe_subst_sym_pexpr sym1 (Pexpr (annot1, bty, pe_') as pe')
       bty,
       match pe_ with
       | PEsym sym' ->
-          if
-            match (sym1, sym') with
-            | Symbol.Symbol (d1, n1, sd1), Symbol.Symbol (d2, n2, sd2) ->
-                if Digest.compare d1 d2 = 0 && n1 = n2 then
-                  if
-                    Cerb_debug.get_debug_level () >= 5
-                    && unsafe_structural_inequality sd1 sd2
-                  then
-                    let () =
-                      Cerb_debug.print_debug 5 [] (fun () ->
-                          "[Symbol.symbolEqual] suspicious equality ==> "
-                          ^ Symbol.show_symbol_description sd1
-                          ^ " <-> "
-                          ^ Symbol.show_symbol_description sd2)
-                    in
-                    true
-                  else true
-                else false
+          if Symbol.symbolEquality sym1 sym'
           then pe_'
           else pe_
       | PEimpl _ -> pe_
@@ -1238,24 +1134,7 @@ let rec unsafe_subst_sym_expr sym1 pe' (Expr (annot1, expr_)) =
           in
           if
             List.exists
-              (fun (z, _) ->
-                match (sym1, z) with
-                | Symbol.Symbol (d1, n1, sd1), Symbol.Symbol (d2, n2, sd2) ->
-                    if Digest.compare d1 d2 = 0 && n1 = n2 then
-                      if
-                        Cerb_debug.get_debug_level () >= 5
-                        && unsafe_structural_inequality sd1 sd2
-                      then
-                        let () =
-                          Cerb_debug.print_debug 5 [] (fun () ->
-                              "[Symbol.symbolEqual] suspicious equality ==> "
-                              ^ Symbol.show_symbol_description sd1
-                              ^ " <-> "
-                              ^ Symbol.show_symbol_description sd2)
-                        in
-                        true
-                      else true
-                    else false)
+              (fun (z, _) -> Symbol.symbolEquality sym1 z)
               sym_bTy_pes
           then
             let () =
@@ -1312,24 +1191,7 @@ and unsafe_subst_sym_action_ a pe' =
          unsafe_subst_sym_pexpr a pe' pe1,
          unsafe_subst_sym_pexpr a pe' pe2,
          sym',
-         if
-           match (a, sym') with
-           | Symbol.Symbol (d1, n1, sd1), Symbol.Symbol (d2, n2, sd2) ->
-               if Digest.compare d1 d2 = 0 && n1 = n2 then
-                 if
-                   Cerb_debug.get_debug_level () >= 5
-                   && unsafe_structural_inequality sd1 sd2
-                 then
-                   let () =
-                     Cerb_debug.print_debug 5 [] (fun () ->
-                         "[Symbol.symbolEqual] suspicious equality ==> "
-                         ^ Symbol.show_symbol_description sd1
-                         ^ " <-> "
-                         ^ Symbol.show_symbol_description sd2)
-                   in
-                   true
-                 else true
-               else false
+         if Symbol.symbolEquality a sym'
          then pe3
          else unsafe_subst_sym_pexpr a pe' pe3 )
  | RMW0 (pe1, pe2, pe3, pe4, mo1, mo2) ->
