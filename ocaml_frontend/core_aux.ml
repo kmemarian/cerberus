@@ -196,7 +196,7 @@ module Pexpr = struct
   let ctor1 ctor pe = mk (PEctor (ctor, [ pe ]))
   let ctor2 ctor pe1 pe2 = mk (PEctor (ctor, [ pe1; pe2 ]))
   let ctorN ctor pes = mk (PEctor (ctor, pes))
-  let _map f (Pexpr (annots, bTy, desc)) = Pexpr (annots, bTy, f desc)
+  let map f (Pexpr (annots, bTy, desc)) = Pexpr (annots, bTy, f desc)
 
   let add_annot annot (Pexpr (annots, bTy, desc)) =
     Pexpr (annot :: annots, bTy, desc)
@@ -306,6 +306,7 @@ let bitwise_complement_pe = Pexpr.ctor2 CivCOMPL
 (* Core expr builders ****************************************************** *)
 module Expr = struct
   let mk ?(annots = []) desc = Expr (annots, desc)
+  let map f (Expr (annots, desc)) = Expr (annots, f desc)
 end
 
 let maybe_annotate_integer_type (Ctype (_, ty_)) (Expr (annots, desc)) =
@@ -438,253 +439,235 @@ let seq_rmw loc with_forward ty oTy x sym upd =
 
 
 (* check if a symbolic names is part of a pattern *)
-(*val in_pattern: Symbol.sym -> pattern -> bool*)
-let rec in_pattern sym1 (Pattern (_, pat)) =
+let rec in_pattern sym (Pattern (_, pat)) =
   match pat with
   | CaseBase (sym_opt, _) ->
-      Lem.option_case false (Symbol.symbolEquality sym1) sym_opt
-  | CaseCtor (_, pats') -> List.exists (in_pattern sym1) pats'
+      Option.fold ~none:false ~some:(Symbol.symbolEquality sym) sym_opt
+  | CaseCtor (_, pats') -> List.exists (in_pattern sym) pats'
 
-(*val     subst_sym_pexpr: Symbol.sym -> value -> pexpr -> pexpr*)
-let rec subst_sym_pexpr sym1 cval (Pexpr (annot1, bty, pexpr_)) =
-  Pexpr
-    ( annot1,
-      bty,
-      match pexpr_ with
-      | PEsym sym' ->
-          if Symbol.symbolEquality sym1 sym'
-          then PEval cval
-          else pexpr_
-      | PEimpl _ -> pexpr_
-      | PEval _ -> pexpr_
-      | PEundef (_, _) -> pexpr_
-      | PEerror (str, pe) -> PEerror (str, subst_sym_pexpr sym1 cval pe)
-      | PEctor (ctor1, pes) ->
-          PEctor (ctor1, List.map (subst_sym_pexpr sym1 cval) pes)
-      | PEcase (pe, xs) ->
-          PEcase
-            ( subst_sym_pexpr sym1 cval pe,
-              List.map
-                (fun (pat, pe) ->
-                  ( pat,
-                    if in_pattern sym1 pat then pe
-                    else subst_sym_pexpr sym1 cval pe ))
-                xs )
-      | PEarray_shift (pe1, ty1, pe2) ->
-          PEarray_shift
-            (subst_sym_pexpr sym1 cval pe1, ty1, subst_sym_pexpr sym1 cval pe2)
-      | PEmember_shift (pe, tag_sym, memb_ident) ->
-          PEmember_shift (subst_sym_pexpr sym1 cval pe, tag_sym, memb_ident)
-      | PEmemop (mop, pes) ->
-          PEmemop (mop, List.map (subst_sym_pexpr sym1 cval) pes)
-      | PEnot pe -> PEnot (subst_sym_pexpr sym1 cval pe)
-      | PEop (bop, pe1, pe2) ->
-          PEop
-            (bop, subst_sym_pexpr sym1 cval pe1, subst_sym_pexpr sym1 cval pe2)
-      | PEconv_int (ty1, pe) -> PEconv_int (ty1, subst_sym_pexpr sym1 cval pe)
-      | PEwrapI (ty1, iop1, pe1, pe2) ->
-          PEwrapI
-            ( ty1,
-              iop1,
-              subst_sym_pexpr sym1 cval pe1,
-              subst_sym_pexpr sym1 cval pe2 )
-      | PEcatch_exceptional_condition (ty1, iop1, pe1, pe2) ->
-          PEcatch_exceptional_condition
-            ( ty1,
-              iop1,
-              subst_sym_pexpr sym1 cval pe1,
-              subst_sym_pexpr sym1 cval pe2 )
-      | PEstruct (tag_sym, xs) ->
-          PEstruct
-            ( tag_sym,
-              List.map
-                (fun (ident, pe) -> (ident, subst_sym_pexpr sym1 cval pe))
-                xs )
-      | PEunion (tag_sym, ident, pe) ->
-          PEunion (tag_sym, ident, subst_sym_pexpr sym1 cval pe)
-      | PEcfunction pe -> PEcfunction (subst_sym_pexpr sym1 cval pe)
-      | PEmemberof (tag_sym, memb_ident, pe) ->
-          PEmemberof (tag_sym, memb_ident, subst_sym_pexpr sym1 cval pe)
-      | PEcall (nm, pes) ->
-          PEcall (nm, List.map (subst_sym_pexpr sym1 cval) pes)
-      | PElet (pat, pe1, pe2) ->
-          PElet
-            ( pat,
-              subst_sym_pexpr sym1 cval pe1,
-              if in_pattern sym1 pat then pe2 else subst_sym_pexpr sym1 cval pe2
-            )
-      | PEif (pe1, pe2, pe3) ->
-          PEif
-            ( subst_sym_pexpr sym1 cval pe1,
-              subst_sym_pexpr sym1 cval pe2,
-              subst_sym_pexpr sym1 cval pe3 )
-      | PEis_scalar pe -> PEis_scalar (subst_sym_pexpr sym1 cval pe)
-      | PEis_integer pe -> PEis_integer (subst_sym_pexpr sym1 cval pe)
-      | PEis_signed pe -> PEis_signed (subst_sym_pexpr sym1 cval pe)
-      | PEis_unsigned pe -> PEis_unsigned (subst_sym_pexpr sym1 cval pe)
-      | PEbmc_assume pe -> PEbmc_assume (subst_sym_pexpr sym1 cval pe)
-      | PEare_compatible (pe1, pe2) ->
-          PEare_compatible
-            (subst_sym_pexpr sym1 cval pe1, subst_sym_pexpr sym1 cval pe2) )
+let rec subst_sym_pexpr sym cval =
+  let self x = subst_sym_pexpr sym cval x [@@inline] in
+  Pexpr.map (function
+  | PEsym sym' as pexpr_ ->
+      if Symbol.symbolEquality sym sym' then PEval cval else pexpr_
+  | (PEimpl _ | PEval _ | PEundef _) as pexpr_ -> pexpr_
+  | PEerror (str, pe) -> PEerror (str, self pe)
+  | PEctor (ctor, pes) ->
+      PEctor (ctor, List.map (self) pes)
+  | PEcase (pe, xs) ->
+      PEcase
+        ( self pe,
+          List.map
+            (fun (pat, pe) ->
+              ( pat,
+                if in_pattern sym pat then pe
+                else self pe ))
+            xs )
+  | PEarray_shift (pe1, ty1, pe2) ->
+      PEarray_shift
+        (self pe1, ty1, self pe2)
+  | PEmember_shift (pe, tag_sym, memb_ident) ->
+      PEmember_shift (self pe, tag_sym, memb_ident)
+  | PEmemop (mop, pes) ->
+      PEmemop (mop, List.map (self) pes)
+  | PEnot pe -> PEnot (self pe)
+  | PEop (bop, pe1, pe2) ->
+      PEop
+        (bop, self pe1, self pe2)
+  | PEconv_int (ty1, pe) -> PEconv_int (ty1, self pe)
+  | PEwrapI (ty1, iop1, pe1, pe2) ->
+      PEwrapI
+        ( ty1,
+          iop1,
+          self pe1,
+          self pe2 )
+  | PEcatch_exceptional_condition (ty1, iop1, pe1, pe2) ->
+      PEcatch_exceptional_condition
+        ( ty1,
+          iop1,
+          self pe1,
+          self pe2 )
+  | PEstruct (tag_sym, xs) ->
+      PEstruct
+        ( tag_sym,
+          List.map
+            (fun (ident, pe) -> (ident, self pe))
+            xs )
+  | PEunion (tag_sym, ident, pe) ->
+      PEunion (tag_sym, ident, self pe)
+  | PEcfunction pe -> PEcfunction (self pe)
+  | PEmemberof (tag_sym, memb_ident, pe) ->
+      PEmemberof (tag_sym, memb_ident, self pe)
+  | PEcall (nm, pes) ->
+      PEcall (nm, List.map (self) pes)
+  | PElet (pat, pe1, pe2) ->
+      PElet
+        ( pat,
+          self pe1,
+          if in_pattern sym pat then pe2 else self pe2
+        )
+  | PEif (pe1, pe2, pe3) ->
+      PEif
+        ( self pe1,
+          self pe2,
+          self pe3 )
+  | PEis_scalar pe -> PEis_scalar (self pe)
+  | PEis_integer pe -> PEis_integer (self pe)
+  | PEis_signed pe -> PEis_signed (self pe)
+  | PEis_unsigned pe -> PEis_unsigned (self pe)
+  | PEbmc_assume pe -> PEbmc_assume (self pe)
+  | PEare_compatible (pe1, pe2) ->
+      PEare_compatible
+        (self pe1, self pe2) )
 
-(*val     subst_sym_expr: forall 'a. Symbol.sym -> value -> expr 'a -> expr 'a*)
-let rec subst_sym_expr sym1 cval (Expr (annot1, expr_)) =
-  Expr
-    ( annot1,
-      match expr_ with
-      | Epure pe -> Epure (subst_sym_pexpr sym1 cval pe)
-      | Ememop (memop1, pes) ->
-          Ememop (memop1, List.map (subst_sym_pexpr sym1 cval) pes)
-      | Elet (pat, pe1, e2) ->
-          Elet
-            ( pat,
-              subst_sym_pexpr sym1 cval pe1,
-              if in_pattern sym1 pat then e2 else subst_sym_expr sym1 cval e2 )
-      | Eif (pe1, e2, e3) ->
-          Eif
-            ( subst_sym_pexpr sym1 cval pe1,
-              subst_sym_expr sym1 cval e2,
-              subst_sym_expr sym1 cval e3 )
-      | Ecase (pe, pat_es) ->
-          Ecase
-            ( subst_sym_pexpr sym1 cval pe,
-              List.map
-                (fun (pat, e) ->
-                  ( pat,
-                    if in_pattern sym1 pat then e
-                    else subst_sym_expr sym1 cval e ))
-                pat_es )
-      | Eccall (annot1, pe1, pe2, pes) ->
-          Eccall
-            ( annot1,
-              subst_sym_pexpr sym1 cval pe1,
-              subst_sym_pexpr sym1 cval pe2,
-              List.map (subst_sym_pexpr sym1 cval) pes )
-      | Eproc (annot1, nm, pes) ->
-          Eproc (annot1, nm, List.map (subst_sym_pexpr sym1 cval) pes)
-      | Eaction pact -> Eaction (subst_sym_paction sym1 cval pact)
-      | Eunseq es -> Eunseq (List.map (subst_sym_expr sym1 cval) es)
-      | Ewseq (pat, e1, e2) ->
-          Ewseq
-            ( pat,
-              subst_sym_expr sym1 cval e1,
-              if in_pattern sym1 pat then e2 else subst_sym_expr sym1 cval e2 )
-      | Esseq (pat, e1, e2) ->
-          Esseq
-            ( pat,
-              subst_sym_expr sym1 cval e1,
-              if in_pattern sym1 pat then e2 else subst_sym_expr sym1 cval e2 )
-      | Ebound e -> Ebound (subst_sym_expr sym1 cval e)
-      | Esave (lab_sym, sym_bTy_pes, e) ->
-          let sym_bTy_pes' =
-            List.map
-              (fun (z, (bTy, pe)) -> (z, (bTy, subst_sym_pexpr sym1 cval pe)))
-              sym_bTy_pes
-          in
-          if
-            List.exists
-              (fun (z, _) -> Symbol.symbolEquality sym1 z)
-              sym_bTy_pes
-          then
-            let () =
-              Cerb_debug.warn [] (fun () -> "subst, Esave ==> shadowing")
-            in
-            (* TODO: check *)
-            Esave (lab_sym, sym_bTy_pes', e)
-          else Esave (lab_sym, sym_bTy_pes', subst_sym_expr sym1 cval e)
-      | Erun (annot1, lab_sym, pes) ->
-          Erun (annot1, lab_sym, List.map (subst_sym_pexpr sym1 cval) pes)
-      | End es -> End (List.map (subst_sym_expr sym1 cval) es)
-      | Epar es -> Epar (List.map (subst_sym_expr sym1 cval) es)
-      | Ewait _ -> expr_
-      | Eannot (xs, e) -> Eannot (xs, subst_sym_expr sym1 cval e)
-      | Eexcluded (n, act) -> Eexcluded (n, subst_sym_action sym1 cval act)
-      (*
-    | Eloc loc e ->
-        Eloc loc (subst_sym_expr sym cval e)
-    | Estd str e ->
-        Estd str (subst_sym_expr sym cval e)
-*)
-    )
+let rec subst_sym_expr sym cval =
+  let subst_pexpr x = subst_sym_pexpr sym cval x [@@inline] in
+  let self x = subst_sym_expr sym cval x [@@inline] in
+  Expr.map (function
+  | Epure pe -> Epure (subst_pexpr pe)
+  | Ememop (memop1, pes) -> Ememop (memop1, List.map subst_pexpr pes)
+  | Elet (pat, pe1, e2) ->
+      Elet
+        ( pat,
+          subst_pexpr pe1,
+          if in_pattern sym pat then e2 else self e2 )
+  | Eif (pe1, e2, e3) ->
+      Eif
+        ( subst_pexpr pe1,
+          self e2,
+          self e3 )
+  | Ecase (pe, pat_es) ->
+      Ecase
+        ( subst_pexpr pe,
+          List.map
+            (fun (pat, e) ->
+              ( pat,
+                if in_pattern sym pat then e
+                else self e ))
+            pat_es )
+  | Eccall (annot1, pe1, pe2, pes) ->
+      Eccall
+        ( annot1,
+          subst_pexpr pe1,
+          subst_pexpr pe2,
+          List.map subst_pexpr pes )
+  | Eproc (annot1, nm, pes) ->
+      Eproc (annot1, nm, List.map subst_pexpr pes)
+  | Eaction pact -> Eaction (subst_sym_paction sym cval pact)
+  | Eunseq es -> Eunseq (List.map (self) es)
+  | Ewseq (pat, e1, e2) ->
+      Ewseq
+        ( pat,
+          self e1,
+          if in_pattern sym pat then e2 else self e2 )
+  | Esseq (pat, e1, e2) ->
+      Esseq
+        ( pat,
+          self e1,
+          if in_pattern sym pat then e2 else self e2 )
+  | Ebound e -> Ebound (self e)
+  | Esave (lab_sym, sym_bTy_pes, e) ->
+      let sym_bTy_pes' =
+        List.map
+          (fun (z, (bTy, pe)) -> (z, (bTy, subst_pexpr pe)))
+          sym_bTy_pes
+      in
+      if
+        List.exists
+          (fun (z, _) -> Symbol.symbolEquality sym z)
+          sym_bTy_pes
+      then
+        let () =
+          Cerb_debug.warn [] (fun () -> "subst, Esave ==> shadowing")
+        in
+        (* TODO: check *)
+        Esave (lab_sym, sym_bTy_pes', e)
+      else Esave (lab_sym, sym_bTy_pes', self e)
+  | Erun (annot1, lab_sym, pes) ->
+      Erun (annot1, lab_sym, List.map subst_pexpr pes)
+  | End es -> End (List.map (self) es)
+  | Epar es -> Epar (List.map (self) es)
+  | Ewait _ as expr_ -> expr_
+  | Eannot (xs, e) -> Eannot (xs, self e)
+  | Eexcluded (n, act) -> Eexcluded (n, subst_sym_action sym cval act) )
 
-and subst_sym_action_ sym1 cval =
- (function
- | Create (pe1, pe2, pref) ->
-     Create (subst_sym_pexpr sym1 cval pe1, subst_sym_pexpr sym1 cval pe2, pref)
- | CreateReadOnly (pe1, pe2, pe3, pref) ->
-     CreateReadOnly
-       ( subst_sym_pexpr sym1 cval pe1,
-         subst_sym_pexpr sym1 cval pe2,
-         subst_sym_pexpr sym1 cval pe3,
-         pref )
- | Alloc0 (pe1, pe2, pref) ->
-     Alloc0 (subst_sym_pexpr sym1 cval pe1, subst_sym_pexpr sym1 cval pe2, pref)
- | Kill (kind1, pe) -> Kill (kind1, subst_sym_pexpr sym1 cval pe)
- | Store0 (b, pe1, pe2, pe3, mo1) ->
-     Store0
-       ( b,
-         subst_sym_pexpr sym1 cval pe1,
-         subst_sym_pexpr sym1 cval pe2,
-         subst_sym_pexpr sym1 cval pe3,
-         mo1 )
- | Load0 (pe1, pe2, mo1) ->
-     Load0 (subst_sym_pexpr sym1 cval pe1, subst_sym_pexpr sym1 cval pe2, mo1)
- | SeqRMW (b, pe1, pe2, sym', pe3) ->
-     SeqRMW
-       ( b,
-         subst_sym_pexpr sym1 cval pe1,
-         subst_sym_pexpr sym1 cval pe2,
-         sym',
-         if Symbol.symbolEquality sym1 sym'
-         then pe3
-         else subst_sym_pexpr sym1 cval pe3 )
- | RMW0 (pe1, pe2, pe3, pe4, mo1, mo2) ->
-     RMW0
-       ( subst_sym_pexpr sym1 cval pe1,
-         subst_sym_pexpr sym1 cval pe2,
-         subst_sym_pexpr sym1 cval pe3,
-         subst_sym_pexpr sym1 cval pe4,
-         mo1,
-         mo2 )
- | Fence0 mo1 -> Fence0 mo1
- | CompareExchangeStrong (pe1, pe2, pe3, pe4, mo1, mo2) ->
-     CompareExchangeStrong
-       ( subst_sym_pexpr sym1 cval pe1,
-         subst_sym_pexpr sym1 cval pe2,
-         subst_sym_pexpr sym1 cval pe3,
-         subst_sym_pexpr sym1 cval pe4,
-         mo1,
-         mo2 )
- | CompareExchangeWeak (pe1, pe2, pe3, pe4, mo1, mo2) ->
-     CompareExchangeWeak
-       ( subst_sym_pexpr sym1 cval pe1,
-         subst_sym_pexpr sym1 cval pe2,
-         subst_sym_pexpr sym1 cval pe3,
-         subst_sym_pexpr sym1 cval pe4,
-         mo1,
-         mo2 )
- | LinuxFence mo1 -> LinuxFence mo1
- | LinuxStore (pe1, pe2, pe3, mo1) ->
-     LinuxStore
-       ( subst_sym_pexpr sym1 cval pe1,
-         subst_sym_pexpr sym1 cval pe2,
-         subst_sym_pexpr sym1 cval pe3,
-         mo1 )
- | LinuxLoad (pe1, pe2, mo1) ->
-     LinuxLoad
-       (subst_sym_pexpr sym1 cval pe1, subst_sym_pexpr sym1 cval pe2, mo1)
- | LinuxRMW (pe1, pe2, pe3, mo1) ->
-     LinuxRMW
-       ( subst_sym_pexpr sym1 cval pe1,
-         subst_sym_pexpr sym1 cval pe2,
-         subst_sym_pexpr sym1 cval pe3,
-         mo1 ))
+and subst_sym_action_ sym cval = function
+  | Create (pe1, pe2, pref) ->
+      Create (subst_sym_pexpr sym cval pe1, subst_sym_pexpr sym cval pe2, pref)
+  | CreateReadOnly (pe1, pe2, pe3, pref) ->
+      CreateReadOnly
+        ( subst_sym_pexpr sym cval pe1,
+          subst_sym_pexpr sym cval pe2,
+          subst_sym_pexpr sym cval pe3,
+          pref )
+  | Alloc0 (pe1, pe2, pref) ->
+      Alloc0 (subst_sym_pexpr sym cval pe1, subst_sym_pexpr sym cval pe2, pref)
+  | Kill (kind1, pe) -> Kill (kind1, subst_sym_pexpr sym cval pe)
+  | Store0 (b, pe1, pe2, pe3, mo) ->
+      Store0
+        ( b,
+          subst_sym_pexpr sym cval pe1,
+          subst_sym_pexpr sym cval pe2,
+          subst_sym_pexpr sym cval pe3,
+          mo )
+  | Load0 (pe1, pe2, mo) ->
+      Load0 (subst_sym_pexpr sym cval pe1, subst_sym_pexpr sym cval pe2, mo)
+  | SeqRMW (b, pe1, pe2, sym', pe3) ->
+      SeqRMW
+        ( b,
+          subst_sym_pexpr sym cval pe1,
+          subst_sym_pexpr sym cval pe2,
+          sym',
+          if Symbol.symbolEquality sym sym'
+          then pe3
+          else subst_sym_pexpr sym cval pe3 )
+  | RMW0 (pe1, pe2, pe3, pe4, mo1, mo2) ->
+      RMW0
+        ( subst_sym_pexpr sym cval pe1,
+          subst_sym_pexpr sym cval pe2,
+          subst_sym_pexpr sym cval pe3,
+          subst_sym_pexpr sym cval pe4,
+          mo1,
+          mo2 )
+  | Fence0 mo1 -> Fence0 mo1
+  | CompareExchangeStrong (pe1, pe2, pe3, pe4, mo1, mo2) ->
+      CompareExchangeStrong
+        ( subst_sym_pexpr sym cval pe1,
+          subst_sym_pexpr sym cval pe2,
+          subst_sym_pexpr sym cval pe3,
+          subst_sym_pexpr sym cval pe4,
+          mo1,
+          mo2 )
+  | CompareExchangeWeak (pe1, pe2, pe3, pe4, mo1, mo2) ->
+      CompareExchangeWeak
+        ( subst_sym_pexpr sym cval pe1,
+          subst_sym_pexpr sym cval pe2,
+          subst_sym_pexpr sym cval pe3,
+          subst_sym_pexpr sym cval pe4,
+          mo1,
+          mo2 )
+  | LinuxFence mo1 -> LinuxFence mo1
+  | LinuxStore (pe1, pe2, pe3, mo) ->
+      LinuxStore
+        ( subst_sym_pexpr sym cval pe1,
+          subst_sym_pexpr sym cval pe2,
+          subst_sym_pexpr sym cval pe3,
+          mo )
+  | LinuxLoad (pe1, pe2, mo) ->
+      LinuxLoad
+        (subst_sym_pexpr sym cval pe1, subst_sym_pexpr sym cval pe2, mo)
+  | LinuxRMW (pe1, pe2, pe3, mo) ->
+      LinuxRMW
+        ( subst_sym_pexpr sym cval pe1,
+          subst_sym_pexpr sym cval pe2,
+          subst_sym_pexpr sym cval pe3,
+          mo )
 
-and subst_sym_action sym1 cval (Action (loc1, bs, act_)) =
-  Action (loc1, bs, subst_sym_action_ sym1 cval act_)
+and subst_sym_action sym cval (Action (loc, bs, act_)) =
+  Action (loc, bs, subst_sym_action_ sym cval act_)
 
-and subst_sym_paction sym1 cval (Paction (p, act)) =
-  Paction (p, subst_sym_action sym1 cval act)
+and subst_sym_paction sym cval (Paction (p, act)) =
+  Paction (p, subst_sym_action sym cval act)
 
 (*val     subst_pattern_val: forall 'a. pattern -> value -> expr 'a -> expr 'a*)
 let rec subst_pattern_val (Pattern (_, pat)) cval expr1 =
@@ -743,257 +726,248 @@ let rec subst_pattern_val (Pattern (_, pat)) cval expr1 =
 (* substitute in an expression a symbolic name with a (pure) expression *)
 (* NOTE: this is usually unsound to use if pe' doesn't evaluate to a defined value or generates memory constraints *)
 (*val     unsafe_subst_sym_pexpr: Symbol.sym -> pexpr -> pexpr -> pexpr*)
-let rec unsafe_subst_sym_pexpr sym1 (Pexpr (annot1, bty, pe_') as pe')
+let rec unsafe_subst_sym_pexpr sym (Pexpr (annot, bty, pe_') as pe')
     (Pexpr (_, _, pe_)) =
   Pexpr
-    ( annot1,
+    ( annot,
       bty,
       match pe_ with
       | PEsym sym' ->
-          if Symbol.symbolEquality sym1 sym'
+          if Symbol.symbolEquality sym sym'
           then pe_'
           else pe_
       | PEimpl _ -> pe_
       | PEval _ -> pe_
       | PEundef (_, _) -> pe_
-      | PEerror (str, pe) -> PEerror (str, unsafe_subst_sym_pexpr sym1 pe' pe)
-      | PEctor (ctor1, pes) ->
-          PEctor (ctor1, List.map (unsafe_subst_sym_pexpr sym1 pe') pes)
+      | PEerror (str, pe) -> PEerror (str, unsafe_subst_sym_pexpr sym pe' pe)
+      | PEctor (ctor, pes) ->
+          PEctor (ctor, List.map (unsafe_subst_sym_pexpr sym pe') pes)
       | PEcase (pe, xs) ->
           PEcase
-            ( unsafe_subst_sym_pexpr sym1 pe' pe,
+            ( unsafe_subst_sym_pexpr sym pe' pe,
               List.map
                 (fun (pat, pe) ->
                   ( pat,
-                    if in_pattern sym1 pat then pe
-                    else unsafe_subst_sym_pexpr sym1 pe' pe ))
+                    if in_pattern sym pat then pe
+                    else unsafe_subst_sym_pexpr sym pe' pe ))
                 xs )
       | PEarray_shift (pe1, ty1, pe2) ->
           PEarray_shift
-            ( unsafe_subst_sym_pexpr sym1 pe' pe1,
+            ( unsafe_subst_sym_pexpr sym pe' pe1,
               ty1,
-              unsafe_subst_sym_pexpr sym1 pe' pe2 )
+              unsafe_subst_sym_pexpr sym pe' pe2 )
       | PEmember_shift (pe, tag_sym, memb_ident) ->
           PEmember_shift
-            (unsafe_subst_sym_pexpr sym1 pe' pe, tag_sym, memb_ident)
+            (unsafe_subst_sym_pexpr sym pe' pe, tag_sym, memb_ident)
       | PEmemop (mop, pes) ->
-          PEmemop (mop, List.map (unsafe_subst_sym_pexpr sym1 pe') pes)
-      | PEnot pe -> PEnot (unsafe_subst_sym_pexpr sym1 pe' pe)
+          PEmemop (mop, List.map (unsafe_subst_sym_pexpr sym pe') pes)
+      | PEnot pe -> PEnot (unsafe_subst_sym_pexpr sym pe' pe)
       | PEop (bop, pe1, pe2) ->
           PEop
             ( bop,
-              unsafe_subst_sym_pexpr sym1 pe' pe1,
-              unsafe_subst_sym_pexpr sym1 pe' pe2 )
+              unsafe_subst_sym_pexpr sym pe' pe1,
+              unsafe_subst_sym_pexpr sym pe' pe2 )
       | PEconv_int (ty1, pe) ->
-          PEconv_int (ty1, unsafe_subst_sym_pexpr sym1 pe' pe)
+          PEconv_int (ty1, unsafe_subst_sym_pexpr sym pe' pe)
       | PEwrapI (ty1, iop1, pe1, pe2) ->
           PEwrapI
             ( ty1,
               iop1,
-              unsafe_subst_sym_pexpr sym1 pe' pe1,
-              unsafe_subst_sym_pexpr sym1 pe' pe2 )
+              unsafe_subst_sym_pexpr sym pe' pe1,
+              unsafe_subst_sym_pexpr sym pe' pe2 )
       | PEcatch_exceptional_condition (ty1, iop1, pe1, pe2) ->
           PEcatch_exceptional_condition
             ( ty1,
               iop1,
-              unsafe_subst_sym_pexpr sym1 pe' pe1,
-              unsafe_subst_sym_pexpr sym1 pe' pe2 )
+              unsafe_subst_sym_pexpr sym pe' pe1,
+              unsafe_subst_sym_pexpr sym pe' pe2 )
       | PEstruct (tag_sym, xs) ->
           PEstruct
             ( tag_sym,
               List.map
-                (fun (ident, pe) -> (ident, unsafe_subst_sym_pexpr sym1 pe' pe))
+                (fun (ident, pe) -> (ident, unsafe_subst_sym_pexpr sym pe' pe))
                 xs )
       | PEunion (tag_sym, ident, pe) ->
-          PEunion (tag_sym, ident, unsafe_subst_sym_pexpr sym1 pe' pe)
-      | PEcfunction pe -> PEcfunction (unsafe_subst_sym_pexpr sym1 pe' pe)
+          PEunion (tag_sym, ident, unsafe_subst_sym_pexpr sym pe' pe)
+      | PEcfunction pe -> PEcfunction (unsafe_subst_sym_pexpr sym pe' pe)
       | PEmemberof (tag_sym, memb_ident, pe) ->
-          PEmemberof (tag_sym, memb_ident, unsafe_subst_sym_pexpr sym1 pe' pe)
+          PEmemberof (tag_sym, memb_ident, unsafe_subst_sym_pexpr sym pe' pe)
       | PEcall (nm, pes) ->
-          PEcall (nm, List.map (unsafe_subst_sym_pexpr sym1 pe') pes)
+          PEcall (nm, List.map (unsafe_subst_sym_pexpr sym pe') pes)
       | PElet (pat, pe1, pe2) ->
           PElet
             ( pat,
-              unsafe_subst_sym_pexpr sym1 pe' pe1,
-              if in_pattern sym1 pat then pe2
-              else unsafe_subst_sym_pexpr sym1 pe' pe2 )
+              unsafe_subst_sym_pexpr sym pe' pe1,
+              if in_pattern sym pat then pe2
+              else unsafe_subst_sym_pexpr sym pe' pe2 )
       | PEif (pe1, pe2, pe3) ->
           PEif
-            ( unsafe_subst_sym_pexpr sym1 pe' pe1,
-              unsafe_subst_sym_pexpr sym1 pe' pe2,
-              unsafe_subst_sym_pexpr sym1 pe' pe3 )
-      | PEis_scalar pe -> PEis_scalar (unsafe_subst_sym_pexpr sym1 pe' pe)
-      | PEis_integer pe -> PEis_integer (unsafe_subst_sym_pexpr sym1 pe' pe)
-      | PEis_signed pe -> PEis_signed (unsafe_subst_sym_pexpr sym1 pe' pe)
-      | PEis_unsigned pe -> PEis_unsigned (unsafe_subst_sym_pexpr sym1 pe' pe)
-      | PEbmc_assume pe -> PEbmc_assume (unsafe_subst_sym_pexpr sym1 pe' pe)
+            ( unsafe_subst_sym_pexpr sym pe' pe1,
+              unsafe_subst_sym_pexpr sym pe' pe2,
+              unsafe_subst_sym_pexpr sym pe' pe3 )
+      | PEis_scalar pe -> PEis_scalar (unsafe_subst_sym_pexpr sym pe' pe)
+      | PEis_integer pe -> PEis_integer (unsafe_subst_sym_pexpr sym pe' pe)
+      | PEis_signed pe -> PEis_signed (unsafe_subst_sym_pexpr sym pe' pe)
+      | PEis_unsigned pe -> PEis_unsigned (unsafe_subst_sym_pexpr sym pe' pe)
+      | PEbmc_assume pe -> PEbmc_assume (unsafe_subst_sym_pexpr sym pe' pe)
       | PEare_compatible (pe1, pe2) ->
           PEare_compatible
-            ( unsafe_subst_sym_pexpr sym1 pe' pe1,
-              unsafe_subst_sym_pexpr sym1 pe' pe2 ) )
+            ( unsafe_subst_sym_pexpr sym pe' pe1,
+              unsafe_subst_sym_pexpr sym pe' pe2 ) )
 
 (* NOTE: this is usually unsound to use if pe' doesn't evaluate to a defined value or generates memory constraints *)
 (*val     unsafe_subst_sym_expr: forall 'a. Symbol.sym -> pexpr -> expr 'a -> expr 'a*)
-let rec unsafe_subst_sym_expr sym1 pe' (Expr (annot1, expr_)) =
-  Expr
-    ( annot1,
-      match expr_ with
-      | Epure pe -> Epure (unsafe_subst_sym_pexpr sym1 pe' pe)
-      | Ememop (memop1, pes) ->
-          Ememop (memop1, List.map (unsafe_subst_sym_pexpr sym1 pe') pes)
-      | Elet (pat, pe1, e2) ->
-          Elet
-            ( pat,
-              unsafe_subst_sym_pexpr sym1 pe' pe1,
-              if in_pattern sym1 pat then e2
-              else unsafe_subst_sym_expr sym1 pe' e2 )
-      | Eif (pe1, e2, e3) ->
-          Eif
-            ( unsafe_subst_sym_pexpr sym1 pe' pe1,
-              unsafe_subst_sym_expr sym1 pe' e2,
-              unsafe_subst_sym_expr sym1 pe' e3 )
-      | Ecase (pe, pat_es) ->
-          Ecase
-            ( unsafe_subst_sym_pexpr sym1 pe' pe,
-              List.map
-                (fun (pat, e) ->
-                  ( pat,
-                    if in_pattern sym1 pat then e
-                    else unsafe_subst_sym_expr sym1 pe' e ))
-                pat_es )
-      | Eccall (annot1, pe1, pe2, pes) ->
-          Eccall
-            ( annot1,
-              unsafe_subst_sym_pexpr sym1 pe' pe1,
-              unsafe_subst_sym_pexpr sym1 pe' pe2,
-              List.map (unsafe_subst_sym_pexpr sym1 pe') pes )
-      | Eproc (annot1, nm, pes) ->
-          Eproc (annot1, nm, List.map (unsafe_subst_sym_pexpr sym1 pe') pes)
-      | Eaction pact -> Eaction (unsafe_subst_sym_paction sym1 pe' pact)
-      | Eunseq es -> Eunseq (List.map (unsafe_subst_sym_expr sym1 pe') es)
-      | Ewseq (pat, e1, e2) ->
-          Ewseq
-            ( pat,
-              unsafe_subst_sym_expr sym1 pe' e1,
-              if in_pattern sym1 pat then e2
-              else unsafe_subst_sym_expr sym1 pe' e2 )
-      | Esseq (pat, e1, e2) ->
-          Esseq
-            ( pat,
-              unsafe_subst_sym_expr sym1 pe' e1,
-              if in_pattern sym1 pat then e2
-              else unsafe_subst_sym_expr sym1 pe' e2 )
-      | Ebound e -> Ebound (unsafe_subst_sym_expr sym1 pe' e)
-      | Esave (lab_sym, sym_bTy_pes, e) ->
-          let sym_bTy_pes' =
-            List.map
-              (fun (z, (bTy, pe)) ->
-                (z, (bTy, unsafe_subst_sym_pexpr sym1 pe' pe)))
-              sym_bTy_pes
-          in
-          if
-            List.exists
-              (fun (z, _) -> Symbol.symbolEquality sym1 z)
-              sym_bTy_pes
-          then
-            let () =
-              Cerb_debug.warn [] (fun () -> "unsafe_subst, Esave ==> shadowing")
-            in
-            (* TODO: check *)
-            Esave (lab_sym, sym_bTy_pes', e)
-          else Esave (lab_sym, sym_bTy_pes', unsafe_subst_sym_expr sym1 pe' e)
-      | Erun (annot1, lab_sym, pes) ->
-          Erun
-            (annot1, lab_sym, List.map (unsafe_subst_sym_pexpr sym1 pe') pes)
-      | End es -> End (List.map (unsafe_subst_sym_expr sym1 pe') es)
-      | Epar es -> Epar (List.map (unsafe_subst_sym_expr sym1 pe') es)
-      | Ewait _ -> expr_
-      | Eannot (xs, e) -> Eannot (xs, unsafe_subst_sym_expr sym1 pe' e)
-      | Eexcluded (n, act) -> Eexcluded (n, unsafe_subst_sym_action sym1 pe' act)
-      (*
-    | Eloc loc e ->
-        Eloc loc (unsafe_subst_sym_expr sym pe' e)
-    | Estd s e ->
-        Estd s (unsafe_subst_sym_expr sym pe' e)
-*)
-    )
+let rec unsafe_subst_sym_expr sym pe' =
+  let unsafe_subst_pexpr x = unsafe_subst_sym_pexpr sym pe' x [@@inline] in
+  let self x = unsafe_subst_sym_expr sym pe' x [@@inline] in
+  Expr.map (function
+  | Epure pe -> Epure (unsafe_subst_pexpr pe)
+  | Ememop (memop1, pes) -> Ememop (memop1, List.map (unsafe_subst_pexpr) pes)
+  | Elet (pat, pe1, e2) ->
+      Elet
+        ( pat,
+          unsafe_subst_pexpr pe1,
+          if in_pattern sym pat then e2
+          else self e2 )
+  | Eif (pe1, e2, e3) ->
+      Eif
+        ( unsafe_subst_pexpr pe1,
+          self e2,
+          self e3 )
+  | Ecase (pe, pat_es) ->
+      Ecase
+        ( unsafe_subst_pexpr pe,
+          List.map
+            (fun (pat, e) ->
+              ( pat,
+                if in_pattern sym pat then e
+                else self e ))
+            pat_es )
+  | Eccall (annot1, pe1, pe2, pes) ->
+      Eccall
+        ( annot1,
+          unsafe_subst_pexpr pe1,
+          unsafe_subst_pexpr pe2,
+          List.map unsafe_subst_pexpr pes )
+  | Eproc (annot1, nm, pes) ->
+      Eproc (annot1, nm, List.map unsafe_subst_pexpr pes)
+  | Eaction pact -> Eaction (unsafe_subst_sym_paction sym pe' pact)
+  | Eunseq es -> Eunseq (List.map (self) es)
+  | Ewseq (pat, e1, e2) ->
+      Ewseq
+        ( pat,
+          self e1,
+          if in_pattern sym pat then e2
+          else self e2 )
+  | Esseq (pat, e1, e2) ->
+      Esseq
+        ( pat,
+          self e1,
+          if in_pattern sym pat then e2
+          else self e2 )
+  | Ebound e -> Ebound (self e)
+  | Esave (lab_sym, sym_bTy_pes, e) ->
+      let sym_bTy_pes' =
+        List.map
+          (fun (z, (bTy, pe)) ->
+            (z, (bTy, unsafe_subst_pexpr pe)))
+          sym_bTy_pes
+      in
+      if
+        List.exists
+          (fun (z, _) -> Symbol.symbolEquality sym z)
+          sym_bTy_pes
+      then
+        let () =
+          Cerb_debug.warn [] (fun () -> "unsafe_subst, Esave ==> shadowing")
+        in
+        (* TODO: check *)
+        Esave (lab_sym, sym_bTy_pes', e)
+      else Esave (lab_sym, sym_bTy_pes', self e)
+  | Erun (annot1, lab_sym, pes) ->
+      Erun
+        (annot1, lab_sym, List.map (unsafe_subst_pexpr) pes)
+  | End es -> End (List.map (self) es)
+  | Epar es -> Epar (List.map (self) es)
+  | Ewait _ as expr_ -> expr_
+  | Eannot (xs, e) -> Eannot (xs, self e)
+  | Eexcluded (n, act) -> Eexcluded (n, unsafe_subst_sym_action sym pe' act) )
 
 (* NOTE: this is usually unsound to use if pe' doesn't evaluate to a defined value or generates memory constraints *)
-and unsafe_subst_sym_action_ a pe' =
- (function
- | Create (pe1, pe2, pref) ->
-     Create
-       (unsafe_subst_sym_pexpr a pe' pe1, unsafe_subst_sym_pexpr a pe' pe2, pref)
- | CreateReadOnly (pe1, pe2, pe3, pref) ->
-     CreateReadOnly
-       ( unsafe_subst_sym_pexpr a pe' pe1,
-         unsafe_subst_sym_pexpr a pe' pe2,
-         unsafe_subst_sym_pexpr a pe' pe3,
-         pref )
- | Alloc0 (pe1, pe2, pref) ->
-     Alloc0
-       (unsafe_subst_sym_pexpr a pe' pe1, unsafe_subst_sym_pexpr a pe' pe2, pref)
- | Kill (kind1, pe) -> Kill (kind1, unsafe_subst_sym_pexpr a pe' pe)
- | Store0 (b, pe1, pe2, pe3, mo1) ->
-     Store0
-       ( b,
-         unsafe_subst_sym_pexpr a pe' pe1,
-         unsafe_subst_sym_pexpr a pe' pe2,
-         unsafe_subst_sym_pexpr a pe' pe3,
-         mo1 )
- | Load0 (pe1, pe2, mo1) ->
-     Load0
-       (unsafe_subst_sym_pexpr a pe' pe1, unsafe_subst_sym_pexpr a pe' pe2, mo1)
- | SeqRMW (b, pe1, pe2, sym', pe3) ->
-     SeqRMW
-       ( b,
-         unsafe_subst_sym_pexpr a pe' pe1,
-         unsafe_subst_sym_pexpr a pe' pe2,
-         sym',
-         if Symbol.symbolEquality a sym'
-         then pe3
-         else unsafe_subst_sym_pexpr a pe' pe3 )
- | RMW0 (pe1, pe2, pe3, pe4, mo1, mo2) ->
-     RMW0
-       ( unsafe_subst_sym_pexpr a pe' pe1,
-         unsafe_subst_sym_pexpr a pe' pe2,
-         unsafe_subst_sym_pexpr a pe' pe3,
-         unsafe_subst_sym_pexpr a pe' pe4,
-         mo1,
-         mo2 )
- | Fence0 mo1 -> Fence0 mo1
- | CompareExchangeStrong (pe1, pe2, pe3, pe4, mo1, mo2) ->
-     CompareExchangeStrong
-       ( unsafe_subst_sym_pexpr a pe' pe1,
-         unsafe_subst_sym_pexpr a pe' pe2,
-         unsafe_subst_sym_pexpr a pe' pe3,
-         unsafe_subst_sym_pexpr a pe' pe4,
-         mo1,
-         mo2 )
- | CompareExchangeWeak (pe1, pe2, pe3, pe4, mo1, mo2) ->
-     CompareExchangeWeak
-       ( unsafe_subst_sym_pexpr a pe' pe1,
-         unsafe_subst_sym_pexpr a pe' pe2,
-         unsafe_subst_sym_pexpr a pe' pe3,
-         unsafe_subst_sym_pexpr a pe' pe4,
-         mo1,
-         mo2 )
- | LinuxFence mo1 -> LinuxFence mo1
- | LinuxStore (pe1, pe2, pe3, mo1) ->
-     LinuxStore
-       ( unsafe_subst_sym_pexpr a pe' pe1,
-         unsafe_subst_sym_pexpr a pe' pe2,
-         unsafe_subst_sym_pexpr a pe' pe3,
-         mo1 )
- | LinuxLoad (pe1, pe2, mo1) ->
-     LinuxLoad
-       (unsafe_subst_sym_pexpr a pe' pe1, unsafe_subst_sym_pexpr a pe' pe2, mo1)
- | LinuxRMW (pe1, pe2, pe3, mo1) ->
-     LinuxRMW
-       ( unsafe_subst_sym_pexpr a pe' pe1,
-         unsafe_subst_sym_pexpr a pe' pe2,
-         unsafe_subst_sym_pexpr a pe' pe3,
-         mo1 ))
+and unsafe_subst_sym_action_ a pe' = function
+  | Create (pe1, pe2, pref) ->
+      Create
+        (unsafe_subst_sym_pexpr a pe' pe1, unsafe_subst_sym_pexpr a pe' pe2, pref)
+  | CreateReadOnly (pe1, pe2, pe3, pref) ->
+      CreateReadOnly
+        ( unsafe_subst_sym_pexpr a pe' pe1,
+          unsafe_subst_sym_pexpr a pe' pe2,
+          unsafe_subst_sym_pexpr a pe' pe3,
+          pref )
+  | Alloc0 (pe1, pe2, pref) ->
+      Alloc0
+        (unsafe_subst_sym_pexpr a pe' pe1, unsafe_subst_sym_pexpr a pe' pe2, pref)
+  | Kill (kind1, pe) -> Kill (kind1, unsafe_subst_sym_pexpr a pe' pe)
+  | Store0 (b, pe1, pe2, pe3, mo1) ->
+      Store0
+        ( b,
+          unsafe_subst_sym_pexpr a pe' pe1,
+          unsafe_subst_sym_pexpr a pe' pe2,
+          unsafe_subst_sym_pexpr a pe' pe3,
+          mo1 )
+  | Load0 (pe1, pe2, mo1) ->
+      Load0
+        (unsafe_subst_sym_pexpr a pe' pe1, unsafe_subst_sym_pexpr a pe' pe2, mo1)
+  | SeqRMW (b, pe1, pe2, sym', pe3) ->
+      SeqRMW
+        ( b,
+          unsafe_subst_sym_pexpr a pe' pe1,
+          unsafe_subst_sym_pexpr a pe' pe2,
+          sym',
+          if Symbol.symbolEquality a sym'
+          then pe3
+          else unsafe_subst_sym_pexpr a pe' pe3 )
+  | RMW0 (pe1, pe2, pe3, pe4, mo1, mo2) ->
+      RMW0
+        ( unsafe_subst_sym_pexpr a pe' pe1,
+          unsafe_subst_sym_pexpr a pe' pe2,
+          unsafe_subst_sym_pexpr a pe' pe3,
+          unsafe_subst_sym_pexpr a pe' pe4,
+          mo1,
+          mo2 )
+  | Fence0 mo1 -> Fence0 mo1
+  | CompareExchangeStrong (pe1, pe2, pe3, pe4, mo1, mo2) ->
+      CompareExchangeStrong
+        ( unsafe_subst_sym_pexpr a pe' pe1,
+          unsafe_subst_sym_pexpr a pe' pe2,
+          unsafe_subst_sym_pexpr a pe' pe3,
+          unsafe_subst_sym_pexpr a pe' pe4,
+          mo1,
+          mo2 )
+  | CompareExchangeWeak (pe1, pe2, pe3, pe4, mo1, mo2) ->
+      CompareExchangeWeak
+        ( unsafe_subst_sym_pexpr a pe' pe1,
+          unsafe_subst_sym_pexpr a pe' pe2,
+          unsafe_subst_sym_pexpr a pe' pe3,
+          unsafe_subst_sym_pexpr a pe' pe4,
+          mo1,
+          mo2 )
+  | LinuxFence mo1 -> LinuxFence mo1
+  | LinuxStore (pe1, pe2, pe3, mo1) ->
+      LinuxStore
+        ( unsafe_subst_sym_pexpr a pe' pe1,
+          unsafe_subst_sym_pexpr a pe' pe2,
+          unsafe_subst_sym_pexpr a pe' pe3,
+          mo1 )
+  | LinuxLoad (pe1, pe2, mo1) ->
+      LinuxLoad
+        (unsafe_subst_sym_pexpr a pe' pe1, unsafe_subst_sym_pexpr a pe' pe2, mo1)
+  | LinuxRMW (pe1, pe2, pe3, mo1) ->
+      LinuxRMW
+        ( unsafe_subst_sym_pexpr a pe' pe1,
+          unsafe_subst_sym_pexpr a pe' pe2,
+          unsafe_subst_sym_pexpr a pe' pe3,
+          mo1 )
 
 and unsafe_subst_sym_action a pe' (Action (loc1, bs, act_)) =
   Action (loc1, bs, unsafe_subst_sym_action_ a pe' act_)
