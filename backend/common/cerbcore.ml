@@ -123,10 +123,6 @@ let pipeline stdlib impl core_parse file_name : Driver_ocaml.execution_result =
        | _ -> assert false)
   |> pass_message "1-4. Parsing completed!"
   |> pass_through_test !print_core (fun (_, f) -> run_pp (Pp_core.pp_file f))
-(*
-  |> pass_message "6. Enumerating indet orders:"
-  |> Exception.rbind Core_indet.order
-*)
   |> pass_message "7. Now running:"
   |> Exception.rbind
   (*    (Exception.mapM0
