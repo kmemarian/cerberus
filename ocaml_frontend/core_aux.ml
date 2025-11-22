@@ -43,7 +43,7 @@ let rec loadedValueFromMemValue mem_val =
     (fun _ fval -> (OTy_floating, LVspecified (OVfloating fval)))
     (fun _ ptr_val -> (OTy_pointer, LVspecified (OVpointer ptr_val)))
     (fun mem_vals ->
-      match Lem_list.map loadedValueFromMemValue mem_vals with
+      match List.map loadedValueFromMemValue mem_vals with
       | [] -> Cerb_debug.error "[Core_aux.loadedValueFromMemValue] empty array"
       | (oTy, lval) :: oTy_lvals ->
           if
@@ -56,7 +56,7 @@ let rec loadedValueFromMemValue mem_val =
               "[Core_aux.loadedValueFromMemValue] heterogenous array"
           else
             ( OTy_array oTy,
-              LVspecified (OVarray (lval :: Lem_list.map snd oTy_lvals)) ))
+              LVspecified (OVarray (lval :: List.map snd oTy_lvals)) ))
     (fun sym xs -> (OTy_struct sym, LVspecified (OVstruct (sym, xs))))
     (fun sym ident mem_val ->
       (OTy_union sym, LVspecified (OVunion (sym, ident, mem_val))))
@@ -77,7 +77,7 @@ let valueFromMemValue mem_val =
     (fun _ ptr_val -> (OTy_pointer, Vloaded (LVspecified (OVpointer ptr_val))))
     (fun mem_vals ->
       let oTys, lvals =
-        List.split (Lem_list.map loadedValueFromMemValue mem_vals)
+        List.split (List.map loadedValueFromMemValue mem_vals)
       in
       let oTy =
         match oTys with
@@ -460,11 +460,11 @@ let rec subst_sym_pexpr sym1 cval (Pexpr (annot1, bty, pexpr_)) =
       | PEundef (_, _) -> pexpr_
       | PEerror (str, pe) -> PEerror (str, subst_sym_pexpr sym1 cval pe)
       | PEctor (ctor1, pes) ->
-          PEctor (ctor1, Lem_list.map (subst_sym_pexpr sym1 cval) pes)
+          PEctor (ctor1, List.map (subst_sym_pexpr sym1 cval) pes)
       | PEcase (pe, xs) ->
           PEcase
             ( subst_sym_pexpr sym1 cval pe,
-              Lem_list.map
+              List.map
                 (fun (pat, pe) ->
                   ( pat,
                     if in_pattern sym1 pat then pe
@@ -476,7 +476,7 @@ let rec subst_sym_pexpr sym1 cval (Pexpr (annot1, bty, pexpr_)) =
       | PEmember_shift (pe, tag_sym, memb_ident) ->
           PEmember_shift (subst_sym_pexpr sym1 cval pe, tag_sym, memb_ident)
       | PEmemop (mop, pes) ->
-          PEmemop (mop, Lem_list.map (subst_sym_pexpr sym1 cval) pes)
+          PEmemop (mop, List.map (subst_sym_pexpr sym1 cval) pes)
       | PEnot pe -> PEnot (subst_sym_pexpr sym1 cval pe)
       | PEop (bop, pe1, pe2) ->
           PEop
@@ -497,7 +497,7 @@ let rec subst_sym_pexpr sym1 cval (Pexpr (annot1, bty, pexpr_)) =
       | PEstruct (tag_sym, xs) ->
           PEstruct
             ( tag_sym,
-              Lem_list.map
+              List.map
                 (fun (ident, pe) -> (ident, subst_sym_pexpr sym1 cval pe))
                 xs )
       | PEunion (tag_sym, ident, pe) ->
@@ -506,7 +506,7 @@ let rec subst_sym_pexpr sym1 cval (Pexpr (annot1, bty, pexpr_)) =
       | PEmemberof (tag_sym, memb_ident, pe) ->
           PEmemberof (tag_sym, memb_ident, subst_sym_pexpr sym1 cval pe)
       | PEcall (nm, pes) ->
-          PEcall (nm, Lem_list.map (subst_sym_pexpr sym1 cval) pes)
+          PEcall (nm, List.map (subst_sym_pexpr sym1 cval) pes)
       | PElet (pat, pe1, pe2) ->
           PElet
             ( pat,
@@ -534,7 +534,7 @@ let rec subst_sym_expr sym1 cval (Expr (annot1, expr_)) =
       match expr_ with
       | Epure pe -> Epure (subst_sym_pexpr sym1 cval pe)
       | Ememop (memop1, pes) ->
-          Ememop (memop1, Lem_list.map (subst_sym_pexpr sym1 cval) pes)
+          Ememop (memop1, List.map (subst_sym_pexpr sym1 cval) pes)
       | Elet (pat, pe1, e2) ->
           Elet
             ( pat,
@@ -548,7 +548,7 @@ let rec subst_sym_expr sym1 cval (Expr (annot1, expr_)) =
       | Ecase (pe, pat_es) ->
           Ecase
             ( subst_sym_pexpr sym1 cval pe,
-              Lem_list.map
+              List.map
                 (fun (pat, e) ->
                   ( pat,
                     if in_pattern sym1 pat then e
@@ -559,11 +559,11 @@ let rec subst_sym_expr sym1 cval (Expr (annot1, expr_)) =
             ( annot1,
               subst_sym_pexpr sym1 cval pe1,
               subst_sym_pexpr sym1 cval pe2,
-              Lem_list.map (subst_sym_pexpr sym1 cval) pes )
+              List.map (subst_sym_pexpr sym1 cval) pes )
       | Eproc (annot1, nm, pes) ->
-          Eproc (annot1, nm, Lem_list.map (subst_sym_pexpr sym1 cval) pes)
+          Eproc (annot1, nm, List.map (subst_sym_pexpr sym1 cval) pes)
       | Eaction pact -> Eaction (subst_sym_paction sym1 cval pact)
-      | Eunseq es -> Eunseq (Lem_list.map (subst_sym_expr sym1 cval) es)
+      | Eunseq es -> Eunseq (List.map (subst_sym_expr sym1 cval) es)
       | Ewseq (pat, e1, e2) ->
           Ewseq
             ( pat,
@@ -577,7 +577,7 @@ let rec subst_sym_expr sym1 cval (Expr (annot1, expr_)) =
       | Ebound e -> Ebound (subst_sym_expr sym1 cval e)
       | Esave (lab_sym, sym_bTy_pes, e) ->
           let sym_bTy_pes' =
-            Lem_list.map
+            List.map
               (fun (z, (bTy, pe)) -> (z, (bTy, subst_sym_pexpr sym1 cval pe)))
               sym_bTy_pes
           in
@@ -593,9 +593,9 @@ let rec subst_sym_expr sym1 cval (Expr (annot1, expr_)) =
             Esave (lab_sym, sym_bTy_pes', e)
           else Esave (lab_sym, sym_bTy_pes', subst_sym_expr sym1 cval e)
       | Erun (annot1, lab_sym, pes) ->
-          Erun (annot1, lab_sym, Lem_list.map (subst_sym_pexpr sym1 cval) pes)
-      | End es -> End (Lem_list.map (subst_sym_expr sym1 cval) es)
-      | Epar es -> Epar (Lem_list.map (subst_sym_expr sym1 cval) es)
+          Erun (annot1, lab_sym, List.map (subst_sym_pexpr sym1 cval) pes)
+      | End es -> End (List.map (subst_sym_expr sym1 cval) es)
+      | Epar es -> Epar (List.map (subst_sym_expr sym1 cval) es)
       | Ewait _ -> expr_
       | Eannot (xs, e) -> Eannot (xs, subst_sym_expr sym1 cval e)
       | Eexcluded (n, act) -> Eexcluded (n, subst_sym_action sym1 cval act)
@@ -706,7 +706,7 @@ let rec subst_pattern_val (Pattern (_, pat)) cval expr1 =
   | CaseCtor (Ctuple, pats'), Vtuple cvals ->
       List.fold_right
         (fun (pat', cval') acc -> subst_pattern_val pat' cval' acc)
-        (Lem_list.list_combine pats' cvals)
+        (List.combine pats' cvals)
         expr1
   | CaseCtor (Cspecified, [ pat' ]), Vloaded (LVspecified oval) ->
       subst_pattern_val pat' (Vobject oval) expr1
@@ -758,11 +758,11 @@ let rec unsafe_subst_sym_pexpr sym1 (Pexpr (annot1, bty, pe_') as pe')
       | PEundef (_, _) -> pe_
       | PEerror (str, pe) -> PEerror (str, unsafe_subst_sym_pexpr sym1 pe' pe)
       | PEctor (ctor1, pes) ->
-          PEctor (ctor1, Lem_list.map (unsafe_subst_sym_pexpr sym1 pe') pes)
+          PEctor (ctor1, List.map (unsafe_subst_sym_pexpr sym1 pe') pes)
       | PEcase (pe, xs) ->
           PEcase
             ( unsafe_subst_sym_pexpr sym1 pe' pe,
-              Lem_list.map
+              List.map
                 (fun (pat, pe) ->
                   ( pat,
                     if in_pattern sym1 pat then pe
@@ -777,7 +777,7 @@ let rec unsafe_subst_sym_pexpr sym1 (Pexpr (annot1, bty, pe_') as pe')
           PEmember_shift
             (unsafe_subst_sym_pexpr sym1 pe' pe, tag_sym, memb_ident)
       | PEmemop (mop, pes) ->
-          PEmemop (mop, Lem_list.map (unsafe_subst_sym_pexpr sym1 pe') pes)
+          PEmemop (mop, List.map (unsafe_subst_sym_pexpr sym1 pe') pes)
       | PEnot pe -> PEnot (unsafe_subst_sym_pexpr sym1 pe' pe)
       | PEop (bop, pe1, pe2) ->
           PEop
@@ -801,7 +801,7 @@ let rec unsafe_subst_sym_pexpr sym1 (Pexpr (annot1, bty, pe_') as pe')
       | PEstruct (tag_sym, xs) ->
           PEstruct
             ( tag_sym,
-              Lem_list.map
+              List.map
                 (fun (ident, pe) -> (ident, unsafe_subst_sym_pexpr sym1 pe' pe))
                 xs )
       | PEunion (tag_sym, ident, pe) ->
@@ -810,7 +810,7 @@ let rec unsafe_subst_sym_pexpr sym1 (Pexpr (annot1, bty, pe_') as pe')
       | PEmemberof (tag_sym, memb_ident, pe) ->
           PEmemberof (tag_sym, memb_ident, unsafe_subst_sym_pexpr sym1 pe' pe)
       | PEcall (nm, pes) ->
-          PEcall (nm, Lem_list.map (unsafe_subst_sym_pexpr sym1 pe') pes)
+          PEcall (nm, List.map (unsafe_subst_sym_pexpr sym1 pe') pes)
       | PElet (pat, pe1, pe2) ->
           PElet
             ( pat,
@@ -840,7 +840,7 @@ let rec unsafe_subst_sym_expr sym1 pe' (Expr (annot1, expr_)) =
       match expr_ with
       | Epure pe -> Epure (unsafe_subst_sym_pexpr sym1 pe' pe)
       | Ememop (memop1, pes) ->
-          Ememop (memop1, Lem_list.map (unsafe_subst_sym_pexpr sym1 pe') pes)
+          Ememop (memop1, List.map (unsafe_subst_sym_pexpr sym1 pe') pes)
       | Elet (pat, pe1, e2) ->
           Elet
             ( pat,
@@ -855,7 +855,7 @@ let rec unsafe_subst_sym_expr sym1 pe' (Expr (annot1, expr_)) =
       | Ecase (pe, pat_es) ->
           Ecase
             ( unsafe_subst_sym_pexpr sym1 pe' pe,
-              Lem_list.map
+              List.map
                 (fun (pat, e) ->
                   ( pat,
                     if in_pattern sym1 pat then e
@@ -866,11 +866,11 @@ let rec unsafe_subst_sym_expr sym1 pe' (Expr (annot1, expr_)) =
             ( annot1,
               unsafe_subst_sym_pexpr sym1 pe' pe1,
               unsafe_subst_sym_pexpr sym1 pe' pe2,
-              Lem_list.map (unsafe_subst_sym_pexpr sym1 pe') pes )
+              List.map (unsafe_subst_sym_pexpr sym1 pe') pes )
       | Eproc (annot1, nm, pes) ->
-          Eproc (annot1, nm, Lem_list.map (unsafe_subst_sym_pexpr sym1 pe') pes)
+          Eproc (annot1, nm, List.map (unsafe_subst_sym_pexpr sym1 pe') pes)
       | Eaction pact -> Eaction (unsafe_subst_sym_paction sym1 pe' pact)
-      | Eunseq es -> Eunseq (Lem_list.map (unsafe_subst_sym_expr sym1 pe') es)
+      | Eunseq es -> Eunseq (List.map (unsafe_subst_sym_expr sym1 pe') es)
       | Ewseq (pat, e1, e2) ->
           Ewseq
             ( pat,
@@ -886,7 +886,7 @@ let rec unsafe_subst_sym_expr sym1 pe' (Expr (annot1, expr_)) =
       | Ebound e -> Ebound (unsafe_subst_sym_expr sym1 pe' e)
       | Esave (lab_sym, sym_bTy_pes, e) ->
           let sym_bTy_pes' =
-            Lem_list.map
+            List.map
               (fun (z, (bTy, pe)) ->
                 (z, (bTy, unsafe_subst_sym_pexpr sym1 pe' pe)))
               sym_bTy_pes
@@ -904,9 +904,9 @@ let rec unsafe_subst_sym_expr sym1 pe' (Expr (annot1, expr_)) =
           else Esave (lab_sym, sym_bTy_pes', unsafe_subst_sym_expr sym1 pe' e)
       | Erun (annot1, lab_sym, pes) ->
           Erun
-            (annot1, lab_sym, Lem_list.map (unsafe_subst_sym_pexpr sym1 pe') pes)
-      | End es -> End (Lem_list.map (unsafe_subst_sym_expr sym1 pe') es)
-      | Epar es -> Epar (Lem_list.map (unsafe_subst_sym_expr sym1 pe') es)
+            (annot1, lab_sym, List.map (unsafe_subst_sym_pexpr sym1 pe') pes)
+      | End es -> End (List.map (unsafe_subst_sym_expr sym1 pe') es)
+      | Epar es -> Epar (List.map (unsafe_subst_sym_expr sym1 pe') es)
       | Ewait _ -> expr_
       | Eannot (xs, e) -> Eannot (xs, unsafe_subst_sym_expr sym1 pe' e)
       | Eexcluded (n, act) -> Eexcluded (n, unsafe_subst_sym_action sym1 pe' act)
@@ -1029,12 +1029,12 @@ let rec unsafe_subst_pattern (Pattern (_, pat)) pe' expr1 =
   | CaseCtor (Ctuple, pats'), Pexpr (_, (), PEval (Vtuple cvals)) ->
       List.fold_right
         (fun (pat', cval) acc -> subst_pattern_val pat' cval acc)
-        (Lem_list.list_combine pats' cvals)
+        (List.combine pats' cvals)
         expr1
   | CaseCtor (Ctuple, pats'), Pexpr (_, _, PEctor (Ctuple, pes)) ->
       List.fold_right
         (fun (pat', pe) acc -> unsafe_subst_pattern pat' pe acc)
-        (Lem_list.list_combine pats' pes)
+        (List.combine pats' pes)
         expr1
       (* TODO (maybe), Carray, Civmax, Civmin, Civsizeof, Civalignof *)
   | ( CaseCtor (Cspecified, [ pat' ]),
@@ -1105,13 +1105,13 @@ let rec subst_pattern (Pattern (_, pat)) pe' expr1 =
       Some
         (List.fold_right
            (fun (pat', cval) acc -> subst_pattern_val pat' cval acc)
-           (Lem_list.list_combine pats' cvals)
+           (List.combine pats' cvals)
            expr1)
   | CaseCtor (Ctuple, pats'), Pexpr (_, _, PEctor (Ctuple, pes)) ->
       List.fold_right
         (fun (pat', pe) acc ->
           match acc with Some e -> subst_pattern pat' pe e | None -> None)
-        (Lem_list.list_combine pats' pes)
+        (List.combine pats' pes)
         (Some expr1)
       (* TODO (maybe), Carray, Civmax, Civmin, Civsizeof, Civalignof *)
   | ( CaseCtor (Cspecified, [ pat' ]),
@@ -1198,12 +1198,12 @@ let rec subst_wait tid1 v (Expr (annot1, expr_)) =
       | Ecase (pe, pat_es) ->
           Ecase
             ( pe,
-              Lem_list.map (fun (pat, e) -> (pat, subst_wait tid1 v e)) pat_es
+              List.map (fun (pat, e) -> (pat, subst_wait tid1 v e)) pat_es
             )
       | Eccall (_, _, _, _) -> expr_
       | Eproc (_, _, _) -> expr_
       | Eaction _ -> expr_
-      | Eunseq es -> Eunseq (Lem_list.map (subst_wait tid1 v) es)
+      | Eunseq es -> Eunseq (List.map (subst_wait tid1 v) es)
       | Ewseq (_as, e1, e2) ->
           Ewseq (_as, subst_wait tid1 v e1, subst_wait tid1 v e2)
       | Esseq (_as, e1, e2) ->
@@ -1217,8 +1217,8 @@ let rec subst_wait tid1 v (Expr (annot1, expr_)) =
 *)
       | Esave (sym1, sym_bTys, e) -> Esave (sym1, sym_bTys, subst_wait tid1 v e)
       | Erun (_, _, _) -> expr_
-      | End es -> End (Lem_list.map (subst_wait tid1 v) es)
-      | Epar es -> Epar (Lem_list.map (subst_wait tid1 v) es)
+      | End es -> End (List.map (subst_wait tid1 v) es)
+      | Epar es -> Epar (List.map (subst_wait tid1 v) es)
       | Ewait tid' ->
           if tid1 = tid' then
             match v with
@@ -1384,7 +1384,7 @@ let rec match_pattern (Pattern (_, pat)) cval =
           Lem.option_bind acc (fun xs ->
               Lem.option_bind (match_pattern pat' cval') (fun x ->
                   Some (List.rev_append (List.rev x) xs))))
-        (Lem_list.list_combine pats' cvals')
+        (List.combine pats' cvals')
         (Some [])
   | CaseCtor (Cnil _, []), Vlist (_, []) ->
       let () =
@@ -1436,7 +1436,7 @@ let add_std str (Expr (annot1, expr_)) = Expr (Astd str :: annot1, expr_)
 (*val add_stds: list string -> expr unit -> expr unit*)
 let add_stds strs (Expr (annot1, expr_)) =
   Expr
-    ( List.rev_append (List.rev (Lem_list.map (fun z -> Astd z) strs)) annot1,
+    ( List.rev_append (List.rev (List.map (fun z -> Astd z) strs)) annot1,
       expr_ )
 
 (*val add_attrs: Annot.attributes -> expr unit -> expr unit*)
@@ -1531,7 +1531,7 @@ let rec collect_saves_aux st (Expr (annots1, expr_)) =
           st with
           tmp_acc =
             Pmap.add sym1
-              (Lem_list.map (fun (x, ((y, _), _)) -> (x, y)) params, e)
+              (List.map (fun (x, ((y, _), _)) -> (x, y)) params, e)
               st.tmp_acc;
         }
         e
@@ -1753,7 +1753,7 @@ let rec update_env_aux dict_Map_MapKeyType_a (Pattern (_, pat)) cval env1 =
       List.fold_right
         (fun (pat', cval') acc ->
           update_env_aux dict_Map_MapKeyType_a pat' cval' acc)
-        (Lem_list.list_combine pats' cvals)
+        (List.combine pats' cvals)
         env1
   | CaseCtor (Cspecified, [ pat' ]), Vloaded (LVspecified oval) ->
       update_env_aux dict_Map_MapKeyType_a pat' (Vobject oval) env1
