@@ -153,6 +153,20 @@ let rec memValueFromValue ty cval =
       in
       None
 
+
+let valueFromPexpr = function
+  | Pexpr (_, _, PEval cval) -> Some cval
+  | _ -> None
+
+let valueFromPexprs pes =
+  List.fold_right
+    (fun pe acc_opt ->
+      match (valueFromPexpr pe, acc_opt) with
+      | Some cval, Some acc -> Some (cval :: acc)
+      | _ -> None)
+    pes (Some [])
+
+
 (* Core pattern builders **************************************************** *)
 module Pattern = struct
   let mk ?(annots = []) desc = Pattern (annots, desc)
@@ -422,20 +436,6 @@ let seq_rmw loc with_forward ty oTy x sym upd =
           (Paction
              (Pos, Action (loc, (), SeqRMW (with_forward, ty, x, sym, upd)))) )
 
-
-(*val valueFromPexpr: pexpr -> maybe value*)
-let valueFromPexpr = function
-  | Pexpr (_, (), PEval cval) -> Some (*flatten_constrained_value*) cval
-  | _ -> None
-
-(*val valueFromPexprs: list pexpr -> maybe (list value)*)
-let valueFromPexprs pes =
-  List.fold_right
-    (fun pe acc_opt ->
-      match (valueFromPexpr pe, acc_opt) with
-      | Some cval, Some acc -> Some (cval :: acc)
-      | _ -> None)
-    pes (Some [])
 
 (* check if a symbolic names is part of a pattern *)
 (*val in_pattern: Symbol.sym -> pattern -> bool*)
