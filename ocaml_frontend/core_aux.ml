@@ -1128,9 +1128,7 @@ let rec subst_pattern (Pattern (_, pat)) pe' expr1 =
       subst_pattern pat' pe'' expr1
   | CaseCtor (ctor1, pats), _ -> None
 
-(*val     to_pure: forall 'a. expr 'a -> maybe pexpr*)
-let rec to_pure (Expr (annot1, expr_)) =
-  (*(expr : expr 'a)*)
+let rec to_pure (Expr (annots, expr_)) =
   let to_pure_aux pat pe1 e2 =
     match subst_pattern pat pe1 e2 with
     | Some e -> to_pure e
@@ -1140,54 +1138,45 @@ let rec to_pure (Expr (annot1, expr_)) =
         | Some pe2 -> Some (mk_let_pe pat pe1 pe2))
   in
   match expr_ with
+  | Ememop (_, _)
+  | Eaction _
+  | Eccall (_, _, _, _)
+  | Eproc (_, _, _)
+  | Esave (_, _, _)
+  | Erun (_, _, _)
+  | End _
+  | Epar _
+  | Ewait _ -> None
   | Epure pe -> Some pe
-  | Ememop (_, _) -> None
   | Elet (pat, pe1, e2) -> (
       match to_pure e2 with
-      | Some (Pexpr (annot1, bTy, _) as pe2) ->
-          Some (Pexpr (annot1, bTy, PElet (pat, pe1, pe2)))
+      | Some (Pexpr (_, bTy, _) as pe2) ->
+          Some (Pexpr (annots, bTy, PElet (pat, pe1, pe2)))
       | _ -> None)
   | Eif (pe1, e2, e3) -> (
-      match (to_pure e2, to_pure e3) with
-      | Some (Pexpr (annot1, bTy, _) as pe2), Some pe3 ->
-          Some (Pexpr (annot1, bTy, PEif (pe1, pe2, pe3)))
+      match to_pure e2, to_pure e3 with
+      | Some (Pexpr (_, bTy, _) as pe2), Some pe3 ->
+          Some (Pexpr (annots, bTy, PEif (pe1, pe2, pe3)))
       | _ -> None)
-  | Eccall (_, _, _, _) -> None
-  | Eproc (_, _, _) -> None
-  | Eaction _ -> None
-  | Eunseq es -> (
-      match to_pures es with
-      | Some pes -> Some (mk_tuple_pe pes)
-      | None -> None)
-  | Ewseq (pat, e1, e2) -> (
-      match to_pure e1 with Some pe1 -> to_pure_aux pat pe1 e2 | None -> None)
-  | Esseq (pat, e1, e2) -> (
-      match to_pure e1 with Some pe1 -> to_pure_aux pat pe1 e2 | None -> None)
+  | Eunseq es ->
+      Option.map mk_tuple_pe (to_pures es)
+  | Ewseq (pat, e1, e2) ->
+      (match to_pure e1 with Some pe1 -> to_pure_aux pat pe1 e2 | None -> None)
+  | Esseq (pat, e1, e2) ->
+      (match to_pure e1 with Some pe1 -> to_pure_aux pat pe1 e2 | None -> None)
   | Ebound e ->
       (* TODO: check *)
       to_pure e
-  | Esave (_, _, _) -> None
-  | Erun (_, _, _) -> None
-  | End _ -> None
-  | Epar _ -> None
-  | Ewait _ -> None
   | Eannot (_, _) -> Cerb_debug.error "to_pure Eannot"
   | Eexcluded (_, _) -> Cerb_debug.error "to_pure Eexcluded"
-  (*
-    | Eloc _ e ->
-        to_pure e
-    | Estd _ e ->
-        to_pure e
-*)
   | Ecase (pe, pat_es) -> (
       let pats, es = List.split pat_es in
       match to_pures es with
       | Some (Pexpr (annot1, bTy, _) :: _ as pes) ->
           Some
-            (Pexpr (annot1, bTy, PEcase (pe, Lem_list.list_combine pats pes)))
+            (Pexpr (annot1, bTy, PEcase (pe, List.combine pats pes)))
       | _ -> None)
 
-(* val     to_pures: forall 'a. list (expr 'a) -> maybe (list pexpr)*)
 and to_pures es =
   List.fold_right
     (fun e acc_opt ->
