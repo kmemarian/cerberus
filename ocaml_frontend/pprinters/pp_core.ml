@@ -27,16 +27,16 @@ sig
   val pp_value: value -> PPrint.document
   val pp_params: (Symbol.sym * core_base_type) list -> PPrint.document
   val pp_pattern : Symbol.sym Core.generic_pattern -> PPrint.document
-  val pp_pexpr: ('ty, Symbol.sym) generic_pexpr -> PPrint.document
-  val pp_expr: ('a, 'b, Symbol.sym) generic_expr -> PPrint.document
-  val pp_file: ('a, 'b) generic_file -> PPrint.document
+  val pp_pexpr: pexpr -> PPrint.document
+  val pp_expr: 'a expr -> PPrint.document
+  val pp_file: 'a file -> PPrint.document
   val pp_ctor : ctor -> PPrint.document
 
   val pp_funinfo: (Symbol.sym, Cerb_location.t * Annot.attributes * Ctype.ctype * (Symbol.sym option * Ctype.ctype) list * bool * bool) Pmap.map -> PPrint.document
   val pp_funinfo_with_attributes: (Symbol.sym, Cerb_location.t * Annot.attributes * Ctype.ctype * (Symbol.sym option * Ctype.ctype) list * bool * bool) Pmap.map -> PPrint.document
   val pp_extern_symmap: (Symbol.sym, Symbol.sym) Pmap.map -> PPrint.document
 
-  val pp_action: ('a, Symbol.sym) generic_action_ -> PPrint.document
+  val pp_action: Symbol.sym Core.generic_action_ -> PPrint.document
 (*  val pp_stack: 'a stack -> PPrint.document *)
 end
 

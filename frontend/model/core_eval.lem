@@ -119,7 +119,7 @@ val call_function: Core.file core_run_annotation -> name -> list Core.value ->
                    Exception.exceptM Core.pexpr core_run_cause
 let call_function file f_nm arg_cvals =
   let () = Debug.print_debug 5 [] (fun () ->
-    "CALL_FUNCTION: " ^ Pp.stringFromCore_pexpr (Pexpr [] () (PEcall f_nm (List.map Caux.mk_value_pe arg_cvals)))
+    "CALL_FUNCTION: " ^ Pp.stringFromCore_pexpr (Pexpr [] Nothing (PEcall f_nm (List.map Caux.mk_value_pe arg_cvals)))
   ) in
   Exception.bind match f_nm with
     | Sym f_a ->
@@ -171,7 +171,7 @@ let inline (<$>) = EU.fmap
 val step_eval_peop:
   Loc.t -> (Core.pexpr -> EU.t Core.pexpr core_run_cause) ->
   Core.binop -> Core.pexpr -> Core.pexpr  ->
-  EU.t (Core.generic_pexpr_ unit Symbol.sym) core_run_cause
+  EU.t (Core.generic_pexpr_ Symbol.sym) core_run_cause
 
 let step_eval_peop loc self binop pe1 pe2 =
   self pe1 >>= fun pe1' ->
@@ -354,11 +354,11 @@ val     step_eval_pexpr: nat -> Loc.t -> maybe Loc.t ->
                          bool -> Core.pexpr  ->
                          EU.t Core.pexpr core_run_cause
 let rec step_eval_pexpr n loc parent_call_loc_opt core_extern env mem_st_opt file hasConstrained pexpr =
-  match pexpr with Pexpr _ () pexpr_  ->
+  match pexpr with Pexpr _ _ pexpr_  ->
   let strip (Pexpr _ _ pe_) = pe_ in
   let self pe =
     step_eval_pexpr (n+1) loc parent_call_loc_opt core_extern env mem_st_opt file (*hasConstrained *)false pe in
-  Pexpr [] () <$> match pexpr_ with
+  Pexpr [] Nothing <$> match pexpr_ with
     | PEsym sym ->
         let sym = match Map.lookup sym core_extern with
           | Just sym -> sym
@@ -427,7 +427,7 @@ let rec step_eval_pexpr n loc parent_call_loc_opt core_extern env mem_st_opt fil
                     EU.return $ PEval (Vobject (OVinteger (Mem.max_ival ity)))
                 | _ ->
                     error ("Core_eval ivmax" ^ (* DEBUG *)
-                           Pp.stringFromCore_expr (Core.Expr [] (Core.Epure (Core.Pexpr [] () (Core.PEval (Vctype ty)))) : Core.expr unit)) (* DEBUG *)
+                           Pp.stringFromCore_expr (Core.Expr [] (Core.Epure (Core.Pexpr [] Nothing (Core.PEval (Vctype ty)))) : Core.expr unit)) (* DEBUG *)
               end
           | (Civmin, Just [Vctype ty]) ->
               match Ctype.unatomic_ ty with
@@ -435,7 +435,7 @@ let rec step_eval_pexpr n loc parent_call_loc_opt core_extern env mem_st_opt fil
                     EU.return $ PEval (Vobject (OVinteger (Mem.min_ival ity)))
                 | _ ->
                     error ("Core_eval ivmin [" ^ Loc.stringFromLocation loc ^ "] ==> " ^ (* DEBUG *)
-                               Pp.stringFromCore_expr (Core.Expr [] (Core.Epure (Core.Pexpr [] () (Core.PEval (Vctype ty)))) : Core.expr unit)) (* DEBUG *)
+                               Pp.stringFromCore_expr (Core.Expr [] (Core.Epure (Core.Pexpr [] Nothing (Core.PEval (Vctype ty)))) : Core.expr unit)) (* DEBUG *)
               end
           | (Civsizeof, Just [Vctype ty]) ->
               EU.return $ PEval (Vobject (OVinteger (Mem.sizeof_ival ty)))
@@ -509,7 +509,7 @@ let rec step_eval_pexpr n loc parent_call_loc_opt core_extern env mem_st_opt fil
               EU.return $ PEval (Vobject (OVpointer (Mem.array_shift_ptrval ptr_val ty ival)))
           | (Just _, Just _) ->
               EU.fail $ Illformed_program ("PEarray_shift: type error ==> " ^
-                                           Pp.stringFromCore_pexpr (Pexpr [] () (PEarray_shift pe1' ty pe2')))
+                                           Pp.stringFromCore_pexpr (Pexpr [] Nothing (PEarray_shift pe1' ty pe2')))
           | _ ->
               EU.return $ PEarray_shift pe1' ty pe2'
         end
