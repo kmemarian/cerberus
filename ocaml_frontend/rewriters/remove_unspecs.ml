@@ -29,7 +29,7 @@ let rec cleanup_cases = function
 
 
 
-let rewriter : 'bty RW.rewriter =
+let rewriter : RW.rewriter =
   let open RW in {
     rw_pexpr=
       RW.RW begin fun _ _ ->

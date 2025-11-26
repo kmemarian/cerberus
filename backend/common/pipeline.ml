@@ -310,195 +310,6 @@ let core_rewrite (conf, io) core_file =
   end
 
 
-let untype_file (file: 'a Core.typed_file) : 'a Core.file =
-  let open Core in
-  let untype_ctor = fun ctor -> ctor (* function
-     * | Cnil _ ->
-     *     Cnil ()
-     * | (Ccons as ctor)
-     * | (Ctuple as ctor)
-     * | (Carray as ctor)
-     * | (Civmax as ctor)
-     * | (Civmin as ctor)
-     * | (Civsizeof as ctor)
-     * | (Civalignof as ctor)
-     * | (CivCOMPL as ctor)
-     * | (CivAND as ctor)
-     * | (CivOR as ctor)
-     * | (CivXOR as ctor)
-     * | (Cspecified as ctor)
-     * | (Cunspecified as ctor)
-     * | (Cfvfromint as ctor)
-     * | (Civfromfloat as ctor) ->
-     *     ctor in *)
-  in
-  let rec untype_pattern (Pattern (annots, pat_)) =
-    Pattern ( annots
-            , match pat_ with
-                | (CaseBase _ as pat_) ->
-                    pat_
-                | CaseCtor (ctor, pats) ->
-                    CaseCtor (untype_ctor ctor, List.map untype_pattern pats) ) in
-  let rec untype_pexpr (Pexpr (annots, _, pexpr_) : Core.typed_pexpr) : Core.pexpr =
-    let aux = function
-      | (PEsym _ as pe)
-      | (PEimpl _ as pe)
-      | (PEval _ as pe)
-      | (PEundef _ as pe) ->
-          pe
-      | PEerror (str, pe) ->
-          PEerror (str, untype_pexpr pe)
-      | PEctor (ctor, pes) ->
-          PEctor (untype_ctor ctor, List.map untype_pexpr pes)
-      | PEcase (pe, pat_pes) ->
-          PEcase (untype_pexpr pe, List.map (fun (pat, pe) -> (untype_pattern pat, untype_pexpr pe)) pat_pes)
-      | PEarray_shift (pe1, ty, pe2) ->
-          PEarray_shift (untype_pexpr pe1, ty, untype_pexpr pe2)
-      | PEmember_shift (pe1, tag_sym, membr_ident) ->
-          PEmember_shift (untype_pexpr pe1, tag_sym, membr_ident)
-      | PEmemop (mop, pes) ->
-          PEmemop (mop, List.map untype_pexpr pes)
-      | PEnot pe ->
-          PEnot (untype_pexpr pe)
-      | PEop (binop, pe1, pe2) ->
-          PEop (binop, untype_pexpr pe1, untype_pexpr pe2)
-      | PEconv_int (ity, pe) ->
-          PEconv_int (ity, untype_pexpr pe)
-      | PEwrapI (ity, iop, pe1, pe2) ->
-          PEwrapI (ity, iop, untype_pexpr pe1, untype_pexpr pe2)
-      | PEcatch_exceptional_condition (ity, iop, pe1, pe2) ->
-          PEcatch_exceptional_condition (ity, iop, untype_pexpr pe1, untype_pexpr pe2)
-      | PEstruct (tag_sym, xs) ->
-          PEstruct (tag_sym, List.map (fun (z, pe) -> (z, untype_pexpr pe)) xs)
-      | PEunion (tag_sym, membr_ident, pe) ->
-          PEunion (tag_sym, membr_ident, untype_pexpr pe)
-      | PEcfunction pe ->
-          PEcfunction (untype_pexpr pe)
-      | PEmemberof (tag_sym, membr_ident, pe) ->
-          PEmemberof (tag_sym, membr_ident, untype_pexpr pe)
-      | PEcall (nm, pes) ->
-          PEcall (nm, List.map untype_pexpr pes)
-      | PElet (pat, pe1, pe2) ->
-          PElet (untype_pattern pat, untype_pexpr pe1, untype_pexpr pe2)
-      | PEif (pe1, pe2, pe3) ->
-          PEif (untype_pexpr pe1, untype_pexpr pe2, untype_pexpr pe3)
-      | PEis_scalar pe ->
-          PEis_scalar (untype_pexpr pe)
-      | PEis_integer pe ->
-          PEis_integer (untype_pexpr pe)
-      | PEis_signed pe ->
-          PEis_signed (untype_pexpr pe)
-      | PEis_unsigned pe ->
-          PEis_unsigned (untype_pexpr pe)
-      | PEbmc_assume pe ->
-          PEbmc_assume (untype_pexpr pe)
-      | PEare_compatible (pe1, pe2) ->
-          PEare_compatible (untype_pexpr pe1, untype_pexpr pe2)
-    in Pexpr (annots, (), aux pexpr_) in
-  let untype_action (Action (loc, a, act_)) =
-    Action ( loc, a
-           , match act_ with
-               | Create (pe1, pe2, pref) ->
-                   Create (untype_pexpr pe1, untype_pexpr pe2, pref)
-               | CreateReadOnly (pe1, pe2, pe3, pref) ->
-                   CreateReadOnly (untype_pexpr pe1, untype_pexpr pe2, untype_pexpr pe3, pref)
-               | Alloc0 (pe1, pe2, pref) ->
-                   Alloc0 (untype_pexpr pe1, untype_pexpr pe2, pref)
-               | Kill (kind, pe) ->
-                   Kill (kind, untype_pexpr pe)
-               | Store0 (b, pe1, pe2, pe3, mo) ->
-                   Store0 (b, untype_pexpr pe1, untype_pexpr pe2, untype_pexpr pe3, mo)
-               | Load0 (pe1, pe2, mo) ->
-                   Load0 (untype_pexpr pe1, untype_pexpr pe2, mo)
-               | SeqRMW (b, pe1, pe2, sym, pe3) ->
-                   SeqRMW (b, untype_pexpr pe1, untype_pexpr pe2, sym, untype_pexpr pe3)
-               | RMW0 (pe1, pe2, pe3, pe4, mo1, mo2) ->
-                   RMW0 (untype_pexpr pe1, untype_pexpr pe2, untype_pexpr pe3, untype_pexpr pe4, mo1, mo2)
-               | Fence0 mo ->
-                   Fence0 mo
-               | CompareExchangeStrong (pe1, pe2, pe3, pe4, mo1, mo2) ->
-                   CompareExchangeStrong (untype_pexpr pe1, untype_pexpr pe2, untype_pexpr pe3, untype_pexpr pe4, mo1, mo2)
-               | CompareExchangeWeak (pe1, pe2, pe3, pe4, mo1, mo2) ->
-                   CompareExchangeWeak (untype_pexpr pe1, untype_pexpr pe2, untype_pexpr pe3, untype_pexpr pe4, mo1, mo2)
-               | LinuxFence mo ->
-                   LinuxFence mo
-               | LinuxLoad (pe1, pe2, mo) ->
-                   LinuxLoad (untype_pexpr pe1, untype_pexpr pe2, mo)
-               | LinuxStore ( pe1, pe2, pe3, mo) ->
-                   LinuxStore ( untype_pexpr pe1, untype_pexpr pe2, untype_pexpr pe3, mo)
-               | LinuxRMW (pe1, pe2, pe3, mo) ->
-                   LinuxRMW (untype_pexpr pe1, untype_pexpr pe2, untype_pexpr pe3, mo) ) in
-  let rec untype_expr (Expr (annots, expr_)) =
-    let aux = function
-      | Epure pe ->
-          Epure (untype_pexpr pe)
-      | Ememop (memop, pes) ->
-          Ememop (memop, List.map untype_pexpr pes)
-      | Eaction (Paction (p, act)) ->
-          Eaction (Paction (p, untype_action act))
-      | Ecase (pe, xs) ->
-          Ecase (untype_pexpr pe, List.map (fun (pat, e) -> (untype_pattern pat, untype_expr e)) xs)
-      | Elet (pat, pe1, e2) ->
-          Elet (untype_pattern pat, untype_pexpr pe1, untype_expr e2)
-      | Eif (pe, e1, e2) ->
-          Eif (untype_pexpr pe, untype_expr e1, untype_expr e2)
-      | Eccall (a, pe1, pe2, pes) ->
-          Eccall (a, untype_pexpr pe1, untype_pexpr pe2, List.map untype_pexpr pes)
-      | Eproc (a, nm, pes) ->
-          Eproc (a, nm, List.map untype_pexpr pes)
-      | Eunseq es ->
-          Eunseq (List.map untype_expr es)
-      | Ewseq (pat, e1, e2) ->
-          Ewseq (untype_pattern pat, untype_expr e1, untype_expr e2)
-      | Esseq (pat, e1, e2) ->
-          Esseq (untype_pattern pat, untype_expr e1, untype_expr e2)
-      | Ebound e ->
-          Ebound (untype_expr e)
-      | End es ->
-          End (List.map untype_expr es)
-      | Esave (sym_bTy, xs, e) ->
-          Esave (sym_bTy, List.map (fun (sym, (bTy, pe)) -> (sym, (bTy, untype_pexpr pe))) xs, untype_expr e)
-      | Erun (a, sym, pes) ->
-          Erun (a, sym, List.map untype_pexpr pes)
-      | Epar es ->
-          Epar (List.map untype_expr es)
-      | Ewait tid ->
-          Ewait tid
-      | Eannot _ | Eexcluded _ ->
-          assert false (* only exists during Core runtime *)
-    in Expr (annots, aux expr_) in
-  let untype_generic_fun_map_decl = function
-    | Fun (bty, xs, pe) ->
-        Fun (bty, xs, untype_pexpr pe)
-    | Proc (loc, mrk, bTy, xs, e) ->
-        Proc (loc, mrk, bTy, xs, untype_expr e)
-    | ProcDecl _ as decl ->
-        decl
-    | BuiltinDecl _ as decl ->
-        decl in
-  let untype_generic_impl_decl = function
-    | Def (bTy, pe) ->
-        Def (bTy, untype_pexpr pe)
-    | IFun (bTy, xs, pe) ->
-        IFun (bTy, xs, untype_pexpr pe) in
-  let untype_generic_globs = function
-    | GlobalDef (bTy, e) ->
-        GlobalDef (bTy, untype_expr e)
-    | GlobalDecl _ as glob ->
-        glob in
-  { main= file.main
-  ; calling_convention= file.calling_convention
-  ; tagDefs= file.tagDefs
-  ; stdlib= Pmap.map untype_generic_fun_map_decl file.stdlib
-  ; impl= Pmap.map untype_generic_impl_decl file.impl
-  ; globs= List.map (fun (sym, z) -> (sym, untype_generic_globs z)) file.globs
-  ; funs= Pmap.map untype_generic_fun_map_decl  file.funs
-  ; extern= file.extern
-  ; funinfo= file.funinfo
-  ; loop_attributes0= file.loop_attributes0
-  ; visible_objects_env= file.visible_objects_env
- }
-
 let typed_core_passes (conf, io) core_file =
   whenM conf.typecheck_core begin
     fun () ->
@@ -518,7 +329,7 @@ let typed_core_passes (conf, io) core_file =
       Core_sequentialise.sequentialise_file typed_core_file'
     else
       typed_core_file' in
-  return (untype_file typed_core_file'', typed_core_file'')
+  return typed_core_file''
 
 let print_core (conf, io) ~filename core_file =
   whenM (List.mem Core conf.astprints) begin
@@ -554,7 +365,7 @@ let core_passes (conf, io) ~filename core_file =
     else
       core_file in
   if conf.sequentialise_core || conf.typecheck_core then
-    typed_core_passes (conf, io) core_file >>= fun (core_file, typed_core_file) ->
+    typed_core_passes (conf, io) core_file >>= fun typed_core_file ->
     print_core (conf, io) ~filename typed_core_file >>= fun _ ->
     return core_file
   else if conf.rewrite_core then
@@ -606,8 +417,8 @@ type 'a core_dump =
   { dump_main: Symbol.sym option;
     dump_calling_convention: Core.calling_convention;
     dump_tagDefs: (Symbol.sym * (Cerb_location.t * Ctype.tag_definition)) list;
-    dump_globs: (Symbol.sym * ('a, unit) Core.generic_globs) list;
-    dump_funs: (Symbol.sym * (unit, 'a) Core.generic_fun_map_decl) list;
+    dump_globs: (Symbol.sym * 'a Core.generic_globs) list;
+    dump_funs: (Symbol.sym * 'a Core.generic_fun_map_decl) list;
     dump_extern: (Symbol.identifier * (Symbol.sym list * Core.linking_kind)) list;
     dump_funinfo: (Symbol.sym * (Cerb_location.t * Annot.attributes * Ctype.ctype * (Symbol.sym option * Ctype.ctype) list * bool * bool)) list;
     (* dump_loop_attributes: (int * Annot.attributes) list; *)

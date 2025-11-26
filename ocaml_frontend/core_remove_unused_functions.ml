@@ -148,7 +148,7 @@ module RW = Rewriter(State)
 
 
 
-type ('a,'bty,'sym) name_collector =
+type ('a, 'sym) name_collector =
   { names_in_pointer_value : Impl_mem.pointer_value -> unit t; 
     names_in_memory_value : Impl_mem.mem_value -> unit t; 
     names_in_object_value : object_value -> unit t;
@@ -159,14 +159,14 @@ type ('a,'bty,'sym) name_collector =
     names_in_value : value -> unit t;
     names_in_pattern : 'sym generic_pattern -> unit t;
     names_in_name : 'sym generic_name -> unit t;
-    names_in_pexpr : ('bty,'sym) generic_pexpr -> unit t;
-    names_in_expr : ('a,'bty,'sym) generic_expr -> unit t}
+    names_in_pexpr : pexpr -> unit t;
+    names_in_expr : 'a expr -> unit t}
 
 
 
 (* Rewriter doing partial evaluation for Core (pure) expressions *)
 (* this collects all the symbols mentioned *)
-let deps_of fn_or_impl : ('a,'bty,'sym) name_collector = 
+let deps_of fn_or_impl : ('a, 'sym) name_collector = 
 
   let record_dep = record_dep fn_or_impl in
 
@@ -402,7 +402,7 @@ let do_impls is =
            name_collector.names_in_pexpr pe) is >>
     return () 
 
-let do_fun_map definitely_keep (fmap : ('bty,'a) generic_fun_map) =
+let do_fun_map definitely_keep (fmap : 'a generic_fun_map) =
   pmap_iterM (fun fn decl ->
     (if definitely_keep 
      then record_keep (Sym fn) 
@@ -432,7 +432,7 @@ let do_fun_map definitely_keep (fmap : ('bty,'a) generic_fun_map) =
     return ()
 
 
-let do_globs_list (gs : (Symbol.sym *  ('a, 'bty) generic_globs) list) =
+let do_globs_list (gs : (Symbol.sym * 'a generic_globs) list) =
   mapM (fun (glob, g) ->
       record_keep (Sym glob) >>
       let name_collector = deps_of (Sym glob) in
@@ -540,7 +540,7 @@ let remove_unused_functions remove_funinfo_entries file =
    * in *)
 
 
-  let used_stdlib : ('bty, 'a) generic_fun_map = 
+  let used_stdlib : 'a generic_fun_map = 
     Pmap.filter (fun name _ -> 
           Pset.mem (Def.Sym name) keep ||
             match Symbol.symbol_description name with

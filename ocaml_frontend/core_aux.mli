@@ -214,7 +214,7 @@ val update_env :
   (Symbol.sym, value) Pmap.map list
 
 val find_labeled_continuation :
-  Symbol.sym -> 'a typed_expr -> (Symbol.sym list * 'a typed_expr) option
+  Symbol.sym -> 'a expr -> (Symbol.sym list * 'a expr) option
 
 val collect_labeled_continuations_NEW :
   'a file ->
