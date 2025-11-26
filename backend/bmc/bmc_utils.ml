@@ -271,7 +271,7 @@ let pp_to_stdout (doc: PPrint.document) =
 let pp_to_string (doc: PPrint.document) : string =
   Pp_utils.to_plain_string doc
 
-let pp_file (core_file: ('a, 'b) generic_file) =
+let pp_file (core_file: 'a file) =
   pp_to_stdout (Pp_core.Basic.pp_file core_file)
 
 let pp_ctype (ctype: Ctype.ctype) =

@@ -303,7 +303,7 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
                   CreateRequest loc sb_before dd_before asw_before
                     create_aid current_tid pref ival ty Nothing
                     (fun ptr_val -> <| th_st with
-                        arena= Expr arena_annots (Epure (Pexpr [] () (PEval (Vobject (OVpointer ptr_val)))));
+                        arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEval (Vobject (OVpointer ptr_val)))));
                         stack= add_to_sb_stack {(p, (current_tid, create_aid))} (* TODO: remove for sequential !!! *) th_st.stack;
                     |>)
                     )
@@ -364,7 +364,7 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
                                     CreateRequest loc sb_before dd_before asw_before
                                       create_aid current_tid pref ival ty (Just mem_val)
                                       (fun ptr_val -> <| th_st with
-                                          arena= Expr arena_annots (Epure (Pexpr [] () (PEval (Vobject (OVpointer ptr_val)))));
+                                          arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEval (Vobject (OVpointer ptr_val)))));
                                           stack= add_to_sb_stack {(p, (current_tid, create_aid))} (* TODO: remove for sequential !!! *) th_st.stack;
                                       |>)
                                   )
@@ -389,7 +389,7 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
                   AllocRequest loc sb_before dd_before asw_before
                     alloc_aid current_tid pref ival1 ival2
                     (fun ptr_val -> <| th_st with
-                        arena= Expr arena_annots (Epure (Pexpr [] () (PEval (Vobject (OVpointer ptr_val)))));
+                        arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEval (Vobject (OVpointer ptr_val)))));
                         stack= add_to_sb_stack {(p, (current_tid, alloc_aid))} (* TODO: remove for sequential !!! *) th_st.stack;
                     |>)
                     )
@@ -422,7 +422,7 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
                     sb_before dd_before asw_before
                     kill_aid current_tid (is_dynamic kind) ptr_val
                     <| th_st with
-                      arena= Expr arena_annots (Epure (Pexpr [] () (PEval Vunit)));
+                      arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEval Vunit)));
                       stack= add_to_sb_stack {(p, (current_tid, kill_aid))} (* TODO: remove for sequential !!! *) th_st.stack;
                     |>
                 )
@@ -449,7 +449,7 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
                         StoreRequest loc sb_before dd_before asw_before
                           store_aid current_tid mo ty is_locking ptr_val mem_val
                           <| th_st with
-                            arena= Expr arena_annots (Epure (Pexpr [] () (PEval Vunit))) (* Epure (PEval (objectValueFromMemValue mem_val)) *);
+                            arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEval Vunit))) (* Epure (PEval (objectValueFromMemValue mem_val)) *);
                             stack= add_to_sb_stack {(p, (current_tid, store_aid))} (* TODO: remove for sequential !!! *) th_st.stack;
                           |>
                       )
@@ -496,7 +496,7 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
                     (fun mem_val -> <| th_st with
                         (* NOTE: the parenthesis are needed because of a Lem's bug... *)
                         arena= (let (oTy, cval) = valueFromMemValue mem_val in
-                                Expr arena_annots (Epure (Pexpr [] () (PEval cval))));
+                                Expr arena_annots (Epure (Pexpr [] Nothing (PEval cval))));
                         stack= add_to_sb_stack {(p, (current_tid, load_aid))} (* TODO: remove for sequential !!! *) th_st.stack
                     |>)
                 )
@@ -531,7 +531,7 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
                         RMWRequest loc sb_before dd_before asw_before
                           rmw_aid current_tid mo1 mo2 ty ptr_val mval_expected mval_desired
                           <| th_st with
-                            arena= Expr arena_annots (Epure (Pexpr [] () (PEval Vtrue))); (* TODO *)
+                            arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEval Vtrue))); (* TODO *)
                             stack= add_to_sb_stack {(p, (current_tid, rmw_aid))} (* TODO: remove for sequential !!! *) th_st.stack;
                           |>
                       )
@@ -632,7 +632,7 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
             FenceRequest loc sb_before dd_before asw_before
               fence_aid current_tid mo
               <| th_st with
-                arena= Expr arena_annots (Epure (Pexpr [] () (PEval Vunit)));
+                arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEval Vunit)));
                 stack= add_to_sb_stack {(p, (current_tid, fence_aid))} (* TODO: remove for sequential !!! *) th_st.stack;
               |>
           )

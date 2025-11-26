@@ -1,6 +1,6 @@
 open import Core
 
-val     sequentialise_expr: typed_expr unit -> typed_expr unit
+val     sequentialise_expr: expr unit -> expr unit
 let rec sequentialise_expr (Expr annot expr_) =
   Expr annot match expr_ with
     | Epure _ ->
@@ -66,7 +66,7 @@ let rec sequentialise_expr (Expr annot expr_) =
   end
 
 
-val sequentialise_file: typed_file unit -> typed_file unit
+val sequentialise_file: file unit -> file unit
 let sequentialise_file file =
   <| file with funs= Map.map (function
        | Proc loc mrk bTy params e ->

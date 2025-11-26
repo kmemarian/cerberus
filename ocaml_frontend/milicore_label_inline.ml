@@ -43,7 +43,7 @@ let inline_label run_annots (label_loc, l_annot, label_sym, label_arg_syms_bts, 
 open Core_rewriter
 module RW = Rewriter(Identity_monad)
 
-let rewriter label : 'bty RW.rewriter =
+let rewriter label : RW.rewriter =
   let (_, _, label_sym, _, _) = label in
   {
     rw_pexpr= RW.RW (fun _ _ -> Traverse);

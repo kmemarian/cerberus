@@ -3,13 +3,13 @@ open Bmc_utils
 open Cerb_frontend
 open Core
 
-type substitute_map = (sym_ty, typed_pexpr) Pmap.map
+type substitute_map = (sym_ty, pexpr) Pmap.map
 
 (* WARNING: all these functions assume the symbols in the
    substitute_map doesn't clash with the binders in the Core exprs *)
 
 let rec unsafe_substitute_pexpr (map: substitute_map)
-                         (Pexpr(annot, ty, pexpr_): typed_pexpr) =
+                         (Pexpr(annot, ty, pexpr_): pexpr) =
   let ret = match pexpr_ with
     | PEsym sym ->
         begin match Pmap.lookup sym map with
@@ -74,7 +74,7 @@ let rec unsafe_substitute_pexpr (map: substitute_map)
     Pexpr(annot, ty, ret)
 
 let unsafe_substitute_action (map: substitute_map)
-                          (Action(loc, a, action_) : 'a typed_action) =
+                          (Action(loc, a, action_) : 'a action0) =
   let ret = match action_ with
     | Create (pe1, pe2, sym) ->
         Create(unsafe_substitute_pexpr map pe1, unsafe_substitute_pexpr map pe2, sym)
@@ -135,7 +135,7 @@ let unsafe_substitute_action (map: substitute_map)
   Action(loc, a, ret)
 
 let rec unsafe_substitute_expr (map: substitute_map)
-                        (Expr(annot, expr_) : 'a typed_expr) =
+                        (Expr(annot, expr_) : 'a expr) =
   let ret = match expr_ with
     | Epure pe ->
         Epure(unsafe_substitute_pexpr map pe)
