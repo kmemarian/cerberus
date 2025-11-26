@@ -147,7 +147,7 @@ let rwter_only_effectful r = <| rwter_identity with
 
      let weak/strong pat = skip in e2      ===>    e2 [pat \ Vunit]
      let weak/strong pat = e1 in skip      ===>    e1               *)
-let rec remove_skips ((Expr( annot1, expr_) as expr1)):('a,(unit),(Symbol.sym))generic_expr=
+let rec remove_skips ((Expr( annot1, expr_) as expr1)) =
    ((match expr_ with
     | Epure pe ->
         (* unchanged *)
@@ -227,7 +227,7 @@ let rec remove_skips ((Expr( annot1, expr_) as expr1)):('a,(unit),(Symbol.sym))g
   ))
 
 
-let rec remove_unseqs ((Expr( annot1, expr_) as expr1)):('a,(unit),(Symbol.sym))generic_expr=
+let rec remove_unseqs ((Expr( annot1, expr_) as expr1)) =
    ((match expr_ with
     | Epure _ ->
         (* unchanged *)
@@ -417,7 +417,7 @@ let extract_either:('a,'a)Either.either ->'a=  ((function
       z
 ))
 
-let rec remove_dead_aux ((Expr( annot1, expr_) as expr1)):((('c,'b,'a)generic_expr),(('c,'b,'a)generic_expr))Either.either=
+let rec remove_dead_aux ((Expr( annot1, expr_) as expr1)) =
    ((match expr_ with
     | Epure _ ->
         Either.Left expr1
@@ -562,7 +562,7 @@ let rec remove_dead_aux ((Expr( annot1, expr_) as expr1)):((('c,'b,'a)generic_ex
         Either.Left expr1
   ))
 
-let remove_dead expr1:('a,'b,'c)generic_expr=
+let remove_dead expr1 =
    ((match remove_dead_aux expr1 with
     | Either.Left expr' ->
         expr'
@@ -571,7 +571,7 @@ let remove_dead expr1:('a,'b,'c)generic_expr=
   ))
 
 
-let rec flatten_seqs ((Expr( annot1, expr_) as expr1)):('c,'b,'a)generic_expr=
+let rec flatten_seqs ((Expr( annot1, expr_) as expr1)) =
    ((match expr_ with
     | Epure _ ->
         expr1
@@ -670,7 +670,7 @@ let in_minimal_range (Ctype( _, ty1)) n:bool=
 
 
 (*val     remove_conv_int_pexpr: pexpr -> pexpr*)
-let rec remove_conv_int_pexpr (Pexpr( annot1, bTy, _pe)):((unit),(Symbol.sym))generic_pexpr=
+let rec remove_conv_int_pexpr (Pexpr( annot1, bTy, _pe)) =
    (Pexpr( annot1, bTy, (match _pe with
     | PEsym _ ->
         _pe
@@ -760,7 +760,7 @@ let rec remove_conv_int_pexpr (Pexpr( annot1, bTy, _pe)):((unit),(Symbol.sym))ge
         PEare_compatible( (remove_conv_int_pexpr pe1), (remove_conv_int_pexpr pe2))
   )))
 
-let rec remove_conv_int (Expr( annot1, expr_)):((unit),(unit),(Symbol.sym))generic_expr=
+let rec remove_conv_int (Expr( annot1, expr_)) =
    (Expr( annot1, (match expr_ with
     | Epure pe ->
         Epure (remove_conv_int_pexpr pe)
@@ -810,7 +810,7 @@ let rec remove_conv_int (Expr( annot1, expr_)):((unit),(unit),(Symbol.sym))gener
         Eexcluded( n, (remove_conv_int_action act))
   )))
 
-and remove_conv_int_action_ act_:((unit),(Symbol.sym))generic_action_=
+and remove_conv_int_action_ act_ =
    ((match act_ with
     | Create( pe1, pe2, pref) ->
         Create( (remove_conv_int_pexpr pe1), (remove_conv_int_pexpr pe2), pref)
@@ -844,19 +844,19 @@ and remove_conv_int_action_ act_:((unit),(Symbol.sym))generic_action_=
         LinuxRMW( pe1, pe2, pe3, mo1)
   ))
 
-and remove_conv_int_action (Action( loc1, (), act_)):((unit),(unit),(Symbol.sym))generic_action=  (Action( loc1, (), (remove_conv_int_action_ act_)))
-and remove_conv_int_paction (Paction( p, act)):((unit),(unit),(Symbol.sym))generic_paction=  (Paction( p, (remove_conv_int_action act)))
+and remove_conv_int_action (Action( loc1, (), act_)) =  (Action( loc1, (), (remove_conv_int_action_ act_)))
+and remove_conv_int_paction (Paction( p, act)) =  (Paction( p, (remove_conv_int_action act)))
 
 
 
-let is_create:('c,'b,'a)generic_expr ->bool=  ((function
+let is_create =  ((function
   | Expr( _, (Eaction (Paction( _, (Action( _, _, (Create( _, _, _)))))))) ->
       true
   | _ ->
       false
 ))
 
-let is_kill:('c,'b,'a)generic_expr ->bool=  ((function
+let is_kill =  ((function
   | Expr( _, (Eaction (Paction( _, (Action( _, _, (Kill( _, _)))))))) ->
       true
   | _ ->
@@ -864,7 +864,7 @@ let is_kill:('c,'b,'a)generic_expr ->bool=  ((function
 ))
 
 (* TODO: not sure if this in general a sound optimisation, but it violently reduces ND *)
-let rec sequentialise_creates_kills (Expr( annot1, expr_)):('b,(unit),'a)generic_expr=
+let rec sequentialise_creates_kills (Expr( annot1, expr_)) =
    (Expr( annot1, (match expr_ with
     | Epure _ ->
         expr_
@@ -1078,7 +1078,7 @@ let rec isAlwaysDefined (Pexpr( _, _, pexpr_)):bool=
         isAlwaysDefined pe1 && isAlwaysDefined pe2
 ))
 
-let rec pure_propagation2 ((Expr( annot1, expr_) as expr1)):('a,(unit),(Symbol.sym))generic_expr=
+let rec pure_propagation2 ((Expr( annot1, expr_) as expr1)) =
    (let to_pure' e=
      ((match Core_aux.to_pure e with
       | Some pe ->
@@ -1255,7 +1255,7 @@ this could match for e1, but the current code assumes it doesn't and match e2 in
 
 
 *)
-let rec simpl_match_pattern (Pattern( _, pat)) pe:(('a*((unit),(Symbol.sym))generic_pexpr)list)option=
+let rec simpl_match_pattern (Pattern( _, pat)) pe =
    (if not (isAlwaysDefined pe) then
     None
   else (match (pat, pe) with
@@ -1317,7 +1317,7 @@ let rec simpl_select_case unsafe_subst_sym match_pe:('b generic_pattern*'a)list 
       )
 ))
 
-let rec simpl_case_pexpr ((Pexpr( annot1, bTy, pexpr_) as pexpr1)):((unit),(Symbol.sym))generic_pexpr=
+let rec simpl_case_pexpr ((Pexpr( annot1, bTy, pexpr_) as pexpr1)) =
    (let wrap z=  (Pexpr( annot1, bTy, z)) in
   (match pexpr_ with
     | PEsym _ ->
@@ -1361,7 +1361,7 @@ let rec simpl_case_pexpr ((Pexpr( annot1, bTy, pexpr_) as pexpr1)):((unit),(Symb
     | PEare_compatible( pe1, pe2) -> wrap (PEare_compatible( (simpl_case_pexpr pe1), (simpl_case_pexpr pe2)))
   ))
 
-let rec simpl_case ((Expr( annot1, expr_) as expr1)):('a,(unit),(Symbol.sym))generic_expr=
+let rec simpl_case ((Expr( annot1, expr_) as expr1)) =
    (let wrap z=  (Expr( annot1, z)) in
   (match expr_ with
     | Epure pe -> wrap (Epure (simpl_case_pexpr pe))
@@ -1419,7 +1419,7 @@ let rewrite_pexpr pexpr1:'a=
    pexpr1
 
 
-let rewrite_expr expr1:('a,(unit),(Symbol.sym))generic_expr=
+let rewrite_expr expr1 =
    (( (fun x->(* simpl_case -| *)pure_propagation2 (flatten_seqs x))) expr1)
 (*
   (pure_propagation2 -| remove_conv_int -| flatten_seqs -|
@@ -1427,7 +1427,7 @@ let rewrite_expr expr1:('a,(unit),(Symbol.sym))generic_expr=
    sequentialise_creates_kills) expr
 *)
 
-let rewrite_fun_map dict_Map_MapKeyType_b fun_map1:('b,(((unit),'a)generic_fun_map_decl))Pmap.map=
+let rewrite_fun_map dict_Map_MapKeyType_b fun_map1 =
    (Pmap.map ((function
     | Fun( ty1, params, pe) ->
         Fun( ty1, params, (rewrite_pexpr pe))
@@ -1440,7 +1440,7 @@ let rewrite_fun_map dict_Map_MapKeyType_b fun_map1:('b,(((unit),'a)generic_fun_m
   )) fun_map1)
 
 
-let rewrite_glob_map globs_map:('a*('b,(unit))generic_globs)list=
+let rewrite_glob_map globs_map =
    (Lem_list.map (fun (name1, glb) ->
     (name1, (match glb with
       | GlobalDef( ty1, e) ->
@@ -1452,7 +1452,7 @@ let rewrite_glob_map globs_map:('a*('b,(unit))generic_globs)list=
 
 
 (* TODO *)
-let rewrite_file file1:((unit),'a)generic_file=
+let rewrite_file file1 =
    ({ file1 with funs=  (rewrite_fun_map 
   (instance_Map_MapKeyType_var_dict
      Symbol.instance_Basic_classes_SetType_Symbol_sym_dict) file1.funs);
