@@ -50,7 +50,7 @@ let extract_alignement_type (Pexpr( _, _, pexpr_)):(ctype)option=
 
 
 (*val type_pexpr: pexpr -> typed_pexpr*)
-let type_pexpr pexpr1:((core_base_type),(Symbol.sym))generic_pexpr=
+let type_pexpr pexpr1 =
    (let tagDefs1 = (Tags.tagDefs ()) in
   let m =
     (Exception.except_bind
@@ -85,7 +85,7 @@ type explode_env = (Symbol.sym, ( (Symbol.identifier * Symbol.sym)list))
 
 (* If the given expression is a pointer to a struct, explode it to pointers to the members *)
 (*val explode_ptr_pexpr: explode_env -> typed_pexpr -> maybe (list (Symbol.identifier * typed_pexpr))*)
-let explode_ptr_pexpr env1 (Pexpr( annot1, bTy, pexpr_)):((Symbol.identifier*((core_base_type),(Symbol.sym))generic_pexpr)list)option=
+let explode_ptr_pexpr env1 (Pexpr( annot1, bTy, pexpr_)) =
    ((match pexpr_ with
     | PEsym ptr_sym ->
         (match Pmap.lookup ptr_sym env1 with
@@ -105,7 +105,7 @@ let explode_ptr_pexpr env1 (Pexpr( annot1, bTy, pexpr_)):((Symbol.identifier*((c
 
 
 (*val explode_paction: explode_env -> typed_paction unit -> list (typed_expr_ unit) *)
-let explode_paction env1 (Paction( pol, (Action( loc1, a, act_)))):((Symbol.identifier*('a,(core_base_type),(Symbol.sym))generic_expr_)list)option=
+let explode_paction env1 (Paction( pol, (Action( loc1, a, act_)))) =
    (let wrap z=
      (Eaction (Paction( pol, (Action( loc1, a, z))))) in
   (match act_ with
@@ -223,18 +223,18 @@ let rec fetch_types (Expr annot expr_) =
 
 
 (*val mk_ptr_tuple_pe: list typed_pexpr -> typed_pexpr*)
-let mk_ptr_tuple_pe pes:((core_base_type),(Symbol.sym))generic_pexpr=
+let mk_ptr_tuple_pe pes =
    (let n = (List.length pes) in
   let bTy = (BTy_tuple (replicate_list (BTy_object OTy_pointer) n)) in
   Pexpr( [], bTy, (PEctor( Ctuple, pes))))
 
 (*val mk_ptr_sym_pe: Symbol.sym -> typed_pexpr*)
-let mk_ptr_sym_pe sym1:((core_base_type),(Symbol.sym))generic_pexpr=
+let mk_ptr_sym_pe sym1 =
    (Pexpr( [], (BTy_object OTy_pointer), (PEsym sym1)))
 
 
 (*val     explode_expr: explode_env -> typed_expr unit -> typed_expr unit*)
-let rec explode_expr env1 ((Expr( annot1, expr_) as expr1)):((unit),(core_base_type),(Symbol.sym))generic_expr=
+let rec explode_expr env1 ((Expr( annot1, expr_) as expr1)) =
    (let self e=  (explode_expr env1 e) in
   let wrap z=  (Expr( annot1, z)) in
   (match expr_ with
@@ -347,7 +347,7 @@ let rec explode_expr env1 ((Expr( annot1, expr_) as expr1)):((unit),(core_base_t
 
 
 (*val explode_fun_map: typed_fun_map unit -> typed_fun_map unit*)
-let explode_fun_map funs1:((Symbol.sym),(((core_base_type),(unit))generic_fun_map_decl))Pmap.map=
+let explode_fun_map funs1 =
    (Pmap.map ((function
     | Proc( loc1, mrk, bTy, xs, e) ->
         Proc( loc1, mrk, bTy, xs, (explode_expr (Pmap.empty (fun sym1 sym2->ordCompare 
@@ -358,6 +358,6 @@ let explode_fun_map funs1:((Symbol.sym),(((core_base_type),(unit))generic_fun_ma
 
 
 (*val explode_file: typed_file unit -> typed_file unit*)
-let explode_file file1:((core_base_type),(unit))generic_file=
+let explode_file file1 =
    ({ file1 with
        funs= (explode_fun_map file1.funs) })
