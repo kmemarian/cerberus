@@ -619,9 +619,9 @@ val translate_bitwise_operator:
   E.elabM (C.expr unit)
 let translate_bitwise_operator loc translate_expr usual_arithmetic_conversion stdlib result_ty aop e1 e2 =
   let (std_id, stdlib_call) = match aop with
-    | A.Band -> ("§6.5.10", (fun ty pe1 pe2 -> C.Pexpr [] () (C.PEctor C.CivAND [Caux.mk_ail_ctype_pe ty; pe1; pe2])))
-    | A.Bxor -> ("§6.5.11", (fun ty pe1 pe2 -> C.Pexpr [] () (C.PEctor C.CivXOR [Caux.mk_ail_ctype_pe ty; pe1; pe2])))
-    | A.Bor  -> ("§6.5.12", (fun ty pe1 pe2 -> C.Pexpr [] () (C.PEctor C.CivOR  [Caux.mk_ail_ctype_pe ty; pe1; pe2])))
+    | A.Band -> ("§6.5.10", (fun ty pe1 pe2 -> C.Pexpr [] Nothing (C.PEctor C.CivAND [Caux.mk_ail_ctype_pe ty; pe1; pe2])))
+    | A.Bxor -> ("§6.5.11", (fun ty pe1 pe2 -> C.Pexpr [] Nothing (C.PEctor C.CivXOR [Caux.mk_ail_ctype_pe ty; pe1; pe2])))
+    | A.Bor  -> ("§6.5.12", (fun ty pe1 pe2 -> C.Pexpr [] Nothing (C.PEctor C.CivOR  [Caux.mk_ail_ctype_pe ty; pe1; pe2])))
     | (*BISECT-IGNORE*) _ ->
         error "[Translation.translate_bitwise_operator], 'bop' must be a bitwise operator"
   end in
@@ -1419,9 +1419,9 @@ let rec translate_expression translate_block_opt is_used ctx variadic_env stdlib
       | (Just _, Just _) ->
           (e1, e2)
       | (Just _, _) ->
-          (e1, C.Pexpr [] () (C.PEctor C.Cfvfromint [e2]))
+          (e1, C.Pexpr [] Nothing (C.PEctor C.Cfvfromint [e2]))
       | (_, Just _) ->
-          (C.Pexpr [] () (C.PEctor C.Cfvfromint [e1]), e2)
+          (C.Pexpr [] Nothing (C.PEctor C.Cfvfromint [e1]), e2)
       | (Nothing, Nothing) ->
           let mk_conv_int ity pe =
             if is_TMP_new then
@@ -3118,7 +3118,7 @@ if AilTypesAux.is_arithmetic (ctype_of e) then
               Caux.mk_pure_e (
                 Caux.mk_case_pe e_wrp.E.sym_pe
                   [ (Caux.mk_specified_pat obj_wrp.E.sym_pat,
-                     (C.Pexpr [Annot.Aloc loc] () (C.PEbmc_assume (Caux.mk_not_pe
+                     (C.Pexpr [Annot.Aloc loc] Nothing (C.PEbmc_assume (Caux.mk_not_pe
                           (Caux.mk_op_pe C.OpEq obj_wrp.E.sym_pe zero_pe)))))
                   ; (Caux.mk_empty_pat (C.BTy_loaded oTy),
                      Caux.mk_error_pe "__bmc_assume() unspecified" Caux.mk_unit_pe) ]
@@ -3130,7 +3130,7 @@ else (* is_pointer *)
                      (C.Expr [] (C.Ememop Mem_common.PtrEq [obj_wrp.E.sym_pe; Caux.mk_nullptr_pe Cty.void]))
                      begin
                        Caux.mk_pure_e begin
-                         (C.Pexpr [] () (C.PEbmc_assume memop_wrp.E.sym_pe))
+                         (C.Pexpr [] Nothing (C.PEbmc_assume memop_wrp.E.sym_pe))
                        end
                      end)
                 ; (Caux.mk_empty_pat (C.BTy_loaded oTy),
@@ -4201,8 +4201,8 @@ val translate_program:
   translation_stdlib ->
   maybe Symbol.sym * A.sigma GenTypes.genTypeCategory ->
   E.elabM (  C.core_tag_definitions
-           * list (Symbol.sym * (C.generic_globs unit unit))
-           * C.generic_fun_map unit unit
+           * list (Symbol.sym * (C.generic_globs unit))
+           * C.generic_fun_map unit
            * map Symbol.sym (Loc.t * Annot.attributes * Ctype.ctype * list (maybe Symbol.sym * Ctype.ctype) * bool * bool) )
 
 let translate_program stdlib (startup_sym_opt, sigm) =

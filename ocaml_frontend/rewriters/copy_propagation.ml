@@ -194,8 +194,8 @@ let unwrap_loaded_pat ~enabled (subs, pat, expr) =
     let Pattern (p_annots, pat_) = pat in
     (match pat_ with
      | CaseBase (Some s, BTy_loaded cbt) ->
-         let pe_sym = Pexpr ([], (), PEsym s) in
-         let pe = Pexpr ([], (), PEctor (Cspecified, [pe_sym])) in
+         let pe_sym = Pexpr ([], None, PEsym s) in
+         let pe = Pexpr ([], None, PEctor (Cspecified, [pe_sym])) in
          let pattern = Pattern ([], CaseBase (Some s, BTy_object cbt)) in
          let pattern = Pattern (p_annots, CaseCtor (Cspecified, [pattern])) in
          (* re-using the same sym! *)

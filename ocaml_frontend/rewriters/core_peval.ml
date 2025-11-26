@@ -450,7 +450,7 @@ let config_unfold_stdlib : (Symbol.sym -> bool) ref =
 
 
 (* Rewriter doing partial evaluation for Core (pure) expressions *)
-let core_peval file : 'bty RW.rewriter =
+let core_peval file : RW.rewriter =
 
   let stdlib_unfold_pred fsym fdecl = (! config_unfold_stdlib) fsym in
 
@@ -816,18 +816,18 @@ let rewrite_file file =
   let rw_expr = steps_peval_expr file in
 
 
-  let rewrite_impl_decl (is : 'bty generic_impl_decl) : 'bty generic_impl_decl =
+  let rewrite_impl_decl (is : impl_decl) : impl_decl =
     match is with
     | Def (cbt, pe) -> Def (cbt, rw_pexpr pe)
     | IFun (cbt, args, pe) -> IFun (cbt, args, rw_pexpr pe)
   in
 
-  let rewrite_impl (is : 'bty generic_impl) : 'bty generic_impl =
+  let rewrite_impl (is : impl) : impl =
     Pmap.map (fun v -> rewrite_impl_decl v) is
   in
 
-  let rewrite_fun_map_decl (d : ('bty, 'a) generic_fun_map_decl)
-      : ('bty, 'a) generic_fun_map_decl =
+  let rewrite_fun_map_decl (d : 'a generic_fun_map_decl)
+      : 'a generic_fun_map_decl =
     match d with
     | Fun (bt, args, pe) -> Fun (bt, args, rw_pexpr pe)
     | Proc (loc, mrk, bt, args, e) -> Proc (loc, mrk, bt, args, rw_expr e)
@@ -836,21 +836,21 @@ let rewrite_file file =
   in
 
 
-  let rewrite_fun_map (fmap : ('bty,'a) generic_fun_map) 
-      : ('bty, 'a) generic_fun_map = 
+  let rewrite_fun_map (fmap : 'a generic_fun_map) 
+      : 'a generic_fun_map = 
     Pmap.map (rewrite_fun_map_decl) fmap
   in
 
 
-  let rewrite_globs (g : ('a, 'bty) generic_globs) : ('a, 'bty) generic_globs = 
+  let rewrite_globs (g : 'a generic_globs) : 'a generic_globs = 
     match g with
     | GlobalDef (bt, e) -> GlobalDef (bt, rw_expr e)
     | GlobalDecl bt -> GlobalDecl bt 
   in
 
 
-  let rewrite_globs_list (gs : (Symbol.sym *  ('a, 'bty) generic_globs) list )
-      : (Symbol.sym * ('a, 'bty) generic_globs) list = 
+  let rewrite_globs_list (gs : (Symbol.sym *  'a generic_globs) list )
+      : (Symbol.sym * 'a generic_globs) list = 
     List.map (fun (sym,g) -> (sym, rewrite_globs g)) gs
   in
 
