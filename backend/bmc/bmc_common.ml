@@ -66,7 +66,7 @@ let rec base_ctype (Ctype (_, ty) as cty) : ctype =
       cty
 
 let rec ctype_to_bmcz3sort (Ctype (_, ty) as cty)
-                           (file: unit typed_file)
+                           (file: unit file)
                            : bmcz3sort =
   match ty with
   | Void     -> assert false
@@ -123,7 +123,7 @@ struct_to_sort (sym, memlist_def) file  =
 
 
 let size_of_ctype (ty: ctype)
-                  (file: unit typed_file) =
+                  (file: unit file) =
   bmcz3sort_size (ctype_to_bmcz3sort ty file)
 
 
@@ -156,7 +156,7 @@ let is_fun_ptr (p: Impl_mem.pointer_value) : bool =
   if String.length ptr_str < String.length cfun_hdr then false
   else (String.sub ptr_str 0 (String.length cfun_hdr) = cfun_hdr)
 
-let value_to_z3 (value: value) (file: unit typed_file) : Expr.expr =
+let value_to_z3 (value: value) (file: unit file) : Expr.expr =
   match value with
   | Vunit        -> UnitSort.mk_unit
   | Vtrue        -> mk_true
@@ -202,7 +202,7 @@ let cot_to_z3 (cot: core_object_type) : Sort.sort =
     failwith "Error: unions are not supported."
 
 let cbt_to_z3 (cbt: core_base_type)
-              (file: unit typed_file): Sort.sort =
+              (file: unit file): Sort.sort =
   match cbt with
   | BTy_unit                -> UnitSort.mk_sort
   | BTy_boolean             -> boolean_sort
@@ -234,18 +234,19 @@ let cbt_to_z3 (cbt: core_base_type)
   | BTy_storable            ->
       failwith "TODO: support for BTy_storable"
 
+exception InvalidTypedCore
 
-let ctype_from_pexpr (ctype_pe: typed_pexpr) =
+let ctype_from_pexpr (ctype_pe: pexpr) =
   match ctype_pe with
-  | Pexpr(_, BTy_ctype, PEval (Vctype ctype)) -> ctype
-  | _ -> assert false
+  | Pexpr(_, Some BTy_ctype, PEval (Vctype ctype)) -> ctype
+  | _ -> raise InvalidTypedCore
 
 
 let ctor_to_z3 (ctor  : ctor)
                (exprs : Expr.expr list)
                (bTy   : core_base_type option)
                (uid   : int)
-               (file  : unit typed_file) =
+               (file  : unit file) =
   match ctor,exprs with
   | Ctuple,exprs ->
       let sort = sorts_to_tuple (List.map Expr.get_sort exprs) in
@@ -351,7 +352,7 @@ let ctor_to_z3 (ctor  : ctor)
       assert false
 
 (* =========== PATTERN MATCHING =========== *)
-let rec pattern_match (Pattern(_,pattern): typed_pattern)
+let rec pattern_match (Pattern(_,pattern): pattern)
                       (expr: Expr.expr)
                       : Expr.expr =
   match pattern with
@@ -554,23 +555,23 @@ let assert_initial_range (ctype: ctype) (const: Expr.expr)
  *)
 
 
-let is_ptr_pat (pat: typed_pattern) : bool =
+let is_ptr_pat (pat: pattern) : bool =
   match pat with
   | Pattern(_, (CaseBase(Some _, BTy_loaded OTy_pointer))) -> true
   | _ -> false
 
-let get_sym_from_base_pattern (pat: typed_pattern) : sym_ty option =
+let get_sym_from_base_pattern (pat: pattern) : sym_ty option =
   match pat with
   | Pattern(_, (CaseBase(sym, _))) -> sym
   | _ -> assert false
 
-let is_loaded_ptr_expr (expr: unit typed_expr) =
+let is_loaded_ptr_expr (expr: unit expr) =
   match expr with
   | Expr(_, (Epure(Pexpr(_,_,PEval(Vloaded (LVspecified (OVpointer p))))))) ->
       true
   | _ -> false
 
-let get_ptr_from_loaded_ptr_expr (expr: unit typed_expr)
+let get_ptr_from_loaded_ptr_expr (expr: unit expr)
                                  : Impl_mem.pointer_value =
   match expr with
   | Expr(_, (Epure(Pexpr(_,_,PEval(Vloaded (LVspecified (OVpointer p))))))) ->
@@ -586,9 +587,9 @@ type cfun_call_symbols = {
 
 
 (* Return ptr sym and rewritten expr *)
-let extract_cfun_if_cfun_call (pat: typed_pattern)
-                              (e1: unit typed_expr)
-                              (e2: unit typed_expr)
+let extract_cfun_if_cfun_call (pat: pattern)
+                              (e1: unit expr)
+                              (e2: unit expr)
                               : cfun_call_symbols option =
   match (pat, e1,e2) with
   | (Pattern(_, (CaseCtor(Ctuple,

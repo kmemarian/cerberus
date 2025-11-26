@@ -275,9 +275,10 @@ let safe_map_union m1 m2 =
     Assert_extra.failwith "safe_map_union: maps are not disjoint"
 
 
-val link_aux: forall 'a 'b. generic_file 'a 'b ->
-                           generic_file 'a 'b ->
-                           exceptM (generic_file 'a 'b) (Loc.t * cause)
+val link_aux: forall 'a.
+  generic_file 'a ->
+  generic_file 'a ->
+  exceptM (generic_file 'a) (Loc.t * cause)
 let link_aux f1 f2 =
   if f1.calling_convention <> f2.calling_convention then
     link_fail Loc.unknown IncompatibleCallingConvention
@@ -302,8 +303,9 @@ let link_aux f1 f2 =
            f2.visible_objects_env;
     |>
 
-val link: forall 'a 'b. list (generic_file 'a 'b) ->
-                        exceptM (generic_file 'a 'b) (Loc.t * cause)
+val link: forall 'a.
+  list (generic_file 'a) ->
+  exceptM (generic_file 'a) (Loc.t * cause)
 let link = function
   | [] ->
     error "linking: no core files"

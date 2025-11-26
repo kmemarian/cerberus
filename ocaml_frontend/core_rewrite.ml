@@ -890,7 +890,7 @@ let rec sequentialise_creates_kills (Expr( annot1, expr_)) =
         if List.for_all is_kill es then
           List.fold_right (fun e acc ->
             Esseq( (Pattern( [], (CaseBase (None, BTy_unit)))), e, (Expr( [], acc)))
-          ) es (Epure (Pexpr( [], (), (PEval Vunit))))
+          ) es (Epure (Pexpr( [], None, (PEval Vunit))))
         else
           Eunseq (Lem_list.map sequentialise_creates_kills es)
 (* TODO

@@ -207,7 +207,7 @@ module CtypeSort = struct
     | _ -> mk_expr ctype
 end
 
-let rec alignof_type (Ctype (_, ctype): ctype) (file: unit typed_file) : int =
+let rec alignof_type (Ctype (_, ctype): ctype) (file: unit file) : int =
   match ctype with
   | Void -> assert false
   | Basic (Integer ity) ->
@@ -315,7 +315,7 @@ module AddressSortPNVI = struct
   let sizeof_ity ity = Option.get ((Ocaml_implementation.get ()).sizeof_ity ity)
 
   (* TODO: Move this elsewhere *)
-  let rec type_size (Ctype (_, ctype): ctype) (file: unit typed_file): int =
+  let rec type_size (Ctype (_, ctype): ctype) (file: unit file): int =
     match ctype with
     | Void -> assert false
     | Basic (Integer ity) ->
@@ -330,7 +330,7 @@ module AddressSortPNVI = struct
     | Struct tag ->
         fst (struct_member_index_list tag file)
     | _ -> assert false
-  and struct_member_index_list tag (file: unit typed_file) =
+  and struct_member_index_list tag (file: unit file) =
     (* Compute offset of member from base addr *)
     begin match Pmap.lookup tag file.tagDefs with
     | Some (_, StructDef (members, _)) ->
@@ -485,7 +485,7 @@ module AddressSortConcrete = struct
     mk_eq (mk_is_atomic addr) is_atomic
 
   (* TODO *)
-  let rec type_size (ctype: ctype) (file: unit typed_file) : int =
+  let rec type_size (ctype: ctype) (file: unit file) : int =
     match ctype with
     | Void0 -> assert false
     | Basic0 _ -> 1
@@ -540,8 +540,8 @@ module type PointerSortAPI = sig
   val ptr_eq : Expr.expr -> Expr.expr -> Expr.expr
   val ptr_diff_raw : Expr.expr -> Expr.expr -> Expr.expr
 
-  val type_size : ctype -> unit typed_file -> int
-  val struct_member_index_list : sym_ty -> unit typed_file ->
+  val type_size : ctype -> unit file -> int
+  val struct_member_index_list : sym_ty -> unit file ->
     int * (int list * int list)
 
   val mk_nd_addr : int -> Expr.expr
@@ -1112,7 +1112,7 @@ let sorts_to_tuple (sorts: Sort.sort list) : Sort.sort =
  *)
 module CtypeToZ3 = struct
   let rec ctype_to_z3_sort (Ctype (_, ty): Ctype.ctype)
-                           (file: unit typed_file)
+                           (file: unit file)
                            : Sort.sort =
      match ty with
     | Void     -> assert false
@@ -1153,7 +1153,7 @@ module CtypeToZ3 = struct
     | Byte ->
       failwith "Error: byte not supported"
   and struct_sym_to_z3_sort (struct_sym: sym_ty)
-                            (file: unit typed_file)
+                            (file: unit file)
                             : Sort.sort =
     match Pmap.lookup struct_sym file.tagDefs with
     | Some (_, StructDef (memlist, _)) ->
@@ -1164,7 +1164,7 @@ module CtypeToZ3 = struct
     | _ ->
       failwith (sprintf "Struct %s not found" (symbol_to_string struct_sym))
   and mk_array_sort (cot: core_object_type)
-                    (file: unit typed_file): Sort.sort =
+                    (file: unit file): Sort.sort =
       match cot with
       | OTy_integer -> (* Loaded Integer *)
           let sort = Z3Array.mk_sort g_ctx integer_sort (LoadedInteger.mk_sort) in
@@ -1185,7 +1185,7 @@ module CtypeToZ3 = struct
       | OTy_union _ ->
           failwith "Error: unions are not supported."
   and mk_array_sort_from_ctype (Ctype (_, ty): Ctype.ctype)
-                               (file: unit typed_file): Sort.sort =
+                               (file: unit file): Sort.sort =
       match ty with
       | Void -> failwith "TODO: void arrays"
       | Basic (Integer i) ->

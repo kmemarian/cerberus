@@ -151,7 +151,7 @@ let printf_eval_conv dr_st th_st cty mval =
   let (_, cval) = Core_aux.valueFromMemValue mval in
   print_eval_conv_aux dr_st th_st $
     Translation_aux.mk_stdcall dr_st.core_file.Core.stdlib "conv_loaded_int"
-    [ Caux.mk_ctype_pe cty; Core.Pexpr [] () (Core.PEval cval)]
+    [ Caux.mk_ctype_pe cty; Core.Pexpr [] Nothing (Core.PEval cval)]
 
 
 val liftCore_run: forall 'a. Core_run.core_runM 'a -> driverM 'a
@@ -1536,7 +1536,7 @@ let driver_globals with_concurrency file =
   (* spawning a thread for the initialisation of globals, and later the execution of main *)
   spawn_thread Nothing <|
     (* NOTE: the pure(unit) is just a placeholder, the thread is given its actual state later *)
-    Core_run.arena=  Core.Expr [] (Core.Epure (Core.Pexpr [] () (Core.PEval Core.Vunit)));
+    Core_run.arena=  Core.Expr [] (Core.Epure (Core.Pexpr [] Nothing (Core.PEval Core.Vunit)));
     Core_run.stack=  Core_run.Stack_empty (*Core_run.push_empty_continuation Nothing Core_run.empty_stack*);
     Core_run.errno=  Mem.null_ptrval Ctype.signed_int;
     Core_run.env= [Map.empty];

@@ -15,12 +15,12 @@ open Bmc_incremental
 
 module BmcM = struct
   type state_ty = {
-    file        : unit typed_file;
+    file        : unit file;
     fn_to_check : sym_ty;
     ail_opt     : GenTypes.genTypeCategory AilSyntax.ail_program option;
 
-    inline_pexpr_map : (int, typed_pexpr) Pmap.map option;
-    inline_expr_map  : (int, unit typed_expr) Pmap.map option;
+    inline_pexpr_map : (int, pexpr) Pmap.map option;
+    inline_expr_map  : (int, unit expr) Pmap.map option;
     fn_call_map      : (int, sym_ty) Pmap.map option;
 
     sym_expr_table   : (sym_ty, Expr.expr) Pmap.map option;
@@ -260,7 +260,7 @@ module BmcM = struct
         }
 
   (* ===== Getters/setters ===== *)
-  let get_file : (unit typed_file) eff =
+  let get_file : (unit file) eff =
     get >>= fun st ->
     return st.file
 
@@ -282,7 +282,7 @@ let initialise_solver (solver: Solver.solver) =
   Params.add_bool params (mk_sym "macro_finder") g_macro_finder;
   Solver.set_parameters solver params
 
-let bmc_file (file              : unit typed_file)
+let bmc_file (file              : unit file)
              (fn_to_check       : sym_ty)
              (ail_opt: GenTypes.genTypeCategory AilSyntax.ail_program option) =
   let initial_state : BmcM.state =
@@ -503,7 +503,7 @@ let bmc_file (file              : unit typed_file)
 
 (* Find f_name in function map, returning the Core symbol *)
 let find_function (f_name: string)
-                  (fun_map: unit typed_fun_map) =
+                  (fun_map: unit fun_map) =
   let is_f_name = (fun (sym, decl) ->
       match sym with
       | Sym.Symbol(_, i, SD_Id s) -> String.equal s f_name

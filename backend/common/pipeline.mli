@@ -48,7 +48,7 @@ val cpp: (configuration * io_helpers) -> filename:string -> (string, Cerb_locati
 val c_frontend:
   ?cn_init_scope: Cn_desugaring.init_scope ->
   (configuration * io_helpers) ->
-  (((string, Symbol.sym) Pmap.map * (unit, unit) Core.generic_fun_map) * unit Core.generic_impl) ->
+  (((string, Symbol.sym) Pmap.map * unit Core.generic_fun_map) * Core.impl) ->
   filename:string ->
   ( Cabs.translation_unit
   * (Cabs_to_ail_effect.fin_markers_env * GenTypes.genTypeCategory AilSyntax.ail_program)
@@ -57,7 +57,7 @@ val c_frontend:
 val c_frontend_and_elaboration:
   ?cn_init_scope: Cn_desugaring.init_scope ->
   (configuration * io_helpers) ->
-  (((string, Symbol.sym) Pmap.map * (unit, unit) Core.generic_fun_map) * unit Core.generic_impl) ->
+  (((string, Symbol.sym) Pmap.map * unit Core.generic_fun_map) * Core.impl) ->
   filename:string ->
   ( Cabs.translation_unit option
   * (Cabs_to_ail_effect.fin_markers_env * GenTypes.genTypeCategory AilSyntax.ail_program) option
@@ -66,16 +66,16 @@ val c_frontend_and_elaboration:
 
 val core_frontend:
   'a * io_helpers ->
-  ('b * (Symbol.sym, (unit, unit) Core.generic_fun_map_decl) Pmap.map) *
-  (Implementation.implementation_constant, unit Core.generic_impl_decl)
+  ('b * (Symbol.sym, unit Core.generic_fun_map_decl) Pmap.map) *
+  (Implementation.implementation_constant, Core.impl_decl)
   Pmap.map ->
   filename:string ->
-  ((unit, unit) Core.generic_file, Cerb_location.t * Errors.cause) Exception.exceptM
+  (unit Core.file, Cerb_location.t * Errors.cause) Exception.exceptM
 
 
 val typed_core_passes:
   (configuration * io_helpers) -> unit Core.file ->
-  (unit Core.file * unit Core.typed_file, Cerb_location.t * Errors.cause) Exception.exceptM
+  (unit Core.file, Cerb_location.t * Errors.cause) Exception.exceptM
 
 val core_passes:
   (configuration * io_helpers) -> filename:string -> unit Core.file ->
@@ -94,12 +94,7 @@ val ocaml_backend:
 
 val read_core_object:
   (configuration * io_helpers) -> ?is_lib:bool ->
-  (((string, Symbol.sym) Pmap.map * (unit, unit) Core.generic_fun_map) * unit Core.generic_impl) ->
+  (((string, Symbol.sym) Pmap.map * unit Core.generic_fun_map) * Core.impl) ->
   string ->
   (unit Core.file, Cerb_location.t * Errors.cause) Exception.exceptM
 val write_core_object: unit Core.file -> string -> unit
-
-
-val untype_file: 
-  'a Core.typed_file ->
-  'a Core.file

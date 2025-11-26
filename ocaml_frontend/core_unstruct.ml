@@ -53,9 +53,7 @@ let extract_alignement_type (Pexpr( _, _, pexpr_)):(ctype)option=
 let type_pexpr pexpr1 =
    (let tagDefs1 = (Tags.tagDefs ()) in
   let m =
-    (Exception.except_bind
-      (Core_typing.infer_pexpr tagDefs1 Core_typing_aux.empty_env pexpr1)
-      Core_typing_aux.export_pexpr) in
+    Core_typing.infer_pexpr tagDefs1 Core_typing_aux.empty_env pexpr1 in
   (match Core_typing_effect.runM m with
     | Exception.Result pexpr' ->
         pexpr'
@@ -65,8 +63,10 @@ let type_pexpr pexpr1 =
 
 
 (*val typeof_pexpr: typed_pexpr -> core_base_type*)
-let typeof_pexpr (Pexpr( _, bTy, _)):core_base_type=
-   bTy
+let typeof_pexpr (Pexpr( _, bTy_opt, _)):core_base_type=
+  match bTy_opt with
+    | Some bTy -> bTy
+    | None -> Cerb_debug.error "Core_unstruct.typeof_pexpr"
 
 
 (*val is_pointer_type: core_base_type -> bool*)
@@ -226,11 +226,11 @@ let rec fetch_types (Expr annot expr_) =
 let mk_ptr_tuple_pe pes =
    (let n = (List.length pes) in
   let bTy = (BTy_tuple (replicate_list (BTy_object OTy_pointer) n)) in
-  Pexpr( [], bTy, (PEctor( Ctuple, pes))))
+  Pexpr( [], Some bTy, (PEctor( Ctuple, pes))))
 
 (*val mk_ptr_sym_pe: Symbol.sym -> typed_pexpr*)
 let mk_ptr_sym_pe sym1 =
-   (Pexpr( [], (BTy_object OTy_pointer), (PEsym sym1)))
+   (Pexpr( [], Some (BTy_object OTy_pointer), (PEsym sym1)))
 
 
 (*val     explode_expr: explode_env -> typed_expr unit -> typed_expr unit*)
@@ -248,7 +248,7 @@ let rec explode_expr env1 ((Expr( annot1, expr_) as expr1)) =
                   Expr( [], (Esseq( (Pattern( [], (CaseBase (None, BTy_unit)))),
                                  (Expr( [], (Eaction (Paction( pol, (Action( loc1, a, (Kill( kind1, pe'))))))))),
                                  acc)))
-                ) (Expr( [], (Epure (Pexpr( [], BTy_unit, (PEval Vunit)))))) xs
+                ) (Expr( [], (Epure (Pexpr( [], Some BTy_unit, (PEval Vunit)))))) xs
               end
         )
     

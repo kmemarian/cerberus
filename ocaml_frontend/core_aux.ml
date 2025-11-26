@@ -191,7 +191,7 @@ let mk_unspecified_pat pat = mk_unspecified_pat_ [] pat
 
 (* Core pexpr builders  ***************************************************** *)
 module Pexpr = struct
-  let mk desc = Pexpr ([], (), desc)
+  let mk desc = Pexpr ([], None, desc)
   let ctor0 ctor = mk (PEctor (ctor, []))
   let ctor1 ctor pe = mk (PEctor (ctor, [ pe ]))
   let ctor2 ctor pe1 pe2 = mk (PEctor (ctor, [ pe1; pe2 ]))
@@ -992,7 +992,7 @@ let rec unsafe_subst_pattern (Pattern (_, pat)) pe' expr1 =
       (* empty list (pure expr) *)
       expr1
   | ( CaseCtor (Ccons, [ pat1; pat2 ]),
-      Pexpr (_, (), PEval (Vlist (bTy_elem, cval :: cvals))) ) ->
+      Pexpr (_, _, PEval (Vlist (bTy_elem, cval :: cvals))) ) ->
       (* populated list (value) *)
       subst_pattern_val pat1 cval
         (subst_pattern_val pat2 (Vlist (bTy_elem, cvals)) expr1)
@@ -1000,7 +1000,7 @@ let rec unsafe_subst_pattern (Pattern (_, pat)) pe' expr1 =
     ->
       (* populated list (pure expr) *)
       unsafe_subst_pattern pat1 pe1 (unsafe_subst_pattern pat2 pe2 expr1)
-  | CaseCtor (Ctuple, pats'), Pexpr (_, (), PEval (Vtuple cvals)) ->
+  | CaseCtor (Ctuple, pats'), Pexpr (_, _, PEval (Vtuple cvals)) ->
       List.fold_right
         (fun (pat', cval) acc -> subst_pattern_val pat' cval acc)
         (List.combine pats' cvals)
@@ -1012,16 +1012,16 @@ let rec unsafe_subst_pattern (Pattern (_, pat)) pe' expr1 =
         expr1
       (* TODO (maybe), Carray, Civmax, Civmin, Civsizeof, Civalignof *)
   | ( CaseCtor (Cspecified, [ pat' ]),
-      Pexpr (_, (), PEval (Vloaded (LVspecified oval))) ) ->
+      Pexpr (_, _, PEval (Vloaded (LVspecified oval))) ) ->
       subst_pattern_val pat' (Vobject oval) expr1
-  | CaseCtor (Cspecified, [ pat' ]), Pexpr (_, (), PEctor (Cspecified, [ pe'' ]))
+  | CaseCtor (Cspecified, [ pat' ]), Pexpr (_, _, PEctor (Cspecified, [ pe'' ]))
     ->
       unsafe_subst_pattern pat' pe'' expr1
   | ( CaseCtor (Cunspecified, [ pat' ]),
-      Pexpr (_, (), PEval (Vloaded (LVunspecified ty1))) ) ->
+      Pexpr (_, _, PEval (Vloaded (LVunspecified ty1))) ) ->
       subst_pattern_val pat' (Vctype ty1) expr1
   | ( CaseCtor (Cunspecified, [ pat' ]),
-      Pexpr (_, (), PEctor (Cunspecified, [ pe'' ])) ) ->
+      Pexpr (_, _, PEctor (Cunspecified, [ pe'' ])) ) ->
       unsafe_subst_pattern pat' pe'' expr1
   | CaseCtor (ctor1, pats), _ ->
       let str_ctor =
@@ -1064,7 +1064,7 @@ let rec subst_pattern (Pattern (_, pat)) pe' expr1 =
       (* empty list (pure expr) *)
       Some expr1
   | ( CaseCtor (Ccons, [ pat1; pat2 ]),
-      Pexpr (_, (), PEval (Vlist (bTy_elem, cval :: cvals))) ) ->
+      Pexpr (_, _, PEval (Vlist (bTy_elem, cval :: cvals))) ) ->
       (* populated list (value) *)
       Some
         (subst_pattern_val pat1 cval
@@ -1075,7 +1075,7 @@ let rec subst_pattern (Pattern (_, pat)) pe' expr1 =
       match subst_pattern pat2 pe2 expr1 with
       | Some e -> subst_pattern pat1 pe1 e
       | None -> None)
-  | CaseCtor (Ctuple, pats'), Pexpr (_, (), PEval (Vtuple cvals)) ->
+  | CaseCtor (Ctuple, pats'), Pexpr (_, _, PEval (Vtuple cvals)) ->
       Some
         (List.fold_right
            (fun (pat', cval) acc -> subst_pattern_val pat' cval acc)
@@ -1089,16 +1089,16 @@ let rec subst_pattern (Pattern (_, pat)) pe' expr1 =
         (Some expr1)
       (* TODO (maybe), Carray, Civmax, Civmin, Civsizeof, Civalignof *)
   | ( CaseCtor (Cspecified, [ pat' ]),
-      Pexpr (_, (), PEval (Vloaded (LVspecified oval))) ) ->
+      Pexpr (_, _, PEval (Vloaded (LVspecified oval))) ) ->
       Some (subst_pattern_val pat' (Vobject oval) expr1)
-  | CaseCtor (Cspecified, [ pat' ]), Pexpr (_, (), PEctor (Cspecified, [ pe'' ]))
+  | CaseCtor (Cspecified, [ pat' ]), Pexpr (_, _, PEctor (Cspecified, [ pe'' ]))
     ->
       subst_pattern pat' pe'' expr1
   | ( CaseCtor (Cunspecified, [ pat' ]),
-      Pexpr (_, (), PEval (Vloaded (LVunspecified ty1))) ) ->
+      Pexpr (_, _, PEval (Vloaded (LVunspecified ty1))) ) ->
       Some (subst_pattern_val pat' (Vctype ty1) expr1)
   | ( CaseCtor (Cunspecified, [ pat' ]),
-      Pexpr (_, (), PEctor (Cunspecified, [ pe'' ])) ) ->
+      Pexpr (_, _, PEctor (Cunspecified, [ pe'' ])) ) ->
       subst_pattern pat' pe'' expr1
   | CaseCtor (ctor1, pats), _ -> None
 

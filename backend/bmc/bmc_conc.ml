@@ -72,10 +72,10 @@ let addr_of_bmcaction (bmcaction: bmc_action) =
 let ctype_of_bmcaction(bmcaction: bmc_action) : ctype =
   ctype_of_action (get_action bmcaction)
 
-let size_of_bmcaction(bmcaction: bmc_action) (file: unit typed_file) : int =
+let size_of_bmcaction(bmcaction: bmc_action) (file: unit file) : int =
   PointerSort.type_size (ctype_of_bmcaction bmcaction) file
 
-let max_addr_of_bmcaction (bmcaction: bmc_action) (file: unit typed_file) =
+let max_addr_of_bmcaction (bmcaction: bmc_action) (file: unit file) =
   let base_addr = addr_of_bmcaction bmcaction in
   let size = size_of_bmcaction bmcaction file in
   assert (size > 0);
@@ -431,7 +431,7 @@ module type MemoryModel = sig
   val get_assertions : z3_memory_model -> Expr.expr list
   val get_vcs        : z3_memory_model -> bmc_vc list
 
-  val compute_executions : preexec -> (unit typed_file) -> z3_memory_model
+  val compute_executions : preexec -> (unit file) -> z3_memory_model
   val extract_executions : Solver.solver -> z3_memory_model -> Expr.expr
                            -> (alloc, allocation_metadata) Pmap.map option
                            -> string * string list * bool
@@ -784,7 +784,7 @@ module MemoryModelCommon = struct
       @ common
     else common
 
-  let initialise (exec: preexec) (file: unit typed_file) =
+  let initialise (exec: preexec) (file: unit file) =
     let all_actions = exec.initial_actions @ exec.actions in
     let prod_actions = cartesian_product all_actions all_actions in
     bmc_debug_print 3 (sprintf "# actions: %d" (List.length all_actions));
@@ -1508,7 +1508,7 @@ module RC11MemoryModel : MemoryModel = struct
     ; sbrf_clk  = sbrf_clk
     }
 
-  let compute_executions (exec: preexec) (file: unit typed_file) : z3_memory_model =
+  let compute_executions (exec: preexec) (file: unit file) : z3_memory_model =
     let all_actions = exec.initial_actions @ exec.actions in
     let prod_actions = cartesian_product all_actions all_actions in
     let writes = List.filter has_wval all_actions in
@@ -2456,7 +2456,7 @@ module GenericModel (M: CatModel) : MemoryModel = struct
     ) (Pmap.empty compare, Pmap.empty compare)
       (List.map (fun (s,_,_) -> s) M.bindings)
 
-  let compute_executions (exec: preexec) (file: unit typed_file) =
+  let compute_executions (exec: preexec) (file: unit file) =
     let common        = initialise exec file in
     let (decls,fns)   = mk_decls_and_fnapps common.event_sort in
     let actions = exec.initial_actions @ exec.actions in
