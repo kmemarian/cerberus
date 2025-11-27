@@ -195,6 +195,7 @@ module Pexpr = struct
   let ctor0 ctor = mk (PEctor (ctor, []))
   let ctor1 ctor pe = mk (PEctor (ctor, [ pe ]))
   let ctor2 ctor pe1 pe2 = mk (PEctor (ctor, [ pe1; pe2 ]))
+  let ctor3 ctor pe1 pe2 pe3 = mk (PEctor (ctor, [ pe1; pe2; pe3 ]))
   let ctorN ctor pes = mk (PEctor (ctor, pes))
   let map f (Pexpr (annots, bTy, desc)) = Pexpr (annots, bTy, f desc)
 
@@ -301,7 +302,12 @@ let mk_undef_exceptional_condition loc1 =
   mk_std_undef_pe loc1 "§6.5#5" Undefined.UB036_exceptional_condition
 
 let bitwise_complement_pe = Pexpr.ctor2 CivCOMPL
+let bitwise_AND_pe = Pexpr.ctor3 CivAND
+let bitwise_OR_pe = Pexpr.ctor3 CivOR
+let bitwise_XOR_pe = Pexpr.ctor3 CivXOR
 
+let mk_ivfromfloat_pe = Pexpr.ctor2 Civfromfloat
+let mk_fvfromint_pe = Pexpr.ctor1 Cfvfromint
 
 (* Core expr builders ****************************************************** *)
 module Expr = struct
