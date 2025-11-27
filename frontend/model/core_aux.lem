@@ -129,8 +129,18 @@ declare ocaml target_rep function mk_are_compatible = `Core_aux.mk_are_compatibl
 
 val mk_undef_exceptional_condition: Loc.t -> pexpr
 val bitwise_complement_pe: pexpr -> pexpr -> pexpr
+val bitwise_AND_pe: pexpr -> pexpr -> pexpr -> pexpr
+val bitwise_OR_pe: pexpr -> pexpr -> pexpr -> pexpr
+val bitwise_XOR_pe: pexpr -> pexpr -> pexpr -> pexpr
+val mk_ivfromfloat_pe: pexpr -> pexpr -> pexpr
+val mk_fvfromint_pe: pexpr -> pexpr
 declare ocaml target_rep function mk_undef_exceptional_condition = `Core_aux.mk_undef_exceptional_condition`
 declare ocaml target_rep function bitwise_complement_pe = `Core_aux.bitwise_complement_pe`
+declare ocaml target_rep function bitwise_AND_pe = `Core_aux.bitwise_AND_pe`
+declare ocaml target_rep function bitwise_OR_pe = `Core_aux.bitwise_OR_pe`
+declare ocaml target_rep function bitwise_XOR_pe = `Core_aux.bitwise_XOR_pe`
+declare ocaml target_rep function mk_ivfromfloat_pe = `Core_aux.mk_ivfromfloat_pe`
+declare ocaml target_rep function mk_fvfromint_pe = `Core_aux.mk_fvfromint_pe`
 
 
 (* Core expr builders ****************************************************** *)
