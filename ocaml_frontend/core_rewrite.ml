@@ -1157,7 +1157,7 @@ let rec pure_propagation2 ((Expr( annot1, expr_) as expr1)) =
               Expr( annot1, (Eunseq es''))
         )
         (*
-    | Ewseq (Pattern annot_ctor (CaseCtor Ctuple pats)) (Expr annot_unseq (Eunseq es)) e2 ->
+    | Ewseq (Pattern annot_ctor (CaseDtor Dtuple pats)) (Expr annot_unseq (Eunseq es)) e2 ->
         let (cont, pats', es') =
           List.foldr (fun (pat, e) (cont, pats_acc, es_acc) ->
             let e = (pure_propagation2 e) in
@@ -1173,7 +1173,7 @@ let rec pure_propagation2 ((Expr( annot1, expr_) as expr1)) =
          | ([pat'], [e']) ->
              Expr annot (Ewseq pat' e' (pure_propagation2 (cont e2)))
          | _ ->
-             Expr annot (Ewseq (Pattern annot_ctor (CaseCtor Ctuple pats')) (Expr annot_unseq (Eunseq es')) (pure_propagation2 (cont e2)))
+             Expr annot (Ewseq (Pattern annot_ctor (CaseDtor Dtuple pats')) (Expr annot_unseq (Eunseq es')) (pure_propagation2 (cont e2)))
        end
        *)
     | Ewseq( pat, e1, e2) ->
@@ -1189,7 +1189,7 @@ let rec pure_propagation2 ((Expr( annot1, expr_) as expr1)) =
               Expr( annot1, (Ewseq( pat, e1', (pure_propagation2 e2))))
        )
        (*
-    | Esseq (Pattern annot_ctor (CaseCtor Ctuple pats)) (Expr annot_unseq (Eunseq es)) e2 ->
+    | Esseq (Pattern annot_ctor (CaseDtor Dtuple pats)) (Expr annot_unseq (Eunseq es)) e2 ->
         let (cont, pats', es') =
           List.foldr (fun (pat, e) (cont, pats_acc, es_acc) ->
             let e = (pure_propagation2 e) in
@@ -1205,7 +1205,7 @@ let rec pure_propagation2 ((Expr( annot1, expr_) as expr1)) =
          | ([pat'], [e']) ->
              Expr annot (Esseq pat' e' (pure_propagation2 (cont e2)))
          | _ ->
-             Expr annot (Esseq (Pattern annot_ctor (CaseCtor Ctuple pats')) (Expr annot_unseq (Eunseq es')) (pure_propagation2 (cont e2)))
+             Expr annot (Esseq (Pattern annot_ctor (CaseDtor Dtuple pats')) (Expr annot_unseq (Eunseq es')) (pure_propagation2 (cont e2)))
        end
        *)
     | Esseq( pat, e1, e2) ->
@@ -1269,15 +1269,15 @@ let rec simpl_match_pattern (Pattern( _, pat)) pe =
         Some []
     | (CaseBase (Some sym1, _), _) ->
         Some [(sym1, pe)]
-    | (CaseCtor( Cspecified, [pat']), Pexpr( _, _, (PEval (Vloaded (LVspecified cval))))) ->
+    | (CaseDtor( Dspecified, [pat']), Pexpr( _, _, (PEval (Vloaded (LVspecified cval))))) ->
         simpl_match_pattern pat' (Core_aux.mk_value_pe (Vobject cval))
-    | (CaseCtor( Cspecified, [pat']), Pexpr( _, _, (PEctor( Cspecified, [pe'])))) ->
+    | (CaseDtor( Dspecified, [pat']), Pexpr( _, _, (PEctor( Cspecified, [pe'])))) ->
         simpl_match_pattern pat' pe'
 (*
-    | (CaseCtor Cunspecified [pat'], Vloaded (LVunspecified ty)) ->
+    | (CaseDtor Dunspecified [pat'], Vloaded (LVunspecified ty)) ->
         match_pattern pat' (Vctype ty)
 *)
-    | (CaseCtor( Ctuple, pats'), Pexpr( _, _, (PEval (Vtuple cvals)))) ->
+    | (CaseDtor( Dtuple, pats'), Pexpr( _, _, (PEval (Vtuple cvals)))) ->
         if not ((List.length pats') = (List.length cvals)) then
           None
         else
@@ -1288,7 +1288,7 @@ let rec simpl_match_pattern (Pattern( _, pat)) pe =
               )
             )
           ) (Lem_list.list_combine pats' cvals) (Some [])
-    | (CaseCtor( Ctuple, pats'), Pexpr( _, _, (PEctor( Ctuple, pes')))) ->
+    | (CaseDtor( Dtuple, pats'), Pexpr( _, _, (PEctor( Ctuple, pes')))) ->
         if not ((List.length pats') = (List.length pes')) then
           None
         else

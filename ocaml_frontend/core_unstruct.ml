@@ -280,7 +280,7 @@ let rec explode_expr env1 ((Expr( annot1, expr_) as expr1)) =
                 (Lem_list.map (fun (ident, _) -> (ident, Symbol.fresh ())) xs) in
               
               let pat' =
-                (Pattern( pat_annot, (CaseCtor( Ctuple, (Lem_list.map (fun (_, z) ->
+                (Pattern( pat_annot, (CaseDtor( Dtuple, (Lem_list.map (fun (_, z) ->
                   Pattern( [], (CaseBase (Some z, BTy_object OTy_pointer)))
                 ) ys))))) in
               
