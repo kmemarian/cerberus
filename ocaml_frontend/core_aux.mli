@@ -71,6 +71,12 @@ val mk_call_pe : name -> pexpr list -> pexpr
 val mk_are_compatible : pexpr -> pexpr -> pexpr
 val mk_undef_exceptional_condition : Cerb_location.t -> pexpr
 val bitwise_complement_pe : pexpr -> pexpr -> pexpr
+val bitwise_AND_pe : pexpr -> pexpr -> pexpr -> pexpr
+val bitwise_OR_pe : pexpr -> pexpr -> pexpr -> pexpr
+val bitwise_XOR_pe : pexpr -> pexpr -> pexpr -> pexpr
+val mk_ivfromfloat_pe : pexpr -> pexpr -> pexpr
+val mk_fvfromint_pe : pexpr -> pexpr
+
 
 (* Core expr builders ****************************************************** *)
 val mk_pure_e : pexpr -> 'a expr
