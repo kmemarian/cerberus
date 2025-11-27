@@ -180,13 +180,13 @@ let mk_sym_pat sym bty = mk_sym_pat_ [] (Some sym) bty
 let mk_tuple_pat = function
   | [] -> Cerb_debug.error "[Core_aux.mk_tuple_pat] called with |pats| = 0"
   | [ pat ] -> pat
-  | pats -> Pattern.mk (CaseCtor (Ctuple, pats))
+  | pats -> Pattern.mk (CaseDtor (Dtuple, pats))
 
 let mk_specified_pat_ annots pat =
-  Pattern.mk ~annots (CaseCtor (Cspecified, [ pat ]))
+  Pattern.mk ~annots (CaseDtor (Dspecified, [ pat ]))
 let mk_specified_pat pat = mk_specified_pat_ [] pat
 let mk_unspecified_pat_ annots pat =
-  Pattern.mk ~annots (CaseCtor (Cunspecified, [ pat ]))
+  Pattern.mk ~annots (CaseDtor (Dunspecified, [ pat ]))
 let mk_unspecified_pat pat = mk_unspecified_pat_ [] pat
 
 (* Core pexpr builders  ***************************************************** *)
@@ -449,7 +449,7 @@ let rec in_pattern sym (Pattern (_, pat)) =
   match pat with
   | CaseBase (sym_opt, _) ->
       Option.fold ~none:false ~some:(Symbol.symbolEquality sym) sym_opt
-  | CaseCtor (_, pats') -> List.exists (in_pattern sym) pats'
+  | CaseDtor (_, pats') -> List.exists (in_pattern sym) pats'
 
 let rec subst_sym_pexpr sym cval =
   let self x = subst_sym_pexpr sym cval x [@@inline] in
@@ -685,46 +685,33 @@ let rec subst_pattern_val (Pattern (_, pat)) cval expr1 =
   | CaseBase (Some sym1, _), _ ->
       (* e[sym \ v] *)
       subst_sym_expr sym1 cval expr1
-  | CaseCtor (Cnil _, []), Vlist (_, []) ->
+  | CaseDtor (Dnil _, []), Vlist (_, []) ->
       (* empty list (value) *)
       expr1
-  | CaseCtor (Ccons, [ pat1; pat2 ]), Vlist (bTy_elem, cval1 :: cvals) ->
+  | CaseDtor (Dcons, [ pat1; pat2 ]), Vlist (bTy_elem, cval1 :: cvals) ->
       (* populated list (value) *)
       subst_pattern_val pat1 cval1
         (subst_pattern_val pat2 (Vlist (bTy_elem, cvals)) expr1)
-  | CaseCtor (Ctuple, pats'), Vtuple cvals ->
+  | CaseDtor (Dtuple, pats'), Vtuple cvals ->
       List.fold_right
         (fun (pat', cval') acc -> subst_pattern_val pat' cval' acc)
         (List.combine pats' cvals)
         expr1
-  | CaseCtor (Cspecified, [ pat' ]), Vloaded (LVspecified oval) ->
+  | CaseDtor (Dspecified, [ pat' ]), Vloaded (LVspecified oval) ->
       subst_pattern_val pat' (Vobject oval) expr1
-  | CaseCtor (Cunspecified, [ pat' ]), Vloaded (LVunspecified ty1) ->
+  | CaseDtor (Dunspecified, [ pat' ]), Vloaded (LVunspecified ty1) ->
       subst_pattern_val pat' (Vctype ty1) expr1
-  | CaseCtor (ctor1, pats), _ ->
-      let str_ctor =
-        match ctor1 with
-        | Cnil _ -> "nil"
-        | Ccons -> "cons"
-        | Ctuple -> "tuple"
-        | Carray -> "array"
-        | Civmax -> "ivmax"
-        | Civmin -> "ivmin"
-        | Civsizeof -> "ivsizeof"
-        | Civalignof -> "ivalignof"
-        | CivCOMPL -> "ivCOMPL"
-        | CivAND -> "ivAND"
-        | CivOR -> "ivOR"
-        | CivXOR -> "ivXOR"
-        | Cspecified -> "specified"
-        | Cunspecified -> "unspecified"
-        | Cfvfromint -> "fvfromint"
-        | Civfromfloat -> "ivfromfloat"
-        | CivNULLcap is_signed ->
-            "ivNULLcap(" ^ if is_signed then "signed" else "unsigned" ^ ")"
+  | CaseDtor (dtor1, pats), _ ->
+      let str_dtor =
+        match dtor1 with
+        | Dnil _ -> "nil"
+        | Dcons -> "cons"
+        | Dtuple -> "tuple"
+        | Dspecified -> "specified"
+        | Dunspecified -> "unspecified"
       in
       Cerb_debug.error
-        ("WIP: Core_aux.subst_pattern_val ==> ctor= " ^ str_ctor ^ ", |pats|= "
+        ("WIP: Core_aux.subst_pattern_val ==> dtor= " ^ str_dtor ^ ", |pats|= "
         ^ string_of_int (List.length pats)
         ^ " -- "
         ^ String_core.string_of_value cval)
@@ -991,68 +978,55 @@ let rec unsafe_subst_pattern (Pattern (_, pat)) pe' expr1 =
   match (pat, pe') with
   | CaseBase (None, _), _ -> expr1
   | CaseBase (Some sym1, _), _ -> unsafe_subst_sym_expr sym1 pe' expr1
-  | CaseCtor (Cnil _, []), Pexpr (_, _, PEval (Vlist (_, []))) ->
+  | CaseDtor (Dnil _, []), Pexpr (_, _, PEval (Vlist (_, []))) ->
       (* empty list (value) *)
       expr1
-  | CaseCtor (Cnil _, []), Pexpr (_, _, PEctor (Cnil _, [])) ->
+  | CaseDtor (Dnil _, []), Pexpr (_, _, PEctor (Cnil _, [])) ->
       (* empty list (pure expr) *)
       expr1
-  | ( CaseCtor (Ccons, [ pat1; pat2 ]),
+  | ( CaseDtor (Dcons, [ pat1; pat2 ]),
       Pexpr (_, _, PEval (Vlist (bTy_elem, cval :: cvals))) ) ->
       (* populated list (value) *)
       subst_pattern_val pat1 cval
         (subst_pattern_val pat2 (Vlist (bTy_elem, cvals)) expr1)
-  | CaseCtor (Ccons, [ pat1; pat2 ]), Pexpr (_, _, PEctor (Ccons, [ pe1; pe2 ]))
+  | CaseDtor (Dcons, [ pat1; pat2 ]), Pexpr (_, _, PEctor (Ccons, [ pe1; pe2 ]))
     ->
       (* populated list (pure expr) *)
       unsafe_subst_pattern pat1 pe1 (unsafe_subst_pattern pat2 pe2 expr1)
-  | CaseCtor (Ctuple, pats'), Pexpr (_, _, PEval (Vtuple cvals)) ->
+  | CaseDtor (Dtuple, pats'), Pexpr (_, _, PEval (Vtuple cvals)) ->
       List.fold_right
         (fun (pat', cval) acc -> subst_pattern_val pat' cval acc)
         (List.combine pats' cvals)
         expr1
-  | CaseCtor (Ctuple, pats'), Pexpr (_, _, PEctor (Ctuple, pes)) ->
+  | CaseDtor (Dtuple, pats'), Pexpr (_, _, PEctor (Ctuple, pes)) ->
       List.fold_right
         (fun (pat', pe) acc -> unsafe_subst_pattern pat' pe acc)
         (List.combine pats' pes)
         expr1
       (* TODO (maybe), Carray, Civmax, Civmin, Civsizeof, Civalignof *)
-  | ( CaseCtor (Cspecified, [ pat' ]),
+  | ( CaseDtor (Dspecified, [ pat' ]),
       Pexpr (_, _, PEval (Vloaded (LVspecified oval))) ) ->
       subst_pattern_val pat' (Vobject oval) expr1
-  | CaseCtor (Cspecified, [ pat' ]), Pexpr (_, _, PEctor (Cspecified, [ pe'' ]))
+  | CaseDtor (Dspecified, [ pat' ]), Pexpr (_, _, PEctor (Cspecified, [ pe'' ]))
     ->
       unsafe_subst_pattern pat' pe'' expr1
-  | ( CaseCtor (Cunspecified, [ pat' ]),
+  | ( CaseDtor (Dunspecified, [ pat' ]),
       Pexpr (_, _, PEval (Vloaded (LVunspecified ty1))) ) ->
       subst_pattern_val pat' (Vctype ty1) expr1
-  | ( CaseCtor (Cunspecified, [ pat' ]),
+  | ( CaseDtor (Dunspecified, [ pat' ]),
       Pexpr (_, _, PEctor (Cunspecified, [ pe'' ])) ) ->
       unsafe_subst_pattern pat' pe'' expr1
-  | CaseCtor (ctor1, pats), _ ->
-      let str_ctor =
-        match ctor1 with
-        | Cnil _ -> "nil"
-        | Ccons -> "cons"
-        | Ctuple -> "tuple"
-        | Carray -> "array"
-        | Civmax -> "ivmax"
-        | Civmin -> "ivmin"
-        | Civsizeof -> "ivsizeof"
-        | Civalignof -> "ivalignof"
-        | CivCOMPL -> "ivCOMPL"
-        | CivAND -> "ivAND"
-        | CivOR -> "ivOR"
-        | CivXOR -> "ivXOR"
-        | Cspecified -> "specified"
-        | Cunspecified -> "unspecified"
-        | Cfvfromint -> "fvfromint"
-        | Civfromfloat -> "ivfromfloat"
-        | CivNULLcap is_signed ->
-            "ivNULLcap(" ^ if is_signed then "signed" else "unsigned" ^ ")"
+  | CaseDtor (dtor1, pats), _ ->
+      let str_dtor =
+        match dtor1 with
+        | Dnil _ -> "nil"
+        | Dcons -> "cons"
+        | Dtuple -> "tuple"
+        | Dspecified -> "specified"
+        | Dunspecified -> "unspecified"
       in
       Cerb_debug.error
-        ("WIP: Core_aux.unsafe_subst_pattern ==> ctor= " ^ str_ctor
+        ("WIP: Core_aux.unsafe_subst_pattern ==> dtor= " ^ str_dtor
        ^ ", |pats|= "
         ^ string_of_int (List.length pats)
         ^ " -- "
@@ -1063,50 +1037,50 @@ let rec subst_pattern (Pattern (_, pat)) pe' expr1 =
   match (pat, pe') with
   | CaseBase (None, _), _ -> Some expr1
   | CaseBase (Some sym1, _), _ -> Some (unsafe_subst_sym_expr sym1 pe' expr1)
-  | CaseCtor (Cnil _, []), Pexpr (_, _, PEval (Vlist (_, []))) ->
+  | CaseDtor (Dnil _, []), Pexpr (_, _, PEval (Vlist (_, []))) ->
       (* empty list (value) *)
       Some expr1
-  | CaseCtor (Cnil _, []), Pexpr (_, _, PEctor (Cnil _, [])) ->
+  | CaseDtor (Dnil _, []), Pexpr (_, _, PEctor (Cnil _, [])) ->
       (* empty list (pure expr) *)
       Some expr1
-  | ( CaseCtor (Ccons, [ pat1; pat2 ]),
+  | ( CaseDtor (Dcons, [ pat1; pat2 ]),
       Pexpr (_, _, PEval (Vlist (bTy_elem, cval :: cvals))) ) ->
       (* populated list (value) *)
       Some
         (subst_pattern_val pat1 cval
            (subst_pattern_val pat2 (Vlist (bTy_elem, cvals)) expr1))
-  | CaseCtor (Ccons, [ pat1; pat2 ]), Pexpr (_, _, PEctor (Ccons, [ pe1; pe2 ]))
+  | CaseDtor (Dcons, [ pat1; pat2 ]), Pexpr (_, _, PEctor (Ccons, [ pe1; pe2 ]))
     -> (
       (* populated list (pure expr) *)
       match subst_pattern pat2 pe2 expr1 with
       | Some e -> subst_pattern pat1 pe1 e
       | None -> None)
-  | CaseCtor (Ctuple, pats'), Pexpr (_, _, PEval (Vtuple cvals)) ->
+  | CaseDtor (Dtuple, pats'), Pexpr (_, _, PEval (Vtuple cvals)) ->
       Some
         (List.fold_right
            (fun (pat', cval) acc -> subst_pattern_val pat' cval acc)
            (List.combine pats' cvals)
            expr1)
-  | CaseCtor (Ctuple, pats'), Pexpr (_, _, PEctor (Ctuple, pes)) ->
+  | CaseDtor (Dtuple, pats'), Pexpr (_, _, PEctor (Ctuple, pes)) ->
       List.fold_right
         (fun (pat', pe) acc ->
           match acc with Some e -> subst_pattern pat' pe e | None -> None)
         (List.combine pats' pes)
         (Some expr1)
       (* TODO (maybe), Carray, Civmax, Civmin, Civsizeof, Civalignof *)
-  | ( CaseCtor (Cspecified, [ pat' ]),
+  | ( CaseDtor (Dspecified, [ pat' ]),
       Pexpr (_, _, PEval (Vloaded (LVspecified oval))) ) ->
       Some (subst_pattern_val pat' (Vobject oval) expr1)
-  | CaseCtor (Cspecified, [ pat' ]), Pexpr (_, _, PEctor (Cspecified, [ pe'' ]))
+  | CaseDtor (Dspecified, [ pat' ]), Pexpr (_, _, PEctor (Cspecified, [ pe'' ]))
     ->
       subst_pattern pat' pe'' expr1
-  | ( CaseCtor (Cunspecified, [ pat' ]),
+  | ( CaseDtor (Dunspecified, [ pat' ]),
       Pexpr (_, _, PEval (Vloaded (LVunspecified ty1))) ) ->
       Some (subst_pattern_val pat' (Vctype ty1) expr1)
-  | ( CaseCtor (Cunspecified, [ pat' ]),
+  | ( CaseDtor (Dunspecified, [ pat' ]),
       Pexpr (_, _, PEctor (Cunspecified, [ pe'' ])) ) ->
       subst_pattern pat' pe'' expr1
-  | CaseCtor (ctor1, pats), _ -> None
+  | CaseDtor (dtor1, pats), _ -> None
 
 let rec to_pure (Expr (annots, expr_)) =
   let to_pure_aux pat pe1 e2 =
@@ -1353,12 +1327,12 @@ let rec match_pattern (Pattern (_, pat)) cval =
   | CaseBase (None, _), _ -> Some []
   | CaseBase (Some sym1, _), _ -> Some [ (sym1, cval) ]
   (*      | Vobject of (generic_object_value 'sym) *)
-  | CaseCtor (Cspecified, [ pat' ]), Vloaded (LVspecified oval) ->
+  | CaseDtor (Dspecified, [ pat' ]), Vloaded (LVspecified oval) ->
       match_pattern pat' (Vobject oval)
-  | CaseCtor (Cunspecified, [ pat' ]), Vloaded (LVunspecified ty1) ->
+  | CaseDtor (Dunspecified, [ pat' ]), Vloaded (LVunspecified ty1) ->
       match_pattern pat' (Vctype ty1)
   (*      | Vlist of core_base_type * list (generic_value 'sym) *)
-  | CaseCtor (Ctuple, pats'), Vtuple cvals' ->
+  | CaseDtor (Dtuple, pats'), Vtuple cvals' ->
       List.fold_right
         (fun (pat', cval') acc ->
           Lem.option_bind acc (fun xs ->
@@ -1366,13 +1340,13 @@ let rec match_pattern (Pattern (_, pat)) cval =
                   Some (List.rev_append (List.rev x) xs))))
         (List.combine pats' cvals')
         (Some [])
-  | CaseCtor (Cnil _, []), Vlist (_, []) ->
+  | CaseDtor (Dnil _, []), Vlist (_, []) ->
       let () =
         Cerb_debug.warn [] (fun () ->
             "Pattern matching nil without checking types!")
       in
       Some []
-  | CaseCtor (Ccons, [ pat_x; pat_xs ]), Vlist (ty1, x :: xs) ->
+  | CaseDtor (Dcons, [ pat_x; pat_xs ]), Vlist (ty1, x :: xs) ->
       Lem.option_bind (match_pattern pat_x x) (fun x ->
           Lem.option_bind
             (match_pattern pat_xs (Vlist (ty1, xs)))
@@ -1720,49 +1694,36 @@ let rec update_env_aux dict_Map_MapKeyType_a (Pattern (_, pat)) cval env1 =
   | CaseBase (Some sym1, _), _ ->
       (* e[sym \ v] *)
       Pmap.add sym1 cval env1
-  | CaseCtor (Cnil _, []), Vlist (_, []) ->
+  | CaseDtor (Dnil _, []), Vlist (_, []) ->
       (* empty list (value) *)
       env1
-  | CaseCtor (Ccons, [ pat1; pat2 ]), Vlist (bTy_elem, cval1 :: cvals) ->
+  | CaseDtor (Dcons, [ pat1; pat2 ]), Vlist (bTy_elem, cval1 :: cvals) ->
       (* populated list (value) *)
       update_env_aux dict_Map_MapKeyType_a pat1 cval1
         (update_env_aux dict_Map_MapKeyType_a pat2
            (Vlist (bTy_elem, cvals))
            env1)
-  | CaseCtor (Ctuple, pats'), Vtuple cvals ->
+  | CaseDtor (Dtuple, pats'), Vtuple cvals ->
       List.fold_right
         (fun (pat', cval') acc ->
           update_env_aux dict_Map_MapKeyType_a pat' cval' acc)
         (List.combine pats' cvals)
         env1
-  | CaseCtor (Cspecified, [ pat' ]), Vloaded (LVspecified oval) ->
+  | CaseDtor (Dspecified, [ pat' ]), Vloaded (LVspecified oval) ->
       update_env_aux dict_Map_MapKeyType_a pat' (Vobject oval) env1
-  | CaseCtor (Cunspecified, [ pat' ]), Vloaded (LVunspecified ty1) ->
+  | CaseDtor (Dunspecified, [ pat' ]), Vloaded (LVunspecified ty1) ->
       update_env_aux dict_Map_MapKeyType_a pat' (Vctype ty1) env1
-  | CaseCtor (ctor1, pats), _ ->
-      let str_ctor =
-        match ctor1 with
-        | Cnil _ -> "nil"
-        | Ccons -> "cons"
-        | Ctuple -> "tuple"
-        | Carray -> "array"
-        | Civmax -> "ivmax"
-        | Civmin -> "ivmin"
-        | Civsizeof -> "ivsizeof"
-        | Civalignof -> "ivalignof"
-        | CivCOMPL -> "ivCOMPL"
-        | CivAND -> "ivAND"
-        | CivOR -> "ivOR"
-        | CivXOR -> "ivXOR"
-        | Cspecified -> "specified"
-        | Cunspecified -> "unspecified"
-        | Cfvfromint -> "fvfromint"
-        | Civfromfloat -> "ivfromfloat"
-        | CivNULLcap is_signed ->
-            "ivNULLcap(" ^ if is_signed then "signed" else "unsigned" ^ ")"
+  | CaseDtor (dtor1, pats), _ ->
+      let str_dtor =
+        match dtor1 with
+        | Dnil _ -> "nil"
+        | Dcons -> "cons"
+        | Dtuple -> "tuple"
+        | Dspecified -> "specified"
+        | Dunspecified -> "unspecified"
       in
       Cerb_debug.error
-        ("WIP: Core_aux.update_env_aux ==> ctor= " ^ str_ctor ^ ", |pats|= "
+        ("WIP: Core_aux.update_env_aux ==> dtor= " ^ str_dtor ^ ", |pats|= "
         ^ string_of_int (List.length pats)
         ^ " -- "
         ^ String_core.string_of_value cval)
