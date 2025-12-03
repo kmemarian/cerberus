@@ -16,7 +16,7 @@ type driver_conf = {
   trace: bool;
 }
 
-type execution_result = (Core.value list, Errors.error) Exception.exceptM
+type execution_result = (Core.value list, Errors.error) result
 
 
 let string_of_driver_error = function
@@ -305,4 +305,4 @@ else
       | (ND.Killed (_, ND.Other reason), _, st) ->
           print_endline (Cerb_colour.(ansi_format [Red] ("OTHER ERROR: " ^ string_of_driver_error reason)))
   ) values;
-  Exception.except_return !ret
+  Result.ok !ret
