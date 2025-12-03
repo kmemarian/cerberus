@@ -466,12 +466,6 @@ let string_of_core_typing_cause = function
       (if !Cerb_debug.debug_level > 0 then "(" ^ str ^ "):\n" else "") ^
       (match m_found with Some found -> "this expression is of type '" ^ string_of_bty found ^ "' but " | None -> "") ^
       "an expression of type '" ^ expected ^ "' was expected"
-  | CFunctionExpected nm ->
-      "symbol '" ^ string_of_name nm ^ "' has incorrect type, a symbol of type 'cfunction' was expected"
-  | CFunctionParamsType ->
-      "core procedures used as C functions must only have pointer parameters (or list of pointers when variadic)"
-  | CFunctionReturnType ->
-      "core procedures used as C functions must return unit or an object value"
   | UnresolvedSymbol nm ->
       "unresolved symbol '" ^ string_of_name nm ^ "'"
   | FunctionOrProcedureSymbol sym ->
