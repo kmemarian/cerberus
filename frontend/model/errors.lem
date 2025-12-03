@@ -30,9 +30,6 @@ type core_typing_cause =
   | MismatchFound of string (* syntax info *) * string (* expected *) * maybe core_base_type (* found *)
   | UnresolvedSymbol of name
   | FunctionOrProcedureSymbol of Symbol.sym
-  | CFunctionExpected of name (* symbol *)
-  | CFunctionParamsType
-  | CFunctionReturnType
   | TooGeneral
   | CoreTyping_TODO of string (* TODO: get rid of this constructor eventually *)
   (* NOTE: I cannot fire these errors *)
