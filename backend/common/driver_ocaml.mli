@@ -8,7 +8,7 @@ type driver_conf = {
   trace: bool;
 }
 
-type execution_result = (Core.value list, Errors.error) Exception.exceptM
+type execution_result = (Core.value list, Errors.error) result
 
 type batch_exit =
   | Unspecified of Ctype.ctype
