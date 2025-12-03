@@ -2,7 +2,8 @@ open import Pervasives
 
 open import Utils
 open import Core
-open import Core_run_aux Errors
+open import Core_run_aux
+import Errors
 import Mem
 import AilTypesAux
 import Loc Symbol Exception_undefined Pp
@@ -16,6 +17,9 @@ import Exception
 
 import Nondeterminism
 module ND = Nondeterminism
+
+let illformed_program str =
+  EU.fail (Errors.Illformed_program str)
 
 
 (* -- see §5.1.2 from ISO/IEC 10967-1:1994(E)
@@ -116,7 +120,7 @@ let mk_call_catch_exceptional_condition ity iop ival1 ival2 =
 (* takes the symbolic names of a function, some pure expressions and produce
    the function body where the arguments have been substituted *)
 val call_function: Core.file core_run_annotation -> name -> list Core.value ->
-                   Exception.exceptM Core.pexpr core_run_cause
+                   Exception.exceptM Core.pexpr Errors.core_run_cause
 let call_function file f_nm arg_cvals =
   let () = Debug.print_debug 5 [] (fun () ->
     "CALL_FUNCTION: " ^ Pp.stringFromCore_pexpr (Pexpr [] Nothing (PEcall f_nm (List.map Caux.mk_value_pe arg_cvals)))
@@ -133,7 +137,7 @@ let call_function file f_nm arg_cvals =
                     (* calling a user function *)
                     Exception.return z
                 | Nothing ->
-                    Exception.fail (Illformed_program "calling an unknown function")
+                    Exception.fail (Errors.Illformed_program "calling an unknown function")
               end
         end
     | Impl f ->
@@ -141,7 +145,7 @@ let call_function file f_nm arg_cvals =
           | Just (IFun bty params pe) ->
               Exception.return (Fun bty params pe)
           | _ ->
-              Exception.fail (Illformed_program ("calling an unknown impl-function: " ^
+              Exception.fail (Errors.Illformed_program ("calling an unknown impl-function: " ^
                                                  Implementation.string_of_implementation_constant f))
         end
   end function
@@ -169,9 +173,9 @@ let inline (<$>) = EU.fmap
 
 
 val step_eval_peop:
-  Loc.t -> (Core.pexpr -> EU.t Core.pexpr core_run_cause) ->
+  Loc.t -> (Core.pexpr -> EU.t Core.pexpr Errors.core_run_cause) ->
   Core.binop -> Core.pexpr -> Core.pexpr  ->
-  EU.t (Core.generic_pexpr_ Symbol.sym) core_run_cause
+  EU.t (Core.generic_pexpr_ Symbol.sym) Errors.core_run_cause
 
 let step_eval_peop loc self binop pe1 pe2 =
   self pe1 >>= fun pe1' ->
@@ -187,7 +191,7 @@ let step_eval_peop loc self binop pe1 pe2 =
               | Just b ->
                   EU.return (PEval (if b then Vtrue else Vfalse))
               | Nothing ->
-                  EU.fail Constrained
+                  EU.fail Errors.Constrained
             end
 
         | (OpEq, Just (Vobject (OVfloating fval1)), Just (Vobject (OVfloating fval2))) ->
@@ -198,7 +202,7 @@ let step_eval_peop loc self binop pe1 pe2 =
               | Just b ->
                   EU.return (PEval (if b then Vtrue else Vfalse))
               | Nothing ->
-                  EU.fail Constrained
+                  EU.fail Errors.Constrained
             end
 
         | (OpLt, Just (Vobject (OVfloating fval1)), Just (Vobject (OVfloating fval2))) ->
@@ -209,7 +213,7 @@ let step_eval_peop loc self binop pe1 pe2 =
               | Just b ->
                   EU.return (PEval (if b then Vtrue else Vfalse))
               | Nothing ->
-                  EU.fail Constrained
+                  EU.fail Errors.Constrained
             end
 
         | (OpLe, Just (Vobject (OVfloating fval1)), Just (Vobject (OVfloating fval2))) ->
@@ -221,7 +225,7 @@ let step_eval_peop loc self binop pe1 pe2 =
               | Just b ->
                   EU.return (PEval (if b then Vtrue else Vfalse))
               | Nothing ->
-                  EU.fail Constrained
+                  EU.fail Errors.Constrained
             end
 
         | (OpGe, Just (Vobject (OVfloating fval1)), Just (Vobject (OVfloating fval2))) ->
@@ -233,7 +237,7 @@ let step_eval_peop loc self binop pe1 pe2 =
               | Just b ->
                   EU.return (PEval (if b then Vtrue else Vfalse))
               | Nothing ->
-                  EU.fail Constrained
+                  EU.fail Errors.Constrained
             end
 
         | (OpGt, Just (Vobject (OVfloating fval1)), Just (Vobject (OVfloating fval2))) ->
@@ -309,7 +313,7 @@ let step_eval_peop loc self binop pe1 pe2 =
 *)
 
               | _ ->
-                  EU.fail $ Illformed_program ("[" ^ Loc.stringFromLocation loc ^ "] the two operands of /\\ should be booleans ==> " ^ Pp.stringFromCore_value v1 ^ " <-> " ^ Pp.stringFromCore_value v2)
+                  illformed_program ("[" ^ Loc.stringFromLocation loc ^ "] the two operands of /\\ should be booleans ==> " ^ Pp.stringFromCore_value v1 ^ " <-> " ^ Pp.stringFromCore_value v2)
             end
         
         | (OpOr, Just v1, Just v2) ->
@@ -323,12 +327,12 @@ let step_eval_peop loc self binop pe1 pe2 =
               | (Vfalse, Vfalse) ->
                   EU.return $ PEval Vfalse
               | _ ->
-                  EU.fail $ Illformed_program ("[" ^ Loc.stringFromLocation loc ^ "] the two operands of \\/ should be booleans")
+                  illformed_program ("[" ^ Loc.stringFromLocation loc ^ "] the two operands of \\/ should be booleans")
             end
         
         | (_, Just _, Just _) ->
-            EU.fail $ Illformed_program ("[" ^ Loc.stringFromLocation loc ^ "] ill-typed PEop ==> " ^
-                                         Pp.stringFromCore_pexpr (Caux.mk_op_pe binop pe1 pe2))
+            illformed_program ("[" ^ Loc.stringFromLocation loc ^ "] ill-typed PEop ==> " ^
+              Pp.stringFromCore_pexpr (Caux.mk_op_pe binop pe1 pe2))
         | _ ->
 (*
             let () = Debug.print_debug 1 [] (fun () ->
@@ -352,7 +356,7 @@ val     step_eval_pexpr: nat -> Loc.t -> maybe Loc.t ->
                          list (map Symbol.sym Core.value) ->
                          maybe Mem.mem_state -> Core.file core_run_annotation ->
                          bool -> Core.pexpr  ->
-                         EU.t Core.pexpr core_run_cause
+                         EU.t Core.pexpr Errors.core_run_cause
 let rec step_eval_pexpr n loc parent_call_loc_opt core_extern env mem_st_opt file hasConstrained pexpr =
   match pexpr with Pexpr _ _ pexpr_  ->
   let strip (Pexpr _ _ pe_) = pe_ in
@@ -371,7 +375,7 @@ let rec step_eval_pexpr n loc parent_call_loc_opt core_extern env mem_st_opt fil
                 | Just (Proc _ _ _ _ _) ->
                     EU.return (PEval (Vobject (OVpointer (Mem.null_ptrval (Ctype.Ctype [] Ctype.Void)))))
                 | _ ->
-                    EU.fail (Unresolved_symbol loc sym)
+                    EU.fail (Errors.Unresolved_symbol loc sym)
               end
           | Just cval ->
               EU.return (PEval cval)
@@ -381,7 +385,7 @@ let rec step_eval_pexpr n loc parent_call_loc_opt core_extern env mem_st_opt fil
           | Just (Def _ pe) ->
               EU.return (strip pe)
           | _ ->
-              EU.fail Unknown_impl
+              EU.fail Errors.Unknown_impl
         end
     | PEval cval ->
         EU.return pexpr_
@@ -416,8 +420,8 @@ let rec step_eval_pexpr n loc parent_call_loc_opt core_extern env mem_st_opt fil
                 end
               ) (Just []) cvals with
                 | Nothing ->
-                    EU.fail $ Illformed_program ("PEctor, Carray: one of the operands didn't evaluate to a loaded value ==> " ^
-                                                 stringFromList Pp.stringFromCore_value cvals)
+                    illformed_program ("PEctor, Carray: one of the operands didn't evaluate to a loaded value ==> " ^
+                      stringFromList Pp.stringFromCore_value cvals)
                 | Just lvals ->
                     EU.return (PEval (Vobject (OVarray lvals)))
               end
@@ -483,9 +487,9 @@ let rec step_eval_pexpr n loc parent_call_loc_opt core_extern env mem_st_opt fil
               EU.return $ PEval (Vobject (OVinteger (Mem.null_cap is_signed)))
           
           | (_, Just cvals) ->
-              EU.fail $ Illformed_program ("PEctor: one of the operands was ill-typed ==> " ^
-                                           Pp.stringFromCore_pexpr pexpr ^ " <====> " ^
-                                           stringFromList Pp.stringFromCore_value cvals)
+              illformed_program ("PEctor: one of the operands was ill-typed ==> " ^
+                Pp.stringFromCore_pexpr pexpr ^ " <====> " ^
+                stringFromList Pp.stringFromCore_value cvals)
           | (_, Nothing) ->
               EU.return $ PEctor ctor pes'
         end
@@ -508,8 +512,8 @@ let rec step_eval_pexpr n loc parent_call_loc_opt core_extern env mem_st_opt fil
           | (Just (Vobject (OVpointer ptr_val)), Just (Vobject (OVinteger ival))) ->
               EU.return $ PEval (Vobject (OVpointer (Mem.array_shift_ptrval ptr_val ty ival)))
           | (Just _, Just _) ->
-              EU.fail $ Illformed_program ("PEarray_shift: type error ==> " ^
-                                           Pp.stringFromCore_pexpr (Pexpr [] Nothing (PEarray_shift pe1' ty pe2')))
+              illformed_program ("PEarray_shift: type error ==> " ^
+                Pp.stringFromCore_pexpr (Pexpr [] Nothing (PEarray_shift pe1' ty pe2')))
           | _ ->
               EU.return $ PEarray_shift pe1' ty pe2'
         end
@@ -519,7 +523,7 @@ let rec step_eval_pexpr n loc parent_call_loc_opt core_extern env mem_st_opt fil
           | Just (Vobject (OVpointer ptr_val)) ->
               EU.return $ PEval (Vobject (OVpointer (Mem.member_shift_ptrval ptr_val tag_sym member_ident)))
           | Just _ ->
-              EU.fail $ Illformed_program "PEmember_shift"
+              illformed_program "PEmember_shift"
           | _ ->
               EU.return $ PEmember_shift pe' tag_sym member_ident
         end
@@ -544,7 +548,7 @@ let rec step_eval_pexpr n loc parent_call_loc_opt core_extern env mem_st_opt fil
             , Just [ Core.Vobject (Core.OVinteger ival) ] ) ->
                 EU.return (PEval (Vobject (OVinteger (Mem.intfrombyte loc ival))))
           | (_, Just _) ->
-              EU.fail $ Illformed_program "PEmemop"
+              illformed_program "PEmemop"
           | (_, Nothing) ->
               EU.return (PEmemop memop pes')
         end        
@@ -559,7 +563,7 @@ let rec step_eval_pexpr n loc parent_call_loc_opt core_extern env mem_st_opt fil
                 | (cs, Vfalse) ->
                     EU.return (cs, Vtrue)
                 | _ ->
-                    EU.fail (Illformed_program "PEnot: operand should be a boolean")
+                    illformed_program "PEnot: operand should be a boolean"
               end xs
 *)
           | PEval Vtrue ->
@@ -567,7 +571,7 @@ let rec step_eval_pexpr n loc parent_call_loc_opt core_extern env mem_st_opt fil
           | PEval Vfalse ->
               EU.return (PEval Vtrue)
           | PEval _ ->
-              EU.fail (Illformed_program "PEnot: operand should be a boolean")
+              illformed_program "PEnot: operand should be a boolean"
           | _ ->
               EU.return (PEnot pe')
         end
@@ -578,7 +582,7 @@ let rec step_eval_pexpr n loc parent_call_loc_opt core_extern env mem_st_opt fil
           | Pexpr _ _ (PEval (Vobject (OVinteger ival))) ->
               EU.return (PEval (Vobject (OVinteger (mk_conv_int ity ival))))
           | Pexpr _ _ (PEval _) ->
-              EU.fail (Illformed_program "PEconv_int: operand should be an object integer")
+              illformed_program "PEconv_int: operand should be an object integer"
           | pe' ->
               EU.return (PEconv_int ity pe')
         end
@@ -589,7 +593,7 @@ let rec step_eval_pexpr n loc parent_call_loc_opt core_extern env mem_st_opt fil
           | (Just (Vobject (OVinteger ival1)), Just (Vobject (OVinteger ival2))) ->
               EU.return (PEval (Vobject (OVinteger (mk_wrapI_op ity iop ival1 ival2))))
           | (Just _, Just _) ->
-              EU.fail (Illformed_program "PEwrapI: operands should be an object integers")
+              illformed_program "PEwrapI: operands should be an object integers"
             | _ ->
               EU.return (PEwrapI ity iop pe1' pe2')
         end
@@ -605,7 +609,7 @@ let rec step_eval_pexpr n loc parent_call_loc_opt core_extern env mem_st_opt fil
                     Exception.return (Undefined.undef loc [Undefined.UB036_exceptional_condition])
               end
           | (Just _, Just _) ->
-              EU.fail (Illformed_program "PEcatch_exceptional_condition: operands should be an object integers")
+              illformed_program "PEcatch_exceptional_condition: operands should be an object integers"
             | _ ->
               EU.return (PEcatch_exceptional_condition ity iop pe1' pe2')
         end
@@ -668,14 +672,14 @@ KKK:              EU.return (PEval (Vloaded (LVspecified (OVstruct tag_sym xs)))
                                                     if is_variadic then Vtrue else Vfalse;
                                                     if has_proto then Vtrue else Vfalse; ]))
                       | _ ->
-                        EU.fail $ Illformed_program (Loc.stringFromLocation loc ^ ": '" ^ show sym ^ "' does not point to a function (cfunction)")
+                        illformed_program (Loc.stringFromLocation loc ^ ": '" ^ show sym ^ "' does not point to a function (cfunction)")
                     end
                 | Nothing ->
                   let ub = Undefined.UB_CERB003_invalid_function_pointer in
                   Exception.return (Undefined.undef loc [ub])
               end in
               Mem.case_ptrval pv
-                (fun _ -> EU.fail $ Illformed_program "null function pointer")
+                (fun _ -> illformed_program "null function pointer")
                 case_funptrval
                 (fun _ _ ->
                 (* TODO: not sure about this case! it happens when calling a function pointer casted to void* via: ((void ( * )(void))p)(); *)
@@ -685,13 +689,13 @@ KKK:              EU.return (PEval (Vloaded (LVspecified (OVstruct tag_sym xs)))
                       | Just sym ->
                           case_funptrval (Just sym)
                       | Nothing ->
-                          EU.fail $ Illformed_program (Loc.stringFromLocation loc ^ ": does not point to a function")
+                          illformed_program (Loc.stringFromLocation loc ^ ": does not point to a function")
                       end
                   | Nothing ->
-                      EU.fail $ Illformed_program (Loc.stringFromLocation loc ^ ": does not point to a function")
+                      illformed_program (Loc.stringFromLocation loc ^ ": does not point to a function")
                   end)
           | Just (Vloaded (LVunspecified _)) ->
-              EU.fail $ Illformed_program "function pointer has an unspecified value"
+              illformed_program "function pointer has an unspecified value"
           | _ ->
             error "Core_eval.step_eval_pexpr, PEcfunction expects a pointer"
         end
@@ -700,22 +704,22 @@ KKK:              EU.return (PEval (Vloaded (LVspecified (OVstruct tag_sym xs)))
         match Caux.valueFromPexpr pe' with
           | Just (Vobject (OVstruct tag_sym' xs)) ->
               if tag_sym <> tag_sym' then
-                EU.fail $ Illformed_program ("PEmemberof(struct) ==> mismatched tags: " ^ show tag_sym ^ " vs " ^ show tag_sym')
+                illformed_program ("PEmemberof(struct) ==> mismatched tags: " ^ show tag_sym ^ " vs " ^ show tag_sym')
               else match List.lookup memb_ident (List.map (fun (a,_,b) -> (a,b)) xs) with
                 | Nothing ->
-                    EU.fail $ Illformed_program ("PEmemberof ==> invalid member: " ^ show memb_ident)
+                    illformed_program ("PEmemberof ==> invalid member: " ^ show memb_ident)
                 | Just mval ->
                     EU.return (PEval (snd (Caux.valueFromMemValue mval)))
               end
           | Just (Vobject (OVunion tag_sym' memb_ident' mval)) ->
               if tag_sym <> tag_sym' then
-                EU.fail $ Illformed_program ("PEmemberof(union) ==> mismatched tags: " ^ show tag_sym ^ " vs " ^ show tag_sym')
+                illformed_program ("PEmemberof(union) ==> mismatched tags: " ^ show tag_sym ^ " vs " ^ show tag_sym')
               else if memb_ident <> memb_ident' then
                 error "TODO: evaluation of PEmemberof => union puning"
               else
                 EU.return (PEval (snd (Caux.valueFromMemValue mval)))
           | Just cval ->
-              EU.fail $ Illformed_program ("PEmemberof ==> " ^ Pp.stringFromCore_value cval)
+              illformed_program ("PEmemberof ==> " ^ Pp.stringFromCore_value cval)
           | Nothing ->
               EU.return (PEmemberof tag_sym memb_ident pe')
         end
@@ -736,7 +740,7 @@ KKK:              EU.return (PEval (Vloaded (LVspecified (OVstruct tag_sym xs)))
           | Pexpr _ _ (PEval cval) ->
               match Caux.select_case Caux.subst_sym_pexpr cval [(pat, pe2)] with
                 | Nothing ->
-                    EU.fail $ Illformed_program "PElet: the pattern didn't match pe1"
+                    illformed_program "PElet: the pattern didn't match pe1"
                 | Just pe' ->
                     EU.return $ strip pe'
               end
@@ -754,7 +758,7 @@ KKK:              EU.return (PEval (Vloaded (LVspecified (OVstruct tag_sym xs)))
           | Just Vfalse ->
               strip <$> self pe3
           | Just cval ->
-              EU.fail $ Illformed_program ("PEif: first operand should be a boolean ==> " ^ Pp.stringFromCore_value cval)
+              illformed_program ("PEif: first operand should be a boolean ==> " ^ Pp.stringFromCore_value cval)
           | Nothing ->
               EU.return $ PEif pe1' pe2 pe3
         end
@@ -764,7 +768,7 @@ KKK:              EU.return (PEval (Vloaded (LVspecified (OVstruct tag_sym xs)))
           | Just (Vctype ty) ->
               EU.return $ PEval (if AilTypesAux.is_scalar ty then Vtrue else Vfalse)
           | Just _ ->
-              EU.fail $ Illformed_program "PEis_scalar: the operand should be a ctype"
+              illformed_program "PEis_scalar: the operand should be a ctype"
           | Nothing ->
               EU.return $ PEis_scalar pe'
         end
@@ -774,7 +778,7 @@ KKK:              EU.return (PEval (Vloaded (LVspecified (OVstruct tag_sym xs)))
           | Just (Vctype ty) ->
               EU.return $ PEval (if AilTypesAux.is_integer ty then Vtrue else Vfalse)
           | Just _ ->
-              EU.fail $ Illformed_program "PEis_integer: the operand should be a ctype"
+              illformed_program "PEis_integer: the operand should be a ctype"
           | Nothing ->
               EU.return $ PEis_scalar pe'
         end
@@ -784,7 +788,7 @@ KKK:              EU.return (PEval (Vloaded (LVspecified (OVstruct tag_sym xs)))
           | Just (Vctype ty) ->
               EU.return $ PEval (if AilTypesAux.is_signed_integer_type ty then Vtrue else Vfalse)
           | Just _ ->
-              EU.fail $ Illformed_program "PEis_signed: the operand should be a ctype"
+              illformed_program "PEis_signed: the operand should be a ctype"
           | Nothing ->
               EU.return $ PEis_scalar pe'
         end
@@ -794,12 +798,12 @@ KKK:              EU.return (PEval (Vloaded (LVspecified (OVstruct tag_sym xs)))
           | Just (Vctype ty) ->
               EU.return $ PEval (if AilTypesAux.is_unsigned_integer_type ty then Vtrue else Vfalse)
           | Just _ ->
-              EU.fail $ Illformed_program "PEis_unsigned: the operand should be a ctype"
+              illformed_program "PEis_unsigned: the operand should be a ctype"
           | Nothing ->
               EU.return $ PEis_scalar pe'
         end
     | PEbmc_assume pe ->
-      EU.fail $ Illformed_program "PEbmc_assume: __bmc_assume is for model checking only"
+      illformed_program "PEbmc_assume: __bmc_assume is for model checking only"
     | PEare_compatible pe1 pe2 ->
         self pe1 >>= fun pe1 ->
         self pe2 >>= fun pe2 ->
@@ -811,7 +815,7 @@ KKK:              EU.return (PEval (Vloaded (LVspecified (OVstruct tag_sym xs)))
                   (Ctype.no_qualifiers, ty2) in
               EU.return $ PEval (if are_compatible then Vtrue else Vfalse)
           | (_, _) ->
-              EU.fail $ Illformed_program "PEare_compatible: the operands should be ctypes"
+              illformed_program "PEare_compatible: the operands should be ctypes"
         end
   end
   end
@@ -824,7 +828,7 @@ val     eval_pexpr_aux2: Loc.t -> maybe Loc.t ->
                          list (map Symbol.sym Core.value) ->
                          maybe Mem.mem_state -> Core.file core_run_annotation ->
                          Core.pexpr ->
-                         EU.t (either Core.pexpr Core.value) core_run_cause
+                         EU.t (either Core.pexpr Core.value) Errors.core_run_cause
 let rec eval_pexpr_aux2 loc current_call_loc_opt core_extern env mem_st_opt file pe =
   step_eval_pexpr 0 loc current_call_loc_opt core_extern env mem_st_opt file false pe >>= fun pe' ->
   match Caux.valueFromPexpr pe' with
@@ -875,7 +879,7 @@ val eval_pexpr_aux_broken:
   list (map Symbol.sym Core.value) ->
   maybe Mem.mem_state -> Core.file core_run_annotation ->
   Core.pexpr ->
-  EU.t Core.value core_run_cause
+  EU.t Core.value Errors.core_run_cause
 let rec eval_pexpr_aux_broken loc current_call_loc_opt core_extern env mem_st_opt file pe =
   step_eval_pexpr 0 loc current_call_loc_opt core_extern env mem_st_opt file false ((* let ()=Debug.print_debug 5 [] (fun () -> "BOOM") in*) pe) >>= fun pe' ->
   match Caux.valueFromPexpr pe' with
@@ -892,5 +896,5 @@ let eval_pexpr loc current_call_loc_opt core_extern env mem_st_opt file pe =
     | Exception.Result z ->
         Right z
     | Exception.Exception err ->
-        Left (loc, Errors.CORE_RUN err)
+        Left (Errors.core_run_error loc err)
   end

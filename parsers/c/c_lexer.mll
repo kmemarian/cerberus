@@ -244,7 +244,7 @@ let cn_lex_keyword id start_pos end_pos =
     prerr_endline
       (Pp_errors.make_message
         Cerb_location.(region (LineMap.position start_pos, LineMap.position end_pos) NoCursor)
-        Errors.(CPARSER (Errors.Cparser_experimental_keyword id))
+        Errors.(CPARSER (Cparser_experimental_keyword id))
         Warning);
     kw
   | (Deprecated instead, kw) ->
@@ -253,7 +253,7 @@ let cn_lex_keyword id start_pos end_pos =
     prerr_endline
       (Pp_errors.make_message
         Cerb_location.(region (LineMap.position start_pos, LineMap.position end_pos) NoCursor)
-        Errors.(CPARSER (Errors.Cparser_deprecated_keyword (id, instead)))
+        Errors.(CPARSER (Cparser_deprecated_keyword (id, instead)))
         Warning);
     kw
   | (Unimplemented, _) -> raise (Error (Errors.Cparser_unimplemented_keyword id))

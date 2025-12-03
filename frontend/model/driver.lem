@@ -4,7 +4,8 @@ import Core Boot Decode Formatted Set_extra Map
 import Core_aux Builtins Core_linking
 module Caux = Core_aux
 
-open import Utils Show Errors Trace_event
+open import Utils Show Trace_event
+import Errors
 import Cmm_op Cmm_csem
 
 import Core_eval Core_run Core_reduction
@@ -47,7 +48,7 @@ declare ocaml target_rep function stringFromCore_core_state = `String_core_run.s
 
 
 type driver_error =
-  | DErr_core_run of core_run_cause
+  | DErr_core_run of Errors.core_run_cause
   | DErr_memory of Mem_common.mem_error
   | DErr_concurrency of string
   | DErr_other of string
@@ -142,7 +143,7 @@ let print_eval_conv_aux dr_st th_st pe =
   | Exception.Result (Undefined.Error loc err) ->
       ND.return (Right (Undefined.Error loc err))
   | Exception.Exception err ->
-      ND.return (Left (Loc.other "Driver.print_eval_conv_aux", Errors.CORE_RUN err))
+      ND.return (Left (Errors.core_run_error (Loc.other "Driver.print_eval_conv_aux") err))
 end
 
 val printf_eval_conv: driver_state -> Core_run.thread_state -> Ctype.ctype -> Mem.mem_value -> Mem.memM (either Errors.error (Undefined.t Core.value))
