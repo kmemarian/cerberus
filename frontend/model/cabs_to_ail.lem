@@ -3485,12 +3485,12 @@ and wip_desugar_initializer_ loc dur current_ty init =
           |> in
           (* If the (currently buggy) desugaring of initialisers fails, we
              produces an invalid AST node to be able to carry on. *)
-          E.catch begin
+          E.catch_internal_error begin
             Desugaring_init.desugar_init tagDefs funcs (dur = Static || dur = Thread) current_ty init >>= fun (current_ty', init_st, _) ->
             E.return (current_ty', Desugaring_init.constructValue tagDefs init_st current_ty')
           end
           function
-            | (_, Errors.INTERNAL_ERROR (Errors.Internal_error_desugaring str)) ->
+            | (Errors.Internal_error_desugaring str) ->
                 let current_ty' =
                   (* If we are dealing with an array of unknown size, we give
                      it size 1 to make the type complete *)
@@ -3501,7 +3501,6 @@ and wip_desugar_initializer_ loc dur current_ty init =
                         current_ty
                   end in
                 E.return (current_ty', AnnotatedExpression () [] loc (AilEinvalid current_ty' (AilInvalid_desugaring_init_failed str)))
-            | err -> E.generic_fail err
           end
 
           (* E.get_tag_definitions >>= fun tagDefs ->
