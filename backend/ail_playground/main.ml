@@ -2,8 +2,8 @@ open Cerb_frontend
 open Cerb_backend
 open Pipeline
 
-let (>>=) = Exception.except_bind
-let _return = Exception.except_return
+let (>>=) = Result.bind
+let _return = Result.ok
 
 let io = Pipeline.default_io_helpers
 
@@ -41,11 +41,11 @@ let cpp_str =
 
 let learn (*out*) filename =
   match frontend cpp_str filename with
-    | Exception.Exception err ->
+    | Result.Error err ->
         prerr_endline (Pp_errors.to_string err)
-    | Exception.Result (_, None, _) ->
+    | Result.Ok (_, None, _) ->
         assert false
-    | Exception.Result (_, Some ail_file, _) ->
+    | Result.Ok (_, Some ail_file, _) ->
         failwith "Do something with the ail_file"
 
 

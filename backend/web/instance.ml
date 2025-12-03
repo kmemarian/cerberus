@@ -19,7 +19,7 @@ type conf =
 
 let dummy_io =
   let open Pipeline in
-  let skip = fun _ -> Exception.except_return ()
+  let skip = fun _ -> Result.ok ()
   in {
     pass_message=   skip;
     set_progress=   skip;
@@ -81,16 +81,16 @@ let hack ?(is_bmc=false) ~conf mode =
   in cerb_conf := fun () -> conf
 
 let respond filename name f = function
-  | Exception.Result r ->
+  | Ok r ->
     f r
-  | Exception.Exception err ->
+  | Error err ->
     Failure (Str.replace_first (Str.regexp_string filename) name @@ Pp_errors.to_string err)
 
 (* elaboration *)
 
 let elaborate ~is_bmc ~conf ~filename =
-  let return = Exception.except_return in
-  let (>>=)  = Exception.except_bind in
+  let return = Result.ok in
+  let (>>=)  = Result.bind in
   hack ~is_bmc ~conf Random;
   Switches.set conf.instance.switches;
   Debug.print 7 @@ List.fold_left (fun acc sw -> acc ^ " " ^ sw) "Switches: " conf.instance.switches;
@@ -167,8 +167,8 @@ let write_tmp_file content =
     failwith "write_tmp_file"
 
 let bmc ~filename ~name ~conf ~bmc_model:bmc_model ~filename () =
-  let return = Exception.except_return in
-  let (>>=)  = Exception.except_bind in
+  let return = Result.ok in
+  let (>>=)  = Result.bind in
   Debug.print 7 ("Running BMC...");
   try
     elaborate ~is_bmc:true ~conf ~filename
@@ -208,8 +208,8 @@ let bmc ~filename ~name ~conf ~bmc_model:bmc_model ~filename () =
 
 (* execution *)
 let execute ~conf ~filename (mode: Cerb_global.execution_mode) =
-  let return = Exception.except_return in
-  let (>>=)  = Exception.except_bind in
+  let return = Result.ok in
+  let (>>=)  = Result.bind in
   hack ~conf mode;
   Debug.print 7 ("Executing in "^string_of_exec_mode mode^" mode: " ^ filename);
   try
@@ -614,8 +614,8 @@ let create_expr_range_list core =
   Hashtbl.fold (fun k v acc -> (k, v)::acc) table []
 
 let step ~conf ~filename (active_node_opt: Instance_api.active_node option) =
-  let return = Exception.except_return in
-  let (>>=)  = Exception.except_bind in
+  let return = Result.ok in
+  let (>>=)  = Result.bind in
   match active_node_opt with
   | None -> (* no active node *)
     hack ~conf Random;

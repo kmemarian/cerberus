@@ -3,8 +3,8 @@ open Cerb_global
 
 (* Pipeline *)
 
-let (>>=) = Exception.except_bind
-let return = Exception.except_return
+let (>>=) = Result.bind
+let return = Result.ok
 
 let run_pp fout_opt doc =
   let (is_fout, oc) =
@@ -47,7 +47,7 @@ let load_core_impl core_stdlib impl_name =
     error ("couldn't find the implementation file\n (looked at: `" ^ iname ^ "').")
   else
     match Core_parser_driver.parse core_stdlib iname with
-    | Exception.Result (Core_parser_util.Rimpl impl_map) ->
+    | Ok (Core_parser_util.Rimpl impl_map) ->
       return impl_map
     | _ ->
       error "while parsing the Core impl, the parser didn't recognise it as an impl ."
@@ -82,12 +82,12 @@ type configuration = {
 }
 
 type io_helpers = {
-  pass_message: string -> (unit, Errors.error) Exception.exceptM;
-  set_progress: string -> (unit, Errors.error) Exception.exceptM;
-  run_pp: string option -> PPrint.document -> (unit, Errors.error) Exception.exceptM;
-  print_endline: string -> (unit, Errors.error) Exception.exceptM;
-  print_debug: int -> (unit -> string) -> (unit, Errors.error) Exception.exceptM;
-  warn: ?always:bool -> (unit -> string) -> (unit, Errors.error) Exception.exceptM;
+  pass_message: string -> (unit, Errors.error) result;
+  set_progress: string -> (unit, Errors.error) result;
+  run_pp: string option -> PPrint.document -> (unit, Errors.error) result;
+  print_endline: string -> (unit, Errors.error) result;
+  print_debug: int -> (unit -> string) -> (unit, Errors.error) result;
+  warn: ?always:bool -> (unit -> string) -> (unit, Errors.error) result;
 }
 
 let (default_io_helpers, get_progress) =
@@ -160,7 +160,7 @@ let cpp (conf, io) ~filename =
     | _, WSIGNALED n
     | _, WSTOPPED n ->
       if n <> 0 then
-        Exception.fail (Cerb_location.unknown, Errors.CPP (String.concat "\n" err))
+        Result.error (Cerb_location.unknown, Errors.CPP (String.concat "\n" err))
       else
         let txt = String.concat "\n" out in
         (match conf.cpp_save with

@@ -6,11 +6,6 @@ open import Utils Exception Core Errors
 import Core_typing_effect
 module E = Core_typing_effect
 
-let inline (>>=)      = E.bind
-let inline (>>) m1 m2 = m1 >>= fun _ -> m2
-let inline (<$>)      = E.fmap
-let inline (<*>)      = E.app
-
 
 type typing_decl =
   | TDsym  of core_base_type
