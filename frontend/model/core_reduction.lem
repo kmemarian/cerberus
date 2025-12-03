@@ -2,7 +2,6 @@ open import Pervasives
 open import Utils
 open import Core Core_aux Core_run_aux
 
-import State
 import Core_eval Cmm_aux Cmm_csem
 
 import Cerb_attributes
