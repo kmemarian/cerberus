@@ -12,7 +12,6 @@ import Ctype_aux
 module F = Float
 
 
-import State
 
 
 val stringFromCtype: ctype -> string
