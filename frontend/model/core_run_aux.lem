@@ -1,8 +1,9 @@
 open import Pervasives Utils Show Core
 import Global Dlist Pp State_exception_undefined Map_extra
 
-open import Errors Core Annot
+open import Core Annot
 import Cmm_csem Mem_common Core_aux
+import Errors
 
 
 (* DEBUG *)
@@ -152,22 +153,22 @@ let reset_continuation = function
       error "reset_continuation ==> Stack_cons2"
 end
 
-val pop_stack: forall 'a. stack 'a -> Exception.exceptM (continuation 'a * stack 'a) core_run_cause
+val pop_stack: forall 'a. stack 'a -> Exception.exceptM (continuation 'a * stack 'a) Errors.core_run_cause
 let pop_stack = function
   | Stack_empty ->
-      Exception.fail (Found_empty_stack "pop_stack")
+      Exception.fail (Errors.Found_empty_stack "pop_stack")
   | Stack_cons _ cont sk ->
       Exception.return (cont, sk)
   | Stack_cons2 _ _ _ ->
       error "pop_stack ==> Stack_cons2"  
 end
 
-val pop_continuation_element: forall 'a. stack 'a -> Exception.exceptM (continuation_element 'a * stack 'a) core_run_cause
+val pop_continuation_element: forall 'a. stack 'a -> Exception.exceptM (continuation_element 'a * stack 'a) Errors.core_run_cause
 let pop_continuation_element = function
   | Stack_empty ->
-      Exception.fail (Found_empty_stack "pop_continuation_element")
+      Exception.fail (Errors.Found_empty_stack "pop_continuation_element")
   | Stack_cons _ [] _ ->
-      Exception.fail Reached_end_of_proc
+      Exception.fail Errors.Reached_end_of_proc
   | Stack_cons sym_opt (cont_elem :: cont) sk ->
       Exception.return (cont_elem, Stack_cons sym_opt cont sk)
   | Stack_cons2 _ _ _ ->
@@ -175,10 +176,10 @@ let pop_continuation_element = function
 end
 
 
-val push_continuation_element: forall 'a. continuation_element 'a -> stack 'a -> Exception.exceptM (stack 'a) core_run_cause
+val push_continuation_element: forall 'a. continuation_element 'a -> stack 'a -> Exception.exceptM (stack 'a) Errors.core_run_cause
 let push_continuation_element cont_elem = function
   | Stack_empty ->
-      Exception.fail (Found_empty_stack "push_continuation_element")
+      Exception.fail (Errors.Found_empty_stack "push_continuation_element")
   | Stack_cons sym_opt cont sk ->
       Exception.return (Stack_cons sym_opt (cont_elem :: cont) sk)
   | Stack_cons2 _ _ _ ->
@@ -187,11 +188,11 @@ end
 
 
 
-val append_to_current_continuation: forall 'a. continuation_element 'a -> stack 'a -> Exception.exceptM (stack 'a) core_run_cause
+val append_to_current_continuation: forall 'a. continuation_element 'a -> stack 'a -> Exception.exceptM (stack 'a) Errors.core_run_cause
 let append_to_current_continuation cont_elem = function
   | Stack_empty ->
       (* A procedure need to currently be running to append *)
-      Exception.fail (Found_empty_stack "append_to_current_continuation")
+      Exception.fail (Errors.Found_empty_stack "append_to_current_continuation")
   | Stack_cons sym_opt cont sk ->
       Exception.return $ Stack_cons sym_opt (cont_elem :: cont) sk
   | Stack_cons2 _ _ _ ->
@@ -244,7 +245,7 @@ type core_run_state = <|
 
 (* Monad of the core evaluator (State + Exception + Undefined) *)
 type core_runM 'a =
-  State_exception_undefined.stExceptUndefM 'a core_run_state core_run_cause
+  State_exception_undefined.stExceptUndefM 'a core_run_state Errors.core_run_cause
 
 
 let push_exec_loc sym loc = function

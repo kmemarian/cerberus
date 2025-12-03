@@ -113,7 +113,7 @@ let go_down_entering_block tagDefs pos = go_down_aux tagDefs true  pos
 module E = Cabs_to_ail_effect
 let inline (>>=) = E.bind
 let internal_error msg =
-  E.generic_fail (Loc.unknown, Errors.INTERNAL_ERROR (Errors.Internal_error_desugaring msg))
+  E.generic_fail (Errors.internal_error Loc.unknown (Errors.Internal_error_desugaring msg))
 
 val     go_bottom: map Symbol.sym tag_definition -> init_position -> E.desugM init_position
 let rec go_bottom tagDefs pos =
