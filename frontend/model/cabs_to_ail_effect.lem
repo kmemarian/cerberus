@@ -302,17 +302,17 @@ val generic_fail: forall 'a. Errors.error -> desugM 'a
 let inline generic_fail err = State_exception.fail err
 
 val fail: forall 'a. Loc.t -> Errors.desugar_cause -> desugM 'a
-let inline fail loc dcause = State_exception.fail (loc, Errors.DESUGAR dcause)
+let inline fail loc dcause = State_exception.fail (Errors.desugar_error loc dcause)
 
-let inline fail_ailtyping loc tcause = State_exception.fail (loc, Errors.AIL_TYPING tcause)
+let inline fail_ailtyping loc tcause = State_exception.fail (Errors.ail_typing_error loc tcause)
 
 val contraint_violation: forall 'a. Loc.t -> Constraint.violation -> desugM 'a
 let inline constraint_violation loc v =
-  State_exception.fail (loc, Errors.DESUGAR (Errors.Desugar_ConstraintViolation v))
+  State_exception.fail (Errors.desugar_error loc (Errors.Desugar_ConstraintViolation v))
 
 val undef: forall 'a. Loc.t -> Undefined.undefined_behaviour -> desugM 'a
 let inline undef loc ub =
-  State_exception.fail (loc, Errors.DESUGAR (Errors.Desugar_UndefinedBehaviour ub))
+  State_exception.fail (Errors.desugar_error loc (Errors.Desugar_UndefinedBehaviour ub))
 
 val mapM: forall 'a 'b. ('a -> desugM 'b) -> list 'a -> desugM (list 'b)
 val mapM_: forall 'a 'b. ('a -> desugM 'b) -> list 'a -> desugM unit
@@ -327,11 +327,15 @@ let inline iter = State_exception.iter
 val tryWith: forall 'a. Errors.error -> desugM 'a -> desugM 'a
 let inline tryWith = State_exception.tryWith
 
-val catch: forall 'a. desugM 'a -> (Errors.error -> desugM 'a) -> desugM 'a
-let catch m f = fun s ->
+val catch_internal_error: forall 'a. desugM 'a -> (Errors.internal_error -> desugM 'a) -> desugM 'a
+let catch_internal_error m f = fun s ->
   match m s with
     | Exception.Result a -> Exception.Result a
-    | Exception.Exception err -> f err s
+    | Exception.Exception err ->
+        match Errors.match_internal_error err with
+          | Nothing -> Exception.Exception err
+          | Just err -> f err s
+        end
   end
 
 val fmap: forall 'a 'b. ('a -> 'b) -> desugM 'a -> desugM 'b
