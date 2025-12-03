@@ -55,7 +55,7 @@ let type_pexpr pexpr1 =
   let m =
     Core_typing.infer_pexpr tagDefs1 Core_typing_aux.empty_env pexpr1 in
   (match Core_typing_effect.runM m with
-    | Exception.Result pexpr' ->
+    | Result.Ok pexpr' ->
         pexpr'
     | _ ->
         Cerb_debug.error "Core_unstruct.type_pexpr: failed to type"
