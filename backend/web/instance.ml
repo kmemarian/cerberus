@@ -254,7 +254,7 @@ let set_uid file =
     let pe_' = match pe_ with
       | PEsym s -> PEsym s
       | PEimpl impl -> PEimpl impl
-      | PEval v -> PEval v
+      | PEbase b -> PEbase b
       | PEundef (loc, undef) -> PEundef (loc, undef)
       | PEerror (err, pe) -> PEerror (err, set_pe pe)
       | PEctor (ctor, pes) -> PEctor (ctor, List.map set_pe pes)

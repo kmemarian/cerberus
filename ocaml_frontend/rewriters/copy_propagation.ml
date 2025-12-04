@@ -28,7 +28,7 @@ let rec can_prop_and_rm binders (Pexpr (_, _, pe_)) =
   match pe_ with
   | PEsym s ->
       not (sym_in binders s)
-  | PEval _ | PEimpl _ | PEundef _ | PEerror _ ->
+  | PEbase _ | PEimpl _ | PEundef _ | PEerror _ ->
       true
   | PEctor (_, pes) ->
       List.for_all (can_prop_and_rm binders) pes
@@ -82,7 +82,7 @@ let remove_integer_annot annots =
  * types for pure expressions, of various kinds, so must be removed
  * from units *)
 let unit_pexpr (Pexpr (annots, bty, _)) =
-  Pexpr (remove_integer_annot annots, bty, PEval Vunit)
+  Pexpr (remove_integer_annot annots, bty, PEbase Bunit)
 
 let wildcard_pat (Pattern (p_annots, _)) =
   Pattern (p_annots, CaseBase (None, BTy_unit))
@@ -91,7 +91,7 @@ let unit_pat_pe pat pe =
   let Pattern (p_annots, pat_) = pat in
   let Pexpr (annots, bty, pe_) = pe in
   match pat_, pe_ with
-  | CaseBase (_, BTy_unit), PEval Vunit ->
+  | CaseBase (_, BTy_unit), PEbase Bunit ->
     true
   | _ ->
     false
@@ -139,8 +139,8 @@ let rec analyze_pat_pexpr binders pat pe =
       analyse_specified_pat_expr binders (p_annots, inner_pat) (pe_annots, pe_bty, inner_pe)
 
   | CaseDtor (Dspecified, [inner_pat]),
-    Pexpr (pe_annots, pe_bty, PEval (Vloaded (LVspecified ov))) ->
-      let inner_pe = Pexpr (pe_annots, pe_bty, PEval (Vobject ov)) in
+    Pexpr (pe_annots, pe_bty, PEbase (Bloaded (LVspecified ov))) ->
+      let inner_pe = Pexpr (pe_annots, pe_bty, PEbase (Bobject ov)) in
       analyse_specified_pat_expr binders (p_annots, inner_pat) (pe_annots, pe_bty, inner_pe)
 
   | _ ->
@@ -265,7 +265,7 @@ let rec propagate_pexpr env (Pexpr (annots, bty, pe_) as pe) =
       (match Pmap.lookup s env with
        | Some pe' -> pe'
        | None     -> Pexpr (annots, bty, PEsym s))
-  | PEval _ | PEimpl _ | PEundef _ | PEerror _ ->
+  | PEbase _ | PEimpl _ | PEundef _ | PEerror _ ->
       pe
   | PElet (pat, pe1, pe2) ->
       let pe1' = propagate_pexpr env pe1 in

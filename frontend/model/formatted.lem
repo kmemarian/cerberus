@@ -454,7 +454,7 @@ let convert loc eval_conv prec_opt lm_opt cspec flags args =
                   eval_conv conv_ty mval >>= function
                     | Left err ->
                         Mem.return (Left err)
-                    | Right (U.Defined (Core.Vloaded (Core.LVspecified (Core.OVinteger ival)))) ->
+                    | Right (U.Defined (Core.Bloaded (Core.LVspecified (Core.OVinteger ival)))) ->
                         match Mem_aux.integerFromIntegerValue ival with
                           | Just n ->
                               Mem.return $ Right (U.return (
@@ -468,7 +468,7 @@ let convert loc eval_conv prec_opt lm_opt cspec flags args =
                                 (false, String.toCharList (Mem.stringFromInteger_value ival), args')
                               ))
                         end
-                    | Right (U.Defined (Core.Vloaded (Core.LVunspecified _))) ->
+                    | Right (U.Defined (Core.Bloaded (Core.LVunspecified _))) ->
                         Mem.return $ Right (U.return (false, [#'U'; #'N'; #'S'; #'P'; #'E'; #'C'], args'))
                     | Right (U.Defined cval) ->
                         error ("WIP: convert --> not an integer ==> " ^ Pp.stringFromCore_value cval)
@@ -480,9 +480,9 @@ let convert loc eval_conv prec_opt lm_opt cspec flags args =
               | Nothing ->
                   (* TODO: this is wrong if "not (is_integer ty)" *)
                   match snd (Core_aux.valueFromMemValue mval) with
-                    | Core.Vloaded (Core.LVunspecified _) ->
+                    | Core.Bloaded (Core.LVunspecified _) ->
                         Mem.return $ Right (U.return (false, [#'U'; #'N'; #'S'; #'P'; #'E'; #'C'], args'))
-                    | Core.Vloaded (Core.LVspecified (Core.OVinteger ival)) ->
+                    | Core.Bloaded (Core.LVspecified (Core.OVinteger ival)) ->
                         match Mem_aux.integerFromIntegerValue ival with
                           | Just n ->
                               Mem.return $ Right (U.return (
@@ -495,7 +495,7 @@ let convert loc eval_conv prec_opt lm_opt cspec flags args =
                               let () = Debug.warn [Debug.DB_core_dynamics] (fun () -> "printf() found an abstract integer value") in
                               Mem.return $ Right (U.return (false, [#'A'; #'B'; #'S'; #'_'; #'I'; #'N'; #'T'; #'E'; #'G'; #'E'; #'R'], args'))
                         end
-                    | Core.Vloaded (Core.LVspecified (Core.OVfloating fval)) ->
+                    | Core.Bloaded (Core.LVspecified (Core.OVfloating fval)) ->
                         Mem.return $ Right (U.return (
                           false
                         , Mem.case_fval fval

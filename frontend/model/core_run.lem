@@ -295,14 +295,14 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
   match act with
     | Create pe1 pe2 pref ->
         match (valueFromPexpr pe1, valueFromPexpr pe2) with
-          | (Just (Vobject (OVinteger ival)), Just (Vctype ty)) ->
+          | (Just (Bobject (OVinteger ival)), Just (Bctype ty)) ->
               Step_action_request "CreateRequest" (
                 E.fresh_action_id >>= fun create_aid ->
                 E.return (
                   CreateRequest loc sb_before dd_before asw_before
                     create_aid current_tid pref ival ty Nothing
                     (fun ptr_val -> <| th_st with
-                        arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEval (Vobject (OVpointer ptr_val)))));
+                        arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEbase (Bobject (OVpointer ptr_val)))));
                         stack= add_to_sb_stack {(p, (current_tid, create_aid))} (* TODO: remove for sequential !!! *) th_st.stack;
                     |>)
                     )
@@ -354,7 +354,7 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
                           )
                       | Just cval3 ->
                           match (cval1, cval2) with
-                            | (Vobject (OVinteger ival), Vctype ty) ->
+                            | (Bobject (OVinteger ival), Bctype ty) ->
                           match memValueFromValue (Ctype.Ctype [] (Ctype.unatomic_ ty)) cval3 with
                             | Just mem_val ->
                                 Step_action_request "CreateRequest" (
@@ -363,7 +363,7 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
                                     CreateRequest loc sb_before dd_before asw_before
                                       create_aid current_tid pref ival ty (Just mem_val)
                                       (fun ptr_val -> <| th_st with
-                                          arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEval (Vobject (OVpointer ptr_val)))));
+                                          arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEbase (Bobject (OVpointer ptr_val)))));
                                           stack= add_to_sb_stack {(p, (current_tid, create_aid))} (* TODO: remove for sequential !!! *) th_st.stack;
                                       |>)
                                   )
@@ -381,14 +381,14 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
         end
     | Alloc pe1 pe2 pref ->
         match (valueFromPexpr pe1, valueFromPexpr pe2) with
-          | (Just (Vobject (OVinteger ival1)), Just (Vobject (OVinteger ival2))) ->
+          | (Just (Bobject (OVinteger ival1)), Just (Bobject (OVinteger ival2))) ->
               Step_action_request "AllocRequest" (
                 E.fresh_action_id >>= fun alloc_aid ->
                 E.return (
                   AllocRequest loc sb_before dd_before asw_before
                     alloc_aid current_tid pref ival1 ival2
                     (fun ptr_val -> <| th_st with
-                        arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEval (Vobject (OVpointer ptr_val)))));
+                        arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEbase (Bobject (OVpointer ptr_val)))));
                         stack= add_to_sb_stack {(p, (current_tid, alloc_aid))} (* TODO: remove for sequential !!! *) th_st.stack;
                     |>)
                     )
@@ -413,7 +413,7 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
     
     | Kill kind pe ->
         match valueFromPexpr pe with
-          | Just (Vobject (OVpointer ptr_val)) ->
+          | Just (Bobject (OVpointer ptr_val)) ->
               Step_action_request "KillRequest" (
                 E.fresh_action_id >>= fun kill_aid ->
                 E.return (
@@ -421,7 +421,7 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
                     sb_before dd_before asw_before
                     kill_aid current_tid (is_dynamic kind) ptr_val
                     <| th_st with
-                      arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEval Vunit)));
+                      arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEbase Bunit)));
                       stack= add_to_sb_stack {(p, (current_tid, kill_aid))} (* TODO: remove for sequential !!! *) th_st.stack;
                     |>
                 )
@@ -439,7 +439,7 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
 
     | Store is_locking pe1 pe2 pe3 mo ->
         match (valueFromPexpr pe1, valueFromPexpr pe2, valueFromPexpr pe3) with
-          | (Just (Vctype ty), Just (Vobject (OVpointer ptr_val)), Just cval) ->
+          | (Just (Bctype ty), Just (Bobject (OVpointer ptr_val)), Just cval) ->
               match memValueFromValue (Ctype.Ctype [] (Ctype.unatomic_ ty)) cval with
                 | Just mem_val ->
                     Step_action_request "StoreRequest" (
@@ -448,7 +448,7 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
                         StoreRequest loc sb_before dd_before asw_before
                           store_aid current_tid mo ty is_locking ptr_val mem_val
                           <| th_st with
-                            arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEval Vunit))) (* Epure (PEval (objectValueFromMemValue mem_val)) *);
+                            arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEbase Bunit))) (* Epure (PEbase (objectValueFromMemValue mem_val)) *);
                             stack= add_to_sb_stack {(p, (current_tid, store_aid))} (* TODO: remove for sequential !!! *) th_st.stack;
                           |>
                       )
@@ -485,7 +485,7 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
 
     | Load pe1 pe2 mo ->
         match (valueFromPexpr pe1, valueFromPexpr pe2) with
-          | (Just (Vctype ty), Just (Vobject (OVpointer ptr_val))) ->
+          | (Just (Bctype ty), Just (Bobject (OVpointer ptr_val))) ->
               Step_action_request "LoadRequest" (
                 E.fresh_action_id >>= fun load_aid ->
                 let val_sym = Symbol.fresh () in
@@ -495,7 +495,7 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
                     (fun mem_val -> <| th_st with
                         (* NOTE: the parenthesis are needed because of a Lem's bug... *)
                         arena= (let (oTy, cval) = valueFromMemValue mem_val in
-                                Expr arena_annots (Epure (Pexpr [] Nothing (PEval cval))));
+                                Expr arena_annots (Epure (Pexpr [] Nothing (PEbase cval))));
                         stack= add_to_sb_stack {(p, (current_tid, load_aid))} (* TODO: remove for sequential !!! *) th_st.stack
                     |>)
                 )
@@ -521,7 +521,7 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
         error "Core_run ==> SeqRMW"
     | RMW pe1 pe2 pe3 pe4 mo1 mo2 ->
         match (valueFromPexpr pe1, valueFromPexpr pe2, valueFromPexpr pe3, valueFromPexpr pe4) with
-          | (Just (Vctype ty), Just (Vobject (OVpointer ptr_val)), Just cval_expected, Just cval_desired) ->
+          | (Just (Bctype ty), Just (Bobject (OVpointer ptr_val)), Just cval_expected, Just cval_desired) ->
               match (memValueFromValue ty cval_expected, memValueFromValue ty cval_desired) with
                 | (Just mval_expected, Just mval_desired) ->
                     Step_action_request "RMWRequest" (
@@ -530,7 +530,7 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
                         RMWRequest loc sb_before dd_before asw_before
                           rmw_aid current_tid mo1 mo2 ty ptr_val mval_expected mval_desired
                           <| th_st with
-                            arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEval Vtrue))); (* TODO *)
+                            arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEbase Btrue))); (* TODO *)
                             stack= add_to_sb_stack {(p, (current_tid, rmw_aid))} (* TODO: remove for sequential !!! *) th_st.stack;
                           |>
                       )
@@ -547,7 +547,7 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
                         StoreRequest loc sb_before dd_before asw_before
                           store_aid current_tid mo ty ptr_val mem_val
                           <| th_st with
-                            arena= Eskip (* Epure (PEval (objectValueFromMemValue mem_val)) *);
+                            arena= Eskip (* Epure (PEbase (objectValueFromMemValue mem_val)) *);
                             stack= (* add_to_sb_stack {(p, (current_tid, store_aid))} *) (* TODO: bring back for concurrency !!! *) th_st.stack;
                           |>
                       )
@@ -556,8 +556,8 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
                 | _ ->
                     Step_error ("one of the values of a rmw() didn't match the lvalue type: " (* ^
                       Pp.pp_ail_ctype (Core_aux.unproj_ctype ty) ^ " <-> " ^
-                                Pp.stringFromCore_expr ((Epure (PEval cval_expected)) : Core.expr unit) ^ " <-> " ^
-                                Pp.stringFromCore_expr ((Epure (PEval cval_desired)) : Core.expr unit) *))
+                                Pp.stringFromCore_expr ((Epure (PEbase cval_expected)) : Core.expr unit) ^ " <-> " ^
+                                Pp.stringFromCore_expr ((Epure (PEbase cval_desired)) : Core.expr unit) *))
               end
           | (Just _, Just _, Just _, Just _) ->
               Step_error "found a rmw with ill-typed operands"
@@ -593,7 +593,7 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
 
 (*
         match (valueFromPexpr pe1, valueFromPexpr pe2) with
-          | (Just (Vctype ty), Just (Vpointer ptr_val)) ->
+          | (Just (Bctype ty), Just (Vpointer ptr_val)) ->
               Step_action_request (
                 E.fresh_action_id >>= fun load_aid ->
                 E.fresh_symbol    >>= fun val_sym  ->
@@ -601,7 +601,7 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
                   LoadRequest loc sb_before dd_before asw_before
                     load_aid current_tid mo ty ptr_val val_sym
                     (fun mem_val -> <| th_st with
-                        arena= Epure (PEval (objectValueFromMemValue mem_val));
+                        arena= Epure (PEbase (objectValueFromMemValue mem_val));
                         stack= (* add_to_sb_stack {(p, (current_tid, load_aid))} *) th_st.stack
                     |>)
                 )
@@ -631,7 +631,7 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
             FenceRequest loc sb_before dd_before asw_before
               fence_aid current_tid mo
               <| th_st with
-                arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEval Vunit)));
+                arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEbase Bunit)));
                 stack= add_to_sb_stack {(p, (current_tid, fence_aid))} (* TODO: remove for sequential !!! *) th_st.stack;
               |>
           )

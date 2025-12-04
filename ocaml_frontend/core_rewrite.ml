@@ -145,7 +145,7 @@ let rwter_only_effectful r = <| rwter_identity with
 
 (* Removes unnecessary Eskip ctors using the following rewritings:
 
-     let weak/strong pat = skip in e2      ===>    e2 [pat \ Vunit]
+     let weak/strong pat = skip in e2      ===>    e2 [pat \ Bunit]
      let weak/strong pat = e1 in skip      ===>    e1               *)
 let rec remove_skips ((Expr( annot1, expr_) as expr1)) =
    ((match expr_ with
@@ -178,11 +178,11 @@ let rec remove_skips ((Expr( annot1, expr_) as expr1)) =
         Expr( annot1, (Eunseq (Lem_list.map remove_skips es)))
     | Ewseq( pat, e1, e2) ->
         (match remove_skips e1 with
-          | Expr( _, (Epure (Pexpr( _, _, (PEval Vunit))))) ->
+          | Expr( _, (Epure (Pexpr( _, _, (PEbase Bunit))))) ->
               remove_skips (Core_aux.unsafe_subst_pattern pat Core_aux.mk_unit_pe e2)
           | e1' ->
               (match remove_skips e2 with
-                | (Expr( _, (Epure (Pexpr( _, _, (PEval Vunit)))))) ->
+                | (Expr( _, (Epure (Pexpr( _, _, (PEbase Bunit)))))) ->
                     e1'
                 | e2' ->
                     Expr( annot1, (Ewseq( pat, e1', e2')))
@@ -190,11 +190,11 @@ let rec remove_skips ((Expr( annot1, expr_) as expr1)) =
         )
     | Esseq( pat, e1, e2) ->
         (match remove_skips e1 with
-          | Expr( _, (Epure (Pexpr( _, _, (PEval Vunit))))) ->
+          | Expr( _, (Epure (Pexpr( _, _, (PEbase Bunit))))) ->
               remove_skips (Core_aux.unsafe_subst_pattern pat Core_aux.mk_unit_pe e2)
           | e1' ->
               (match remove_skips e2 with
-                | (Expr( _, (Epure (Pexpr( _, _, (PEval Vunit)))))) ->
+                | (Expr( _, (Epure (Pexpr( _, _, (PEbase Bunit)))))) ->
                     e1'
                 | e2' ->
                     Expr( annot1, (Esseq( pat, e1', e2')))
@@ -591,7 +591,7 @@ let rec flatten_seqs ((Expr( annot1, expr_) as expr1)) =
         expr1
     | Eunseq es ->
         Expr( annot1, (Eunseq (Lem_list.map flatten_seqs es)))
-    | Ewseq( (Pattern( _, (CaseBase (None, _)))), (Expr( _, (Epure (Pexpr( _, _, (PEval Vunit)))))), e2) ->
+    | Ewseq( (Pattern( _, (CaseBase (None, _)))), (Expr( _, (Epure (Pexpr( _, _, (PEbase Bunit)))))), e2) ->
         (* TODO: could be generalised to any "always defined" Epure *)
         flatten_seqs e2
     | Ewseq( pat, e1, e2) ->
@@ -605,7 +605,7 @@ let rec flatten_seqs ((Expr( annot1, expr_) as expr1)) =
           | (e1', e2') ->
               Expr( annot1, (Ewseq( pat, e1', e2')))
         )
-    | Esseq( (Pattern( _, (CaseBase (None, _)))), (Expr( _, (Epure (Pexpr( _, _, (PEval Vunit)))))), e2) ->
+    | Esseq( (Pattern( _, (CaseBase (None, _)))), (Expr( _, (Epure (Pexpr( _, _, (PEbase Bunit)))))), e2) ->
         (* TODO: could be generalised to any "always defined" Epure *)
         flatten_seqs e2
     | Esseq( pat, e1, e2) ->
@@ -676,7 +676,7 @@ let rec remove_conv_int_pexpr (Pexpr( annot1, bTy, _pe)) =
         _pe
     | PEimpl _ ->
         _pe
-    | PEval _ ->
+    | PEbase _ ->
         _pe
     | PEundef( _, _) ->
         _pe
@@ -720,11 +720,11 @@ let rec remove_conv_int_pexpr (Pexpr( annot1, bTy, _pe)) =
           (* TODO: hack !!!!!!!!! *)
           | (Sym (Symbol.Symbol( _, _, (Symbol.SD_Id "conv_int"))), [pe_ty; pe_n]) ->
               (match (Core_aux.valueFromPexpr pe_ty, Core_aux.valueFromPexpr pe_n) with
-                | (Some (Vctype ty1), Some (((Vobject (OVinteger ival)) as cval))) ->
+                | (Some (Bctype ty1), Some (((Bobject (OVinteger ival)) as cval))) ->
                     (match Mem_aux.integerFromIntegerValue ival with
                       | Some n ->
                           if in_minimal_range ty1 n then
-                            PEval cval
+                            PEbase cval
                           else
                             PEcall( nm, pes')
                       | None ->
@@ -732,7 +732,7 @@ let rec remove_conv_int_pexpr (Pexpr( annot1, bTy, _pe)) =
                     )
                 | _ ->
                     PEcall( nm, pes')
-(*                    assert_false ("remove_conv_int_pexpr: Core type error? ==> " ^ pp_pexpr pexpr ^ " <==> " ^ pp_pexpr (PEval cval)) *)
+(*                    assert_false ("remove_conv_int_pexpr: Core type error? ==> " ^ pp_pexpr pexpr ^ " <==> " ^ pp_pexpr (PEbase cval)) *)
               )
           | (Sym (Symbol.Symbol( _, _, (Symbol.SD_Id "conv"))), [pe_ty1; pe_ty2; Pexpr( _, _, _pe_n)]) ->
               if pe_ty1 = pe_ty2 then
@@ -890,7 +890,7 @@ let rec sequentialise_creates_kills (Expr( annot1, expr_)) =
         if List.for_all is_kill es then
           List.fold_right (fun e acc ->
             Esseq( (Pattern( [], (CaseBase (None, BTy_unit)))), e, (Expr( [], acc)))
-          ) es (Epure (Pexpr( [], None, (PEval Vunit))))
+          ) es (Epure (Pexpr( [], None, (PEbase Bunit))))
         else
           Eunseq (Lem_list.map sequentialise_creates_kills es)
 (* TODO
@@ -1010,7 +1010,7 @@ let rec isAlwaysDefined (Pexpr( _, _, pexpr_)):bool=
         true
     | PEimpl _ ->
         true (* TODO: check *)
-    | PEval _ ->
+    | PEbase _ ->
         true
     | PEundef( _, _) ->
         false
@@ -1260,24 +1260,24 @@ let rec simpl_match_pattern (Pattern( _, pat)) pe =
     None
   else (match (pat, pe) with
 (*
-    | (_, Pexpr _ (PEval cval)) ->
+    | (_, Pexpr _ (PEbase cval)) ->
         List.map (fun (sym, cval) ->
-          (sym, Pexpr (bTy (PEval
+          (sym, Pexpr (bTy (PEbase
         ) (Caux.match_pattern pat cval)
 *)
     | (CaseBase (None, _), _) ->
         Some []
     | (CaseBase (Some sym1, _), _) ->
         Some [(sym1, pe)]
-    | (CaseDtor( Dspecified, [pat']), Pexpr( _, _, (PEval (Vloaded (LVspecified cval))))) ->
-        simpl_match_pattern pat' (Core_aux.mk_value_pe (Vobject cval))
+    | (CaseDtor( Dspecified, [pat']), Pexpr( _, _, (PEbase (Bloaded (LVspecified cval))))) ->
+        simpl_match_pattern pat' (Core_aux.mk_value_pe (Bobject cval))
     | (CaseDtor( Dspecified, [pat']), Pexpr( _, _, (PEctor( Cspecified, [pe'])))) ->
         simpl_match_pattern pat' pe'
 (*
-    | (CaseDtor Dunspecified [pat'], Vloaded (LVunspecified ty)) ->
-        match_pattern pat' (Vctype ty)
+    | (CaseDtor Dunspecified [pat'], Bloaded (LVunspecified ty)) ->
+        match_pattern pat' (Bctype ty)
 *)
-    | (CaseDtor( Dtuple, pats'), Pexpr( _, _, (PEval (Vtuple cvals)))) ->
+    | (CaseDtor( Dtuple, pats'), Pexpr( _, _, (PEbase (Btuple cvals)))) ->
         if not ((List.length pats') = (List.length cvals)) then
           None
         else
@@ -1324,7 +1324,7 @@ let rec simpl_case_pexpr ((Pexpr( annot1, bTy, pexpr_) as pexpr1)) =
         pexpr1
     | PEimpl _ ->
         pexpr1
-    | PEval _ ->
+    | PEbase _ ->
         pexpr1
     | PEundef( _, _) ->
         pexpr1

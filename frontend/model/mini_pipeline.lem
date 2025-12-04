@@ -188,7 +188,7 @@ let evalIntegerConstantExpression loc core_env sigm ty_opt expr =
     end in
   
   evalConstantExpressionAux loc core_env sigm typing_guard ty_opt expr >>= function
-    | C.Vloaded (C.LVspecified (C.OVinteger ival)) ->
+    | C.Bloaded (C.LVspecified (C.OVinteger ival)) ->
         match Mem.eval_integer_value ival with
           | Just n ->
               Eff.return n

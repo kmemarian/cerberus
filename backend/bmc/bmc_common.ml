@@ -157,14 +157,14 @@ let is_fun_ptr (p: Impl_mem.pointer_value) : bool =
 
 let value_to_z3 (value: value) (file: unit file) : Expr.expr =
   match value with
-  | Vunit        -> UnitSort.mk_unit
-  | Vtrue        -> mk_true
-  | Vfalse       -> mk_false
-  | Vlist _      -> assert false
-  | Vtuple _     -> assert false
-  | Vctype cty   -> CtypeSort.mk_expr cty
-  | Vobject oval -> object_value_to_z3 oval
-  | Vloaded (LVspecified oval) ->
+  | Bunit        -> UnitSort.mk_unit
+  | Btrue        -> mk_true
+  | Bfalse       -> mk_false
+  | Blist _      -> assert false
+  | Btuple _     -> assert false
+  | Bctype cty   -> CtypeSort.mk_expr cty
+  | Bobject oval -> object_value_to_z3 oval
+  | Bloaded (LVspecified oval) ->
       begin match oval with
        | OVinteger ival ->
            LoadedInteger.mk_specified (integer_value_to_z3 ival)
@@ -176,7 +176,7 @@ let value_to_z3 (value: value) (file: unit file) : Expr.expr =
              assert false
        | _ -> assert false
       end
-  | Vloaded (LVunspecified ctype) ->
+  | Bloaded (LVunspecified ctype) ->
       begin
       match ctype with
       | Ctype (_, Basic (Integer _)) ->
@@ -237,7 +237,7 @@ exception InvalidTypedCore
 
 let ctype_from_pexpr (ctype_pe: pexpr) =
   match ctype_pe with
-  | Pexpr(_, Some BTy_ctype, PEval (Vctype ctype)) -> ctype
+  | Pexpr(_, Some BTy_ctype, PEbase (Bctype ctype)) -> ctype
   | _ -> raise InvalidTypedCore
 
 
@@ -566,14 +566,14 @@ let get_sym_from_base_pattern (pat: pattern) : sym_ty option =
 
 let is_loaded_ptr_expr (expr: unit expr) =
   match expr with
-  | Expr(_, (Epure(Pexpr(_,_,PEval(Vloaded (LVspecified (OVpointer p))))))) ->
+  | Expr(_, (Epure(Pexpr(_,_,PEbase(Bloaded (LVspecified (OVpointer p))))))) ->
       true
   | _ -> false
 
 let get_ptr_from_loaded_ptr_expr (expr: unit expr)
                                  : Impl_mem.pointer_value =
   match expr with
-  | Expr(_, (Epure(Pexpr(_,_,PEval(Vloaded (LVspecified (OVpointer p))))))) ->
+  | Expr(_, (Epure(Pexpr(_,_,PEbase(Bloaded (LVspecified (OVpointer p))))))) ->
       p
   | _ -> assert false
 

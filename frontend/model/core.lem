@@ -187,14 +187,14 @@ and loaded_value =  (* potentially unspecified C object values *)
 
 
 type value =  (* Core values *)
- | Vobject of object_value (* C object value *)
- | Vloaded of loaded_value (* loaded C object value *)
- | Vunit
- | Vtrue
- | Vfalse
- | Vctype of Ctype.ctype (* C type as value *)
- | Vlist of core_base_type * list value
- | Vtuple of list value (* tuple *)
+ | Bobject of object_value (* C object value *)
+ | Bloaded of loaded_value (* loaded C object value *)
+ | Bunit
+ | Btrue
+ | Bfalse
+ | Bctype of Ctype.ctype (* C type as value *)
+ | Blist of core_base_type * list value
+ | Btuple of list value (* tuple *)
 
 
 type ctor =  (* data constructors *)
@@ -235,7 +235,7 @@ and generic_pattern 'sym =
 type generic_pexpr_ 'sym =  (* Core pure expressions *)
  | PEsym of 'sym
  | PEimpl of Implementation.implementation_constant (* implementation-defined constant *)
- | PEval of value
+ | PEbase of value
  | PEundef of Loc.t * Undefined.undefined_behaviour (* undefined behaviour *)
  | PEerror of string * (generic_pexpr 'sym) (* impl-defined static error *)
  | PEctor of ctor * list (generic_pexpr 'sym) (* data constructor application *)

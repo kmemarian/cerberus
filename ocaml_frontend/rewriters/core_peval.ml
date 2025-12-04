@@ -13,8 +13,8 @@ let rec match_pattern_pexpr loc_opt (Pattern (annots_pat, pat_) as pat) (Pexpr (
   match pat_, pexpr_ with
     |  CaseBase (None, _), _ ->
         `MATCHED (Some (pat, pexpr), [])
-    | _, PEval cval ->
-        begin match Core_aux.match_pattern pat cval with
+    | _, PEbase b ->
+        begin match Core_aux.match_pattern pat b with
           | None ->
               `MISMATCHED
           | Some xs ->
@@ -49,10 +49,10 @@ let rec match_pattern_pexpr loc_opt (Pattern (annots_pat, pat_) as pat) (Pexpr (
 
 (*
 
-Vloaded (LVspecified oval)) ->
-        match_pattern pat' (Vobject oval)
-    | (CaseDtor Dunspecified [pat'], Vloaded (LVunspecified ty)) ->
-        match_pattern pat' (Vctype ty)
+Bloaded (LVspecified oval)) ->
+        match_pattern pat' (Bobject oval)
+    | (CaseDtor Dunspecified [pat'], Bloaded (LVunspecified ty)) ->
+        match_pattern pat' (Bctype ty)
 *)
     | CaseDtor (Dtuple, pats), PEctor (Ctuple, pes) ->
         let xs =
@@ -135,7 +135,7 @@ let rec match_pattern_expr (Pattern (annots_pat, pat_) as pat) (Expr (annots_e, 
     | _ ->
         `MISMATCHED (* (Some (pat, expr), []) *)
 (*
-    | CaseBase (Some sym, _), PEval cval ->
+    | CaseBase (Some sym, _), PEbase cval ->
         (None, [(sym, cval)])
 
     | CaseDtor (Dtuple, pats), PEctor (Ctuple, pes) ->
@@ -195,11 +195,11 @@ let rec select_case_pexpr loc_opt subst_sym pexpr = function
 
 let dest_specified p_e = match p_e with
   | Pexpr (_, _, PEctor (Cspecified, [p_e2])) -> Some p_e2
-  | Pexpr (x, y, PEval (Vloaded (LVspecified z))) -> Some (Pexpr (x, y, PEval (Vobject z)))
+  | Pexpr (x, y, PEbase (Bloaded (LVspecified z))) -> Some (Pexpr (x, y, PEbase (Bobject z)))
   | _ -> None
 
 let dest_ptr p_e = match p_e with
-  | Pexpr (_, _, PEval (Vobject (OVpointer ptr))) -> Some ptr
+  | Pexpr (_, _, PEbase (Bobject (OVpointer ptr))) -> Some ptr
   | _ -> None
 
 let known_fcall p_e =
@@ -256,13 +256,13 @@ let rec subst_sym_pexpr2 sym z (Pexpr (annot, bTy, pexpr_)) =
               annot in
         match snd z with
           | `VAL cval ->
-               Pexpr (annot', bTy, PEval cval)
+               Pexpr (annot', bTy, PEbase cval)
           | `SYM sym ->
             Pexpr (annot', bTy, PEsym sym)
       else
         wrap pexpr_
     | PEimpl _
-    | PEval _
+    | PEbase _
     | PEundef _ ->
         wrap pexpr_
     | PEerror (str, pe) ->
@@ -503,10 +503,10 @@ let core_peval file : RW.rewriter =
         match eval_pexpr pexpr with
           | Right (Defined cval) ->
               begin match pexpr_ with
-                | PEval _ ->
+                | PEbase _ ->
                     Unchanged
                 | _ ->
-                    Update (Pexpr (annots, bTy, PEval cval))
+                    Update (Pexpr (annots, bTy, PEbase cval))
               end
           | _ ->
               begin match pexpr_ with
@@ -514,7 +514,7 @@ let core_peval file : RW.rewriter =
                     begin match eval_pexpr pexpr with
                       | Right (Defined cval) ->
                           ChangeDoChildrenPost
-                            ( Identity.return (Pexpr (annots, bTy, PEval cval))
+                            ( Identity.return (Pexpr (annots, bTy, PEbase cval))
                             , Identity.return )
                       | Right (Undef (_, ubs)) ->
                           error (String.concat ", " (List.map Undefined.stringFromUndefined_behaviour ubs))
@@ -556,16 +556,16 @@ let core_peval file : RW.rewriter =
                 
                 | PEif (pe1, pe2, pe3) ->
                     begin match eval_pexpr pe1 with
-                      | Right (Defined Vtrue) ->
+                      | Right (Defined Btrue) ->
                           ChangeDoChildrenPost
                             ( Identity.return pe2
                             , Identity.return )
-                      | Right (Defined Vfalse) ->
+                      | Right (Defined Bfalse) ->
                           ChangeDoChildrenPost
                             ( Identity.return pe3
                             , Identity.return )
                       | Right (Defined _) ->
-                          error "PEif -> not Vtrue or Vfalse"
+                          error "PEif -> not Btrue or Bfalse"
                       | Right (Undef (_, ubs)) ->
                           error (String.concat ", " (List.map Undefined.stringFromUndefined_behaviour ubs))
                       | Right (Error (_, str)) ->
@@ -640,7 +640,7 @@ let core_peval file : RW.rewriter =
 
 
           | Eskip ->
-              Update (Core_aux.(mk_pure_e (mk_value_pe Vunit)))
+              Update (Core_aux.(mk_pure_e (mk_value_pe Bunit)))
 *)
           
           | Ewseq (pat, e1, e2)
@@ -648,7 +648,7 @@ let core_peval file : RW.rewriter =
               begin match match_pattern_expr pat e1 with
                 | `MISMATCHED ->
                     Traverse
-(*                    error ("mismatched Ewseq/Esseq ==> " ^ String_core.string_of_expr (Core_aux.(mk_wseq_e pat e1 (mk_pure_e (mk_value_pe Vunit))))) *)
+(*                    error ("mismatched Ewseq/Esseq ==> " ^ String_core.string_of_expr (Core_aux.(mk_wseq_e pat e1 (mk_pure_e (mk_value_pe Bunit))))) *)
                 | `MATCHED (None, xs) ->
                     let add_loc =
                       match Annot.get_loc annots with
@@ -698,16 +698,16 @@ let core_peval file : RW.rewriter =
           
           | Eif (pe1, e2, e3) ->
               begin match eval_pexpr pe1 with
-                | Right (Defined Vtrue) ->
+                | Right (Defined Btrue) ->
                     ChangeDoChildrenPost
                       ( Identity.return e2
                       , Identity.return )
-                | Right (Defined Vfalse) ->
+                | Right (Defined Bfalse) ->
                     ChangeDoChildrenPost
                       ( Identity.return e3
                       , Identity.return )
                 | Right (Defined _) ->
-                    error "PEif -> not Vtrue or Vfalse"
+                    error "PEif -> not Btrue or Bfalse"
                 | Right (Undef (_, ubs)) ->
                     error (String.concat ", " (List.map Undefined.stringFromUndefined_behaviour ubs))
                 | Right (Error (_, str)) ->
@@ -906,7 +906,7 @@ let is_recursive_function file sym : bool =
                 match pexpr_ with
                   | PEsym _
                   | PEimpl _
-                  | PEval _
+                  | PEbase _
                   | PEundef _ ->
                       false
                   | PEconstrained _ ->
