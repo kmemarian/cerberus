@@ -41,7 +41,7 @@ let rec fv_pe (Pexpr (_,_, e)) fvs =
   match e with
   | PEsym l -> l::fvs
   | PEimpl _ -> fvs
-  | PEval _ -> fvs
+  | PEbase _ -> fvs
   | PEundef _ -> fvs
   | PEerror (_, pe) -> fv_pe pe fvs
   | PEctor (_, pes) -> List.fold_left (flip fv_pe) fvs pes

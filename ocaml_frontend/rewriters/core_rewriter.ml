@@ -145,7 +145,7 @@ module Rewriter = functor (Eff: Monad) -> struct
     match pexpr_ with
       | PEsym _
       | PEimpl _
-      | PEval _ ->
+      | PEbase _ ->
           return pexpr
       | PEundef _ ->
           return pexpr

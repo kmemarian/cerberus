@@ -70,7 +70,7 @@ let maybe_print_location (annot: Annot.annot list) : P.document =
 let precedence_pexpr = function
   | PEundef _
   | PEerror _
-  | PEval _
+  | PEbase _
   | PEsym _
   | PEimpl _
   | PEctor _
@@ -318,21 +318,21 @@ let rec pp_value = function
         ) xs
       )
 *)
-  | Vunit ->
+  | Bunit ->
       pp_datactor "Unit"
-  | Vtrue ->
+  | Btrue ->
       pp_datactor "True"
-  | Vfalse ->
+  | Bfalse ->
       pp_datactor "False"
-  | Vlist (_, cvals) ->
+  | Blist (_, cvals) ->
       P.brackets (comma_list pp_value cvals)
-  | Vtuple cvals ->
+  | Btuple cvals ->
       P.parens (comma_list pp_value cvals)
-  | Vctype ty ->
+  | Bctype ty ->
       P.squotes (Cerb_colour.without_colour (Pp_ail.pp_ctype Ctype.no_qualifiers) ty)
-  | Vobject oval ->
+  | Bobject oval ->
       pp_object_value oval
-  | Vloaded lval ->
+  | Bloaded lval ->
       pp_loaded_value lval
 
 let pp_ctor = function
@@ -454,7 +454,7 @@ let pp_pexpr pe =
           )))
       | PEerror (str, pe) ->
           pp_keyword "error" ^^ P.parens (P.dquotes (!^ str) ^^ P.comma ^^^ pp pe)
-      | PEval cval ->
+      | PEbase cval ->
           pp_value cval
       | PEsym sym ->
           pp_symbol sym

@@ -181,7 +181,7 @@ let cps_transform_expr globs bvs core_expr =
       if es != [] then
         raise (Unexpected "Skip expression not allowed.")
       else
-        to_basic (CpsPure (Pexpr ([], BTy_unit, PEval Vunit)))
+        to_basic (CpsPure (Pexpr ([], BTy_unit, PEbase Bunit)))
     | Ebound (_, e) ->
       (* WARN: I am not sure if this is the correct semantics of Ebound *)
       tr_right bbs pat1 es pat2 ce e

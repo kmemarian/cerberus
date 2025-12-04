@@ -290,15 +290,15 @@ let rec symbolify_ctype (Ctype (annots, ty)) =
 
 let symbolify_value _cval =
   match _cval with
-   | Vunit ->
-       Eff.return Vunit
-   | Vtrue ->
-       Eff.return Vtrue
-   | Vfalse ->
-       Eff.return Vfalse
-   | Vctype ty ->
+   | Bunit ->
+       Eff.return Bunit
+   | Btrue ->
+       Eff.return Btrue
+   | Bfalse ->
+       Eff.return Bfalse
+   | Bctype ty ->
        symbolify_ctype ty >>= fun ty' ->
-       Eff.return (Vctype ty')
+       Eff.return (Bctype ty')
    | _ ->
        assert false
 
@@ -331,29 +331,29 @@ let rec symbolify_pexpr (Pexpr (annot, _, _pexpr): parsed_pexpr) : pexpr Eff.t =
         )
     | PEimpl iCst ->
         Eff.return (Pexpr (annot, None, PEimpl iCst))
-    | PEval (Vobject (OVinteger ival)) ->
-        Eff.return (Pexpr (annot, None, PEval (Vobject (OVinteger ival))))
-    | PEval (Vobject (OVpointer ptrval)) ->
-        Eff.return (Pexpr (annot, None, PEval (Vobject (OVpointer ptrval))))
+    | PEbase (Bobject (OVinteger ival)) ->
+        Eff.return (Pexpr (annot, None, PEbase (Bobject (OVinteger ival))))
+    | PEbase (Bobject (OVpointer ptrval)) ->
+        Eff.return (Pexpr (annot, None, PEbase (Bobject (OVpointer ptrval))))
           (*
-    | PEval (Vobject (OVcfunction _nm)) ->
+    | PEbase (Bobject (OVcfunction _nm)) ->
         (* TODO(V): CHANGING THE MEANING OF THIS KEYWORD *)
         symbolify_name _nm >>= (function
         | Sym sym ->
-          Eff.return (Pexpr (annot, None, PEval (Vobject (OVpointer (Impl_mem.fun_ptrval sym)))))
+          Eff.return (Pexpr (annot, None, PEbase (Bobject (OVpointer (Impl_mem.fun_ptrval sym)))))
         | _ -> failwith "PANIC")
              *)
-    | PEval Vunit ->
-        Eff.return (Pexpr (annot, None, PEval Vunit))
-    | PEval Vtrue ->
-        Eff.return (Pexpr (annot, None, PEval Vtrue))
-    | PEval Vfalse ->
-        Eff.return (Pexpr (annot, None, PEval Vfalse))
-    | PEval (Vctype ty) ->
+    | PEbase Bunit ->
+        Eff.return (Pexpr (annot, None, PEbase Bunit))
+    | PEbase Btrue ->
+        Eff.return (Pexpr (annot, None, PEbase Btrue))
+    | PEbase Bfalse ->
+        Eff.return (Pexpr (annot, None, PEbase Bfalse))
+    | PEbase (Bctype ty) ->
         symbolify_ctype ty >>= fun ty' ->
-        Eff.return (Pexpr (annot, None, PEval (Vctype ty')))
-    | PEval _cval ->
-        failwith "WIP: Core parser -> PEval"
+        Eff.return (Pexpr (annot, None, PEbase (Bctype ty')))
+    | PEbase _cval ->
+        failwith "WIP: Core parser -> PEbase"
     | PEundef (loc, ub) ->
         Eff.return (Pexpr (annot, None, PEundef (loc, ub)))
     | PEerror (str, _pe) ->
@@ -1530,26 +1530,26 @@ core_integer_type:
 value:
 (* TODO:
   | Vconstrained of list (list Mem.mem_constraint * value)
-  | Vobject of object_value
-  | Vloaded of object_value
+  | Bobject of object_value
+  | Bloaded of object_value
   | Vunspecified of ctype
 *)
 | n= INT_CONST
-    { Vobject (OVinteger (Impl_mem.integer_ival n)) }
+    { Bobject (OVinteger (Impl_mem.integer_ival n)) }
 | IVMAX_ALIGNMENT
-    { Vobject (OVinteger (Impl_mem.integer_ival (Z.of_int (Ocaml_implementation.(get ()).max_alignment)))) }
+    { Bobject (OVinteger (Impl_mem.integer_ival (Z.of_int (Ocaml_implementation.(get ()).max_alignment)))) }
 | NULL ty= delimited(LPAREN, ctype, RPAREN)
-    { Vobject (OVpointer (Impl_mem.null_ptrval ty)) }
+    { Bobject (OVpointer (Impl_mem.null_ptrval ty)) }
 | CFUNCTION_VALUE _nm= delimited(LPAREN, name, RPAREN)
-  { (*TODO*) Vobject (OVpointer (Impl_mem.null_ptrval Ctype.void)) }
+  { (*TODO*) Bobject (OVpointer (Impl_mem.null_ptrval Ctype.void)) }
 | UNIT_VALUE
-    { Vunit }
+    { Bunit }
 | TRUE
-    { Vtrue }
+    { Btrue }
 | FALSE
-    { Vfalse }
+    { Bfalse }
 | ty= core_ctype
-    { Vctype ty }
+    { Bctype ty }
 
 
 list_pexpr:
@@ -1575,7 +1575,7 @@ pexpr:
 | ERROR LPAREN str= STRING COMMA _pe= pexpr RPAREN
     { Pexpr ([Aloc (region ($startpos, $endpos) NoCursor)], None, PEerror (str, _pe))  }
 | _cval= value
-    { Pexpr ([Aloc (region ($startpos, $endpos) NoCursor)], None, PEval _cval) }
+    { Pexpr ([Aloc (region ($startpos, $endpos) NoCursor)], None, PEbase _cval) }
 | _sym= SYM
     { Pexpr ([Aloc (region ($startpos, $endpos) NoCursor)], None, PEsym _sym) }
 | iCst= IMPL
@@ -1597,7 +1597,7 @@ pexpr:
     { Pexpr ([Aloc (region ($startpos, $endpos) (pointCursor $startpos($1)))], None, PEnot _pe) }
 | MINUS _pe= pexpr
     { let loc = region ($startpos, $endpos) (pointCursor $startpos($1)) in
-      Pexpr ([Aloc loc], None, PEop (OpSub, Pexpr ([Aloc loc], None, PEval (Vobject (OVinteger (Impl_mem.integer_ival (Nat_big_num.of_int 0))))), _pe)) }
+      Pexpr ([Aloc loc], None, PEop (OpSub, Pexpr ([Aloc loc], None, PEbase (Bobject (OVinteger (Impl_mem.integer_ival (Nat_big_num.of_int 0))))), _pe)) }
 | CFUNCTION _pe = delimited(LPAREN, pexpr, RPAREN)
     { Pexpr ([Aloc (region ($startpos, $endpos) (pointCursor $startpos($1)))], None, PEcfunction _pe) }
 | _pe1= pexpr bop= binary_operator _pe2= pexpr

@@ -176,11 +176,11 @@ and typeof_loaded_value loc env (lval: loaded_value) : E.eff core_object_type =
 (*val     typeof_value: Loc.t -> typing_env -> Core.value -> E.eff core_base_type *)
 let rec typeof_value loc env cval =
   match cval with
-    | Vobject oval ->
+    | Bobject oval ->
         BTy_object <$> typeof_object_value loc env oval
-    | Vloaded (LVspecified oval) ->
+    | Bloaded (LVspecified oval) ->
         BTy_loaded <$> typeof_object_value loc env oval
-    | Vloaded (LVunspecified ty) ->
+    | Bloaded (LVunspecified ty) ->
         match core_object_type_of_ctype ty with
           | Just oTy ->
               E.return (BTy_loaded oTy)
@@ -188,15 +188,15 @@ let rec typeof_value loc env cval =
              (* TODO(V): impossible to write an example *)
               error "TODO typeof_value, Vunspecified not oTy"
         end
-    | Vunit ->
+    | Bunit ->
         E.return BTy_unit
-    | Vtrue ->
+    | Btrue ->
         E.return BTy_boolean
-    | Vfalse ->
+    | Bfalse ->
         E.return BTy_boolean
-    | Vctype _ ->
+    | Bctype _ ->
         E.return BTy_ctype
-    | Vlist bTy cvals' ->
+    | Blist bTy cvals' ->
        E.mapM (fun cval ->
          typeof_value loc env cval >>= fun bTy' ->
          if bTy <> bTy' then
@@ -205,7 +205,7 @@ let rec typeof_value loc env cval =
            E.return ()
        ) cvals' >>
        E.return (BTy_list bTy)
-    | Vtuple cvals ->
+    | Btuple cvals ->
         BTy_tuple <$> E.mapM (typeof_value loc env) cvals
   end
 
@@ -228,9 +228,9 @@ let rec infer_pexpr tagDefs env ((Pexpr annot _ pexpr_ as pexpr) : pexpr) =
     (* FIXME: match type for each impl constant??? *)
     | PEimpl impl ->
         error "E.return (Pexpr (BTy_object OTy_integer) (PEimpl impl))"
-    | PEval cval ->
+    | PEbase cval ->
         typeof_value loc env cval >>= fun bTy ->
-        E.return (Pexpr annot (Just bTy) (PEval cval))
+        E.return (Pexpr annot (Just bTy) (PEbase cval))
     | PEundef loc ub ->
         E.return (Pexpr annot Nothing (PEundef loc ub))
     | PEerror str pe ->
@@ -354,8 +354,8 @@ let rec infer_pexpr tagDefs env ((Pexpr annot _ pexpr_ as pexpr) : pexpr) =
               end
           | (Cspecified, _) ->
               error "infer_pexpr: Cspecified: wrong number of arguments"
-          | (Cunspecified, [Pexpr _ _ (PEval (Vctype ty))]) ->
-              let pe' = Pexpr annot (Just BTy_ctype) (PEval (Vctype ty)) in
+          | (Cunspecified, [Pexpr _ _ (PEbase (Bctype ty))]) ->
+              let pe' = Pexpr annot (Just BTy_ctype) (PEbase (Bctype ty)) in
               match core_object_type_of_ctype ty with
                 | Just oTy ->
                     ret_ctor (BTy_loaded oTy) Cunspecified [pe']
@@ -644,10 +644,10 @@ and typecheck_pexpr tagDefs (env: typing_env) (bTy: core_base_type) (Pexpr annot
           | Nothing ->
               E.fail_TODO loc "unresolved PEimpl"
         end
-    | PEval cval ->
+    | PEbase cval ->
         typeof_value loc env cval >>= fun bTy' ->
         guard_match loc "value" bTy bTy' >>
-        E.return (PEval cval)
+        E.return (PEbase cval)
     | PEundef loc ub ->
         E.return (PEundef loc ub)
     | PEerror str pe ->
@@ -987,8 +987,8 @@ let infer_action tagDefs env (Action loc annot act_) =
     | CreateReadOnly pe1 pe2 pe3 pref ->
         typecheck_pexpr tagDefs env (BTy_object OTy_integer) pe1 >>= fun tpe1 ->
         match pe2 with
-          | Pexpr _ _ (PEval (Vctype ty)) ->
-              let tpe2 = Pexpr [] (Just BTy_ctype) (PEval (Vctype ty)) in
+          | Pexpr _ _ (PEbase (Bctype ty)) ->
+              let tpe2 = Pexpr [] (Just BTy_ctype) (PEbase (Bctype ty)) in
               match core_object_type_of_ctype ty with
                 | Just lvalue_oTy ->
                     typecheck_pexpr tagDefs env (BTy_loaded lvalue_oTy)  pe3 >>= fun tpe3 ->
@@ -1008,8 +1008,8 @@ let infer_action tagDefs env (Action loc annot act_) =
         E.return (BTy_unit, Kill kind tpe)
     | Store b pe1 pe2 pe3 mo ->
         match pe1 with
-          | Pexpr _ _ (PEval (Vctype ty)) ->
-              let tpe1 = Pexpr [] (Just BTy_ctype) (PEval (Vctype ty)) in
+          | Pexpr _ _ (PEbase (Bctype ty)) ->
+              let tpe1 = Pexpr [] (Just BTy_ctype) (PEbase (Bctype ty)) in
               match core_object_type_of_ctype ty with
                 | Just lvalue_oTy ->
                     typecheck_pexpr tagDefs env (BTy_object OTy_pointer) pe2 >>= fun tpe2 ->
@@ -1029,8 +1029,8 @@ let infer_action tagDefs env (Action loc annot act_) =
         end
     | SeqRMW b pe1 pe2 sym pe3 ->
         match pe1 with
-          | Pexpr _ _ (PEval (Vctype ty)) ->
-              let tpe1 = Pexpr [] (Just BTy_ctype) (PEval (Vctype ty)) in
+          | Pexpr _ _ (PEbase (Bctype ty)) ->
+              let tpe1 = Pexpr [] (Just BTy_ctype) (PEbase (Bctype ty)) in
               match core_object_type_of_ctype ty with
                 | Just lvalue_oTy ->
                     let env' = insert_tdecl (Sym sym) (TDsym (BTy_loaded lvalue_oTy)) env in
@@ -1045,8 +1045,8 @@ let infer_action tagDefs env (Action loc annot act_) =
         end
     | Load pe1 pe2 mo ->
         match pe1 with
-          | Pexpr _ _ (PEval (Vctype ty)) ->
-              let tpe1 = Pexpr [] (Just BTy_ctype) (PEval (Vctype ty)) in
+          | Pexpr _ _ (PEbase (Bctype ty)) ->
+              let tpe1 = Pexpr [] (Just BTy_ctype) (PEbase (Bctype ty)) in
               match core_object_type_of_ctype ty with
                 | Just lvalue_oTy ->
                     typecheck_pexpr tagDefs env (BTy_object OTy_pointer) pe2 >>= fun tpe2 ->
@@ -1069,8 +1069,8 @@ let infer_action tagDefs env (Action loc annot act_) =
         E.return (BTy_unit, LinuxFence mo)
     | LinuxStore pe1 pe2 pe3 mo ->
         match pe1 with
-          | Pexpr [] _ (PEval (Vctype ty)) ->
-              let tpe1 = Pexpr [] (Just BTy_ctype) (PEval (Vctype ty)) in
+          | Pexpr [] _ (PEbase (Bctype ty)) ->
+              let tpe1 = Pexpr [] (Just BTy_ctype) (PEbase (Bctype ty)) in
               match core_object_type_of_ctype ty with
                 | Just lvalue_oTy ->
                     typecheck_pexpr tagDefs env (BTy_object OTy_pointer) pe2 >>= fun tpe2 ->
@@ -1084,8 +1084,8 @@ let infer_action tagDefs env (Action loc annot act_) =
         end
     | LinuxLoad pe1 pe2 mo ->
         match pe1 with
-          | Pexpr [] _ (PEval (Vctype ty)) ->
-              let tpe1 = Pexpr [] (Just BTy_ctype) (PEval (Vctype ty)) in
+          | Pexpr [] _ (PEbase (Bctype ty)) ->
+              let tpe1 = Pexpr [] (Just BTy_ctype) (PEbase (Bctype ty)) in
               match core_object_type_of_ctype ty with
                 | Just lvalue_oTy ->
                     typecheck_pexpr tagDefs env (BTy_object OTy_pointer) pe2 >>= fun tpe2 ->
@@ -1098,8 +1098,8 @@ let infer_action tagDefs env (Action loc annot act_) =
         end
     | LinuxRMW pe1 pe2 pe3 mo ->
         match pe1 with
-          | Pexpr [] _ (PEval (Vctype ty)) ->
-              let tpe1 = Pexpr [] (Just BTy_ctype) (PEval (Vctype ty)) in
+          | Pexpr [] _ (PEbase (Bctype ty)) ->
+              let tpe1 = Pexpr [] (Just BTy_ctype) (PEbase (Bctype ty)) in
               match core_object_type_of_ctype ty with
                 | Just lvalue_oTy ->
                     typecheck_pexpr tagDefs env (BTy_object OTy_pointer) pe2 >>= fun tpe2 ->
@@ -1129,8 +1129,8 @@ let typecheck_action tagDefs env bTy (Action loc annot act_) =
       guard_match loc "create_readonly()" bTy (BTy_object OTy_pointer) >>
       typecheck_pexpr tagDefs env (BTy_object OTy_integer) pe1 >>= fun tpe1 ->
       match pe2 with
-        | Pexpr _ _ (PEval (Vctype ty)) ->
-            let tpe2 = Pexpr [] (Just BTy_ctype) (PEval (Vctype ty)) in
+        | Pexpr _ _ (PEbase (Bctype ty)) ->
+            let tpe2 = Pexpr [] (Just BTy_ctype) (PEbase (Bctype ty)) in
             match core_object_type_of_ctype ty with
               | Just lvalue_oTy ->
                   typecheck_pexpr tagDefs env (BTy_loaded lvalue_oTy)  pe3 >>= fun tpe3 ->
@@ -1153,8 +1153,8 @@ let typecheck_action tagDefs env bTy (Action loc annot act_) =
   | Store b pe1 pe2 pe3 mo ->
       guard_match loc "store()" bTy BTy_unit >>
       match pe1 with
-        | Pexpr _ _ (PEval (Vctype ty)) ->
-            let tpe1 = Pexpr [] (Just BTy_ctype) (PEval (Vctype ty)) in
+        | Pexpr _ _ (PEbase (Bctype ty)) ->
+            let tpe1 = Pexpr [] (Just BTy_ctype) (PEbase (Bctype ty)) in
             match core_object_type_of_ctype ty with
               | Just lvalue_oTy ->
                   typecheck_pexpr tagDefs env (BTy_object OTy_pointer) pe2 >>= fun tpe2 ->
@@ -1174,8 +1174,8 @@ let typecheck_action tagDefs env bTy (Action loc annot act_) =
       end
     | SeqRMW b pe1 pe2 sym pe3 ->
         match pe1 with
-          | Pexpr _ _ (PEval (Vctype ty)) ->
-              let tpe1 = Pexpr [] (Just BTy_ctype) (PEval (Vctype ty)) in
+          | Pexpr _ _ (PEbase (Bctype ty)) ->
+              let tpe1 = Pexpr [] (Just BTy_ctype) (PEbase (Bctype ty)) in
               match core_object_type_of_ctype ty with
                 | Just lvalue_oTy ->
                     let env' = insert_tdecl (Sym sym) (TDsym (BTy_loaded lvalue_oTy)) env in
@@ -1191,8 +1191,8 @@ let typecheck_action tagDefs env bTy (Action loc annot act_) =
         end
   | Load pe1 pe2 mo ->
       match pe1 with
-        | Pexpr _ _ (PEval (Vctype ty)) ->
-            let tpe1 = Pexpr [] (Just BTy_ctype) (PEval (Vctype ty)) in
+        | Pexpr _ _ (PEbase (Bctype ty)) ->
+            let tpe1 = Pexpr [] (Just BTy_ctype) (PEbase (Bctype ty)) in
             match core_object_type_of_ctype ty with
               | Just lvalue_oTy ->
                   typecheck_pexpr tagDefs env (BTy_object OTy_pointer) pe2 >>= fun tpe2 ->
@@ -1212,8 +1212,8 @@ let typecheck_action tagDefs env bTy (Action loc annot act_) =
   | CompareExchangeStrong pe1 pe2 pe3 pe4 mo1 mo2 ->
       guard_match loc "compareExchangeStrong()" bTy (BTy_loaded OTy_integer) >>
       match pe1 with
-      | Pexpr [] _ (PEval (Vctype ty)) ->
-        let tpe1 = Pexpr [] (Just BTy_ctype) (PEval (Vctype ty)) in
+      | Pexpr [] _ (PEbase (Bctype ty)) ->
+        let tpe1 = Pexpr [] (Just BTy_ctype) (PEbase (Bctype ty)) in
         match core_object_type_of_ctype ty with
           | Just lvalue_oTy ->
               typecheck_pexpr tagDefs env (BTy_object OTy_pointer) pe2 >>= fun tpe2 ->
@@ -1229,8 +1229,8 @@ let typecheck_action tagDefs env bTy (Action loc annot act_) =
   | CompareExchangeWeak pe1 pe2 pe3 pe4 mo1 mo2 ->
       guard_match loc "compareExchangeWeak()" bTy (BTy_loaded OTy_integer) >>
       match pe1 with
-      | Pexpr _ _ (PEval (Vctype ty)) ->
-        let tpe1 = Pexpr [] (Just BTy_ctype) (PEval (Vctype ty)) in
+      | Pexpr _ _ (PEbase (Bctype ty)) ->
+        let tpe1 = Pexpr [] (Just BTy_ctype) (PEbase (Bctype ty)) in
         match core_object_type_of_ctype ty with
           | Just lvalue_oTy ->
               typecheck_pexpr tagDefs env (BTy_object OTy_pointer) pe2 >>= fun tpe2 ->
@@ -1249,8 +1249,8 @@ let typecheck_action tagDefs env bTy (Action loc annot act_) =
   | LinuxStore pe1 pe2 pe3 mo ->
       guard_match loc "store()" bTy BTy_unit >>
       match pe1 with
-        | Pexpr _ _ (PEval (Vctype ty)) ->
-            let tpe1 = Pexpr [] (Just BTy_ctype) (PEval (Vctype ty)) in
+        | Pexpr _ _ (PEbase (Bctype ty)) ->
+            let tpe1 = Pexpr [] (Just BTy_ctype) (PEbase (Bctype ty)) in
             match core_object_type_of_ctype ty with
               | Just lvalue_oTy ->
                   typecheck_pexpr tagDefs env (BTy_object OTy_pointer) pe2 >>= fun tpe2 ->
@@ -1264,8 +1264,8 @@ let typecheck_action tagDefs env bTy (Action loc annot act_) =
       end
   | LinuxLoad pe1 pe2 mo ->
       match pe1 with
-        | Pexpr _ _ (PEval (Vctype ty)) ->
-            let tpe1 = Pexpr [] (Just BTy_ctype) (PEval (Vctype ty)) in
+        | Pexpr _ _ (PEbase (Bctype ty)) ->
+            let tpe1 = Pexpr [] (Just BTy_ctype) (PEbase (Bctype ty)) in
             match core_object_type_of_ctype ty with
               | Just lvalue_oTy ->
                   typecheck_pexpr tagDefs env (BTy_object OTy_pointer) pe2 >>= fun tpe2 ->
@@ -1279,8 +1279,8 @@ let typecheck_action tagDefs env bTy (Action loc annot act_) =
       end
   | LinuxRMW pe1 pe2 pe3 mo ->
       match pe1 with
-        | Pexpr _ _ (PEval (Vctype ty)) ->
-            let tpe1 = Pexpr [] (Just BTy_ctype) (PEval (Vctype ty)) in
+        | Pexpr _ _ (PEbase (Bctype ty)) ->
+            let tpe1 = Pexpr [] (Just BTy_ctype) (PEbase (Bctype ty)) in
             match core_object_type_of_ctype ty with
               | Just lvalue_oTy ->
                   typecheck_pexpr tagDefs env (BTy_object OTy_pointer) pe2 >>= fun tpe2 ->
@@ -1464,7 +1464,7 @@ and typecheck_expr callconv tagDefs (env: typing_env) expected_bTy (Expr annot e
         infer_pexpr tagDefs env ty_pe >>= fun ty_pe' ->
         infer_pexpr tagDefs env pe    >>= fun (Pexpr _ bTy_opt _ as pe') ->
         match (ty_pe, bTy_opt) with
-          | ( Pexpr _ _ (PEval (Vctype (Cty.Ctype _ (Cty.Pointer _ (Cty.Ctype _ (Cty.Function (qs, ty) params isVariadic))))))
+          | ( Pexpr _ _ (PEbase (Bctype (Cty.Ctype _ (Cty.Pointer _ (Cty.Ctype _ (Cty.Function (qs, ty) params isVariadic))))))
             , Just (BTy_loaded OTy_pointer) ) ->
               begin
                 if isVariadic then
@@ -1514,10 +1514,10 @@ and typecheck_expr callconv tagDefs (env: typing_env) expected_bTy (Expr annot e
           | Just _ ->
           (* TODO: clean *)
               E.fail_TODO loc ("in Eproc(), found a def in a cfunction value: " (*^
-                                           Pp.stringFromCore_value (Vobject (OVcfunction nm))*))
+                                           Pp.stringFromCore_value (Bobject (OVcfunction nm))*))
           | Nothing ->
               E.fail_TODO loc ("in Eproc(), unresolved sym in cfunction value: " (*^
-                                           Pp.stringFromCore_value (Vobject (OVcfunction nm))*))
+                                           Pp.stringFromCore_value (Bobject (OVcfunction nm))*))
         end
     | Eunseq []  ->
         E.fail_TODO loc "UNSEQ must have at least two arguments (seen 0)"
