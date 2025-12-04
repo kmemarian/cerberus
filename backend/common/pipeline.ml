@@ -393,7 +393,7 @@ let interp_backend io core_file ~args ~batch ~fs ~driver_conf =
   | `NotBatch ->
     let open Core in
     D.drive core_file ("cmdname" :: args) fs_state driver_conf >>= function
-      | (Vloaded (LVspecified (OVinteger ival)) :: _) ->
+      | (Bloaded (LVspecified (OVinteger ival)) :: _) ->
           return (Either.Right begin
             match Mem.eval_integer_value ival with
               | Some n ->
