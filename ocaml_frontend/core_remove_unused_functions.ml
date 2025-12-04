@@ -256,14 +256,14 @@ let deps_of fn_or_impl : ('a, 'sym) name_collector =
   in
 
   let rec names_in_value = function
-    | Vobject ov -> names_in_object_value ov
-    | Vloaded lv -> names_in_loaded_value lv
-    | Vunit
-    | Vtrue
-    | Vfalse -> return ()
-    | Vctype ct -> names_in_ctype ct
-    | Vlist (cbt, vs) -> iterate vs names_in_value
-    | Vtuple vs -> iterate vs names_in_value
+    | Bobject ov -> names_in_object_value ov
+    | Bloaded lv -> names_in_loaded_value lv
+    | Bunit
+    | Btrue
+    | Bfalse -> return ()
+    | Bctype ct -> names_in_ctype ct
+    | Blist (cbt, vs) -> iterate vs names_in_value
+    | Btuple vs -> iterate vs names_in_value
   in
 
   let rec names_in_pattern (Pattern (_, pat_)) = 
@@ -296,7 +296,7 @@ let deps_of fn_or_impl : ('a, 'sym) name_collector =
              PostTraverseAction (fun () -> record_dep (Sym sym))
           | PEimpl impl -> 
              PostTraverseAction (fun () -> record_dep (Impl impl))
-          | PEval v -> 
+          | PEbase v ->
              let a () = names_in_value v in
              PostTraverseAction a
           | PEcase (_, patpes) ->

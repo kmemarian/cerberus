@@ -69,12 +69,12 @@ let valueFromMemValue mem_val =
   Impl_mem.case_mem_value mem_val
     (fun ty ->
       ( fromJust "Core_aux.valueFromMemValue" (core_object_type_of_ctype ty),
-        Vloaded (LVunspecified ty) ))
+        Bloaded (LVunspecified ty) ))
     (fun _ _ ->
       Cerb_debug.error "[Core_aux.valueFromMemValue] concurrency read")
-    (fun _ ival -> (OTy_integer, Vloaded (LVspecified (OVinteger ival))))
-    (fun _ fval -> (OTy_floating, Vloaded (LVspecified (OVfloating fval))))
-    (fun _ ptr_val -> (OTy_pointer, Vloaded (LVspecified (OVpointer ptr_val))))
+    (fun _ ival -> (OTy_integer, Bloaded (LVspecified (OVinteger ival))))
+    (fun _ fval -> (OTy_floating, Bloaded (LVspecified (OVfloating fval))))
+    (fun _ ptr_val -> (OTy_pointer, Bloaded (LVspecified (OVpointer ptr_val))))
     (fun mem_vals ->
       let oTys, lvals =
         List.split (List.map loadedValueFromMemValue mem_vals)
@@ -86,46 +86,46 @@ let valueFromMemValue mem_val =
             Cerb_debug.error "Core_aux.valueFromMemValue ==> empty array"
         | oTy :: _ -> oTy
       in
-      (OTy_array oTy, Vloaded (LVspecified (OVarray lvals))))
+      (OTy_array oTy, Bloaded (LVspecified (OVarray lvals))))
     (fun sym xs ->
-      (OTy_struct sym, Vloaded (LVspecified (OVstruct (sym, xs)))))
+      (OTy_struct sym, Bloaded (LVspecified (OVstruct (sym, xs)))))
     (fun sym ident mem_val ->
-      (OTy_union sym, Vloaded (LVspecified (OVunion (sym, ident, mem_val)))))
+      (OTy_union sym, Bloaded (LVspecified (OVunion (sym, ident, mem_val)))))
 
 let rec memValueFromValue ty cval =
   let (Ctype (_, ty_)) = unatomic ty in
   match (ty_, cval) with
-  | _, Vunit
-  | _, Vtrue
-  | _, Vfalse
-  | _, Vlist _
-  | _, Vtuple _
-  | _, Vctype _ -> None
-  | _, Vloaded (LVunspecified ty') ->
+  | _, Bunit
+  | _, Btrue
+  | _, Bfalse
+  | _, Blist _
+  | _, Btuple _
+  | _, Bctype _ -> None
+  | _, Bloaded (LVunspecified ty') ->
       Some (Impl_mem.unspecified_mval ty') (* TODO: check ty = ty'? *)
-  | Basic (Integer ity), Vobject (OVinteger ival)
-  | Basic (Integer ity), Vloaded (LVspecified (OVinteger ival)) ->
+  | Basic (Integer ity), Bobject (OVinteger ival)
+  | Basic (Integer ity), Bloaded (LVspecified (OVinteger ival)) ->
       Some (Impl_mem.integer_value_mval ity ival)
-  | Byte, Vobject (OVinteger ival)
-  | Byte, Vloaded (LVspecified (OVinteger ival)) ->
+  | Byte, Bobject (OVinteger ival)
+  | Byte, Bloaded (LVspecified (OVinteger ival)) ->
       Some (Impl_mem.integer_value_mval (Unsigned Ichar) ival)
-  | Basic (Floating fty), Vloaded (LVspecified (OVfloating fval))
-  | Basic (Floating fty), Vobject (OVfloating fval) ->
+  | Basic (Floating fty), Bloaded (LVspecified (OVfloating fval))
+  | Basic (Floating fty), Bobject (OVfloating fval) ->
       Some (Impl_mem.floating_value_mval fty fval)
-  | Pointer (_, ref_ty), Vobject (OVpointer ptr_val) (* TODO: not sure about this *)
-  | Pointer (_, ref_ty), Vloaded (LVspecified (OVpointer ptr_val)) ->
+  | Pointer (_, ref_ty), Bobject (OVpointer ptr_val) (* TODO: not sure about this *)
+  | Pointer (_, ref_ty), Bloaded (LVspecified (OVpointer ptr_val)) ->
       Some (Impl_mem.pointer_mval ref_ty ptr_val)
-  | Array (elem_ty, _), Vloaded (LVspecified (OVarray lvals)) ->
+  | Array (elem_ty, _), Bloaded (LVspecified (OVarray lvals)) ->
       (* TODO: check that the sizes match? *)
       Lem.option_case None
         (fun z -> Some (Impl_mem.array_mval z))
         (List.fold_right
            (fun lval acc_opt ->
-             match (memValueFromValue elem_ty (Vloaded lval), acc_opt) with
+             match (memValueFromValue elem_ty (Bloaded lval), acc_opt) with
              | Some mem_val, Some acc -> Some (mem_val :: acc)
              | _ -> None)
            lvals (Some []))
-  | Struct tag_sym1, Vloaded (LVspecified (OVstruct (tag_sym2, xs))) ->
+  | Struct tag_sym1, Bloaded (LVspecified (OVstruct (tag_sym2, xs))) ->
       let () =
         Cerb_debug.print_debug 2 [] (fun () ->
             "Comparing struct tag symbols: " ^ Symbol.show_raw tag_sym1 ^ " = "
@@ -137,7 +137,7 @@ let rec memValueFromValue ty cval =
           (no_qualifiers, Ctype ([], Struct tag_sym2))
       then Some (Impl_mem.struct_mval tag_sym1 xs)
       else None
-  | Union tag_sym1, Vloaded (LVspecified (OVunion (tag_sym2, ident, mem_val)))
+  | Union tag_sym1, Bloaded (LVspecified (OVunion (tag_sym2, ident, mem_val)))
     ->
       if Symbol.symbolEquality tag_sym1 tag_sym2
       then Some (Impl_mem.union_mval tag_sym1 ident mem_val)
@@ -155,7 +155,7 @@ let rec memValueFromValue ty cval =
 
 
 let valueFromPexpr = function
-  | Pexpr (_, _, PEval cval) -> Some cval
+  | Pexpr (_, _, PEbase cval) -> Some cval
   | _ -> None
 
 let valueFromPexprs pes =
@@ -214,20 +214,20 @@ let maybe_annotate_integer_type_pexpr (Ctype (_, ty_)) pe =
 let mk_sym_pe sym1 = Pexpr.mk (PEsym sym1)
 
 let mk_integer_pe n =
-  Pexpr.mk (PEval (Vobject (OVinteger (Impl_mem.integer_ival n))))
+  Pexpr.mk (PEbase (Bobject (OVinteger (Impl_mem.integer_ival n))))
 
-let mk_floating_value_pe fval = Pexpr.mk (PEval (Vobject (OVfloating fval)))
+let mk_floating_value_pe fval = Pexpr.mk (PEbase (Bobject (OVfloating fval)))
 
 let mk_nullptr_pe ref_ty =
-  Pexpr.mk (PEval (Vobject (OVpointer (Impl_mem.null_ptrval ref_ty))))
+  Pexpr.mk (PEbase (Bobject (OVpointer (Impl_mem.null_ptrval ref_ty))))
 
 let mk_specified_pe = Pexpr.ctor1 Cspecified
-let mk_unspecified_pe ty = Pexpr.mk (PEval (Vloaded (LVunspecified ty)))
+let mk_unspecified_pe ty = Pexpr.mk (PEbase (Bloaded (LVunspecified ty)))
 let mk_array_pe = Pexpr.ctorN Carray
-let mk_unit_pe = Pexpr.mk (PEval Vunit)
-let mk_boolean_pe b = Pexpr.mk (PEval (if b then Vtrue else Vfalse))
-let mk_ail_ctype_pe ty = Pexpr.mk (PEval (Vctype ty))
-let mk_ctype_pe ty = Pexpr.mk (PEval (Vctype ty))
+let mk_unit_pe = Pexpr.mk (PEbase Bunit)
+let mk_boolean_pe b = Pexpr.mk (PEbase (if b then Btrue else Bfalse))
+let mk_ail_ctype_pe ty = Pexpr.mk (PEbase (Bctype ty))
+let mk_ctype_pe ty = Pexpr.mk (PEbase (Bctype ty))
 
 let rec mk_list_pe bTy = function
   | [] -> Pexpr.ctor0 (Cnil bTy)
@@ -282,7 +282,7 @@ let mk_union_pe tag_sym memb_ident pe =
 let mk_memberof_pe tag_sym memb_ident pe =
   Pexpr.mk (PEmemberof (tag_sym, memb_ident, pe))
 
-let mk_value_pe cval = Pexpr.mk (PEval cval)
+let mk_value_pe cval = Pexpr.mk (PEbase cval)
 
 let mk_cfunction_pe pe = Pexpr.mk (PEcfunction pe)
 
@@ -326,7 +326,7 @@ let maybe_annotate_integer_type (Ctype (_, ty_)) (Expr (annots, desc)) =
 
 let mk_pure_e pe = Expr.mk (Epure pe)
 let mk_value_e cval = mk_pure_e (mk_value_pe cval)
-let mk_skip_e = mk_value_e Vunit
+let mk_skip_e = mk_value_e Bunit
 
 let mk_memop_e mop pes = Expr.mk (Ememop (mop, pes))
 let mk_case_e pe pat_es = Expr.mk (Ecase (pe, pat_es))
@@ -345,7 +345,7 @@ let mk_wait_e tid = Expr.mk (Ewait tid)
 
 (* Core expr "smart" builders ************************************************)
 let mk_unseq = function
-  | [] -> mk_value_e Vunit
+  | [] -> mk_value_e Bunit
   | [ e ] -> e
   | es -> mk_unseq_e es
 
@@ -364,7 +364,7 @@ let rec mk_sseqs pat_es =
 let rec concat_sseq (Expr (annots, e_) as e) e' =
   match e_ with
   | Esseq (pat, e1, e2) -> Expr.mk ~annots (Esseq (pat, e1, concat_sseq e2 e'))
-  | Epure (Pexpr (_, _, PEval Vunit)) -> e'
+  | Epure (Pexpr (_, _, PEbase Bunit)) -> e'
   | _ -> mk_sseq_e (mk_empty_pat BTy_unit) e e'
 
 (* Core (positive) memory action builders **************************************)
@@ -455,8 +455,8 @@ let rec subst_sym_pexpr sym cval =
   let self x = subst_sym_pexpr sym cval x [@@inline] in
   Pexpr.map (function
   | PEsym sym' as pexpr_ ->
-      if Symbol.symbolEquality sym sym' then PEval cval else pexpr_
-  | (PEimpl _ | PEval _ | PEundef _) as pexpr_ -> pexpr_
+      if Symbol.symbolEquality sym sym' then PEbase cval else pexpr_
+  | (PEimpl _ | PEbase _ | PEundef _) as pexpr_ -> pexpr_
   | PEerror (str, pe) -> PEerror (str, self pe)
   | PEctor (ctor, pes) ->
       PEctor (ctor, List.map (self) pes)
@@ -685,22 +685,22 @@ let rec subst_pattern_val (Pattern (_, pat)) cval expr1 =
   | CaseBase (Some sym1, _), _ ->
       (* e[sym \ v] *)
       subst_sym_expr sym1 cval expr1
-  | CaseDtor (Dnil _, []), Vlist (_, []) ->
+  | CaseDtor (Dnil _, []), Blist (_, []) ->
       (* empty list (value) *)
       expr1
-  | CaseDtor (Dcons, [ pat1; pat2 ]), Vlist (bTy_elem, cval1 :: cvals) ->
+  | CaseDtor (Dcons, [ pat1; pat2 ]), Blist (bTy_elem, cval1 :: cvals) ->
       (* populated list (value) *)
       subst_pattern_val pat1 cval1
-        (subst_pattern_val pat2 (Vlist (bTy_elem, cvals)) expr1)
-  | CaseDtor (Dtuple, pats'), Vtuple cvals ->
+        (subst_pattern_val pat2 (Blist (bTy_elem, cvals)) expr1)
+  | CaseDtor (Dtuple, pats'), Btuple cvals ->
       List.fold_right
         (fun (pat', cval') acc -> subst_pattern_val pat' cval' acc)
         (List.combine pats' cvals)
         expr1
-  | CaseDtor (Dspecified, [ pat' ]), Vloaded (LVspecified oval) ->
-      subst_pattern_val pat' (Vobject oval) expr1
-  | CaseDtor (Dunspecified, [ pat' ]), Vloaded (LVunspecified ty1) ->
-      subst_pattern_val pat' (Vctype ty1) expr1
+  | CaseDtor (Dspecified, [ pat' ]), Bloaded (LVspecified oval) ->
+      subst_pattern_val pat' (Bobject oval) expr1
+  | CaseDtor (Dunspecified, [ pat' ]), Bloaded (LVunspecified ty1) ->
+      subst_pattern_val pat' (Bctype ty1) expr1
   | CaseDtor (dtor1, pats), _ ->
       let str_dtor =
         match dtor1 with
@@ -730,7 +730,7 @@ let rec unsafe_subst_sym_pexpr sym (Pexpr (annot, bty, pe_') as pe')
           then pe_'
           else pe_
       | PEimpl _ -> pe_
-      | PEval _ -> pe_
+      | PEbase _ -> pe_
       | PEundef (_, _) -> pe_
       | PEerror (str, pe) -> PEerror (str, unsafe_subst_sym_pexpr sym pe' pe)
       | PEctor (ctor, pes) ->
@@ -978,22 +978,22 @@ let rec unsafe_subst_pattern (Pattern (_, pat)) pe' expr1 =
   match (pat, pe') with
   | CaseBase (None, _), _ -> expr1
   | CaseBase (Some sym1, _), _ -> unsafe_subst_sym_expr sym1 pe' expr1
-  | CaseDtor (Dnil _, []), Pexpr (_, _, PEval (Vlist (_, []))) ->
+  | CaseDtor (Dnil _, []), Pexpr (_, _, PEbase (Blist (_, []))) ->
       (* empty list (value) *)
       expr1
   | CaseDtor (Dnil _, []), Pexpr (_, _, PEctor (Cnil _, [])) ->
       (* empty list (pure expr) *)
       expr1
   | ( CaseDtor (Dcons, [ pat1; pat2 ]),
-      Pexpr (_, _, PEval (Vlist (bTy_elem, cval :: cvals))) ) ->
+      Pexpr (_, _, PEbase (Blist (bTy_elem, cval :: cvals))) ) ->
       (* populated list (value) *)
       subst_pattern_val pat1 cval
-        (subst_pattern_val pat2 (Vlist (bTy_elem, cvals)) expr1)
+        (subst_pattern_val pat2 (Blist (bTy_elem, cvals)) expr1)
   | CaseDtor (Dcons, [ pat1; pat2 ]), Pexpr (_, _, PEctor (Ccons, [ pe1; pe2 ]))
     ->
       (* populated list (pure expr) *)
       unsafe_subst_pattern pat1 pe1 (unsafe_subst_pattern pat2 pe2 expr1)
-  | CaseDtor (Dtuple, pats'), Pexpr (_, _, PEval (Vtuple cvals)) ->
+  | CaseDtor (Dtuple, pats'), Pexpr (_, _, PEbase (Btuple cvals)) ->
       List.fold_right
         (fun (pat', cval) acc -> subst_pattern_val pat' cval acc)
         (List.combine pats' cvals)
@@ -1005,14 +1005,14 @@ let rec unsafe_subst_pattern (Pattern (_, pat)) pe' expr1 =
         expr1
       (* TODO (maybe), Carray, Civmax, Civmin, Civsizeof, Civalignof *)
   | ( CaseDtor (Dspecified, [ pat' ]),
-      Pexpr (_, _, PEval (Vloaded (LVspecified oval))) ) ->
-      subst_pattern_val pat' (Vobject oval) expr1
+      Pexpr (_, _, PEbase (Bloaded (LVspecified oval))) ) ->
+      subst_pattern_val pat' (Bobject oval) expr1
   | CaseDtor (Dspecified, [ pat' ]), Pexpr (_, _, PEctor (Cspecified, [ pe'' ]))
     ->
       unsafe_subst_pattern pat' pe'' expr1
   | ( CaseDtor (Dunspecified, [ pat' ]),
-      Pexpr (_, _, PEval (Vloaded (LVunspecified ty1))) ) ->
-      subst_pattern_val pat' (Vctype ty1) expr1
+      Pexpr (_, _, PEbase (Bloaded (LVunspecified ty1))) ) ->
+      subst_pattern_val pat' (Bctype ty1) expr1
   | ( CaseDtor (Dunspecified, [ pat' ]),
       Pexpr (_, _, PEctor (Cunspecified, [ pe'' ])) ) ->
       unsafe_subst_pattern pat' pe'' expr1
@@ -1037,25 +1037,25 @@ let rec subst_pattern (Pattern (_, pat)) pe' expr1 =
   match (pat, pe') with
   | CaseBase (None, _), _ -> Some expr1
   | CaseBase (Some sym1, _), _ -> Some (unsafe_subst_sym_expr sym1 pe' expr1)
-  | CaseDtor (Dnil _, []), Pexpr (_, _, PEval (Vlist (_, []))) ->
+  | CaseDtor (Dnil _, []), Pexpr (_, _, PEbase (Blist (_, []))) ->
       (* empty list (value) *)
       Some expr1
   | CaseDtor (Dnil _, []), Pexpr (_, _, PEctor (Cnil _, [])) ->
       (* empty list (pure expr) *)
       Some expr1
   | ( CaseDtor (Dcons, [ pat1; pat2 ]),
-      Pexpr (_, _, PEval (Vlist (bTy_elem, cval :: cvals))) ) ->
+      Pexpr (_, _, PEbase (Blist (bTy_elem, cval :: cvals))) ) ->
       (* populated list (value) *)
       Some
         (subst_pattern_val pat1 cval
-           (subst_pattern_val pat2 (Vlist (bTy_elem, cvals)) expr1))
+           (subst_pattern_val pat2 (Blist (bTy_elem, cvals)) expr1))
   | CaseDtor (Dcons, [ pat1; pat2 ]), Pexpr (_, _, PEctor (Ccons, [ pe1; pe2 ]))
     -> (
       (* populated list (pure expr) *)
       match subst_pattern pat2 pe2 expr1 with
       | Some e -> subst_pattern pat1 pe1 e
       | None -> None)
-  | CaseDtor (Dtuple, pats'), Pexpr (_, _, PEval (Vtuple cvals)) ->
+  | CaseDtor (Dtuple, pats'), Pexpr (_, _, PEbase (Btuple cvals)) ->
       Some
         (List.fold_right
            (fun (pat', cval) acc -> subst_pattern_val pat' cval acc)
@@ -1069,14 +1069,14 @@ let rec subst_pattern (Pattern (_, pat)) pe' expr1 =
         (Some expr1)
       (* TODO (maybe), Carray, Civmax, Civmin, Civsizeof, Civalignof *)
   | ( CaseDtor (Dspecified, [ pat' ]),
-      Pexpr (_, _, PEval (Vloaded (LVspecified oval))) ) ->
-      Some (subst_pattern_val pat' (Vobject oval) expr1)
+      Pexpr (_, _, PEbase (Bloaded (LVspecified oval))) ) ->
+      Some (subst_pattern_val pat' (Bobject oval) expr1)
   | CaseDtor (Dspecified, [ pat' ]), Pexpr (_, _, PEctor (Cspecified, [ pe'' ]))
     ->
       subst_pattern pat' pe'' expr1
   | ( CaseDtor (Dunspecified, [ pat' ]),
-      Pexpr (_, _, PEval (Vloaded (LVunspecified ty1))) ) ->
-      Some (subst_pattern_val pat' (Vctype ty1) expr1)
+      Pexpr (_, _, PEbase (Bloaded (LVunspecified ty1))) ) ->
+      Some (subst_pattern_val pat' (Bctype ty1) expr1)
   | ( CaseDtor (Dunspecified, [ pat' ]),
       Pexpr (_, _, PEctor (Cunspecified, [ pe'' ])) ) ->
       subst_pattern pat' pe'' expr1
@@ -1176,7 +1176,7 @@ let rec subst_wait tid1 v (Expr (annot1, expr_)) =
       | Ewait tid' ->
           if tid1 = tid' then
             match v with
-            | Vunit -> Epure (mk_value_pe Vunit)
+            | Bunit -> Epure (mk_value_pe Bunit)
             | _ -> Epure (mk_value_pe v)
           else Ewait tid'
       | Eannot (xs, e) -> Eannot (xs, subst_wait tid1 v e)
@@ -1326,13 +1326,13 @@ let rec match_pattern (Pattern (_, pat)) cval =
   match (pat, cval) with
   | CaseBase (None, _), _ -> Some []
   | CaseBase (Some sym1, _), _ -> Some [ (sym1, cval) ]
-  (*      | Vobject of (generic_object_value 'sym) *)
-  | CaseDtor (Dspecified, [ pat' ]), Vloaded (LVspecified oval) ->
-      match_pattern pat' (Vobject oval)
-  | CaseDtor (Dunspecified, [ pat' ]), Vloaded (LVunspecified ty1) ->
-      match_pattern pat' (Vctype ty1)
-  (*      | Vlist of core_base_type * list (generic_value 'sym) *)
-  | CaseDtor (Dtuple, pats'), Vtuple cvals' ->
+  (*      | Bobject of (generic_object_value 'sym) *)
+  | CaseDtor (Dspecified, [ pat' ]), Bloaded (LVspecified oval) ->
+      match_pattern pat' (Bobject oval)
+  | CaseDtor (Dunspecified, [ pat' ]), Bloaded (LVunspecified ty1) ->
+      match_pattern pat' (Bctype ty1)
+  (*      | Blist of core_base_type * list (generic_value 'sym) *)
+  | CaseDtor (Dtuple, pats'), Btuple cvals' ->
       List.fold_right
         (fun (pat', cval') acc ->
           Lem.option_bind acc (fun xs ->
@@ -1340,16 +1340,16 @@ let rec match_pattern (Pattern (_, pat)) cval =
                   Some (List.rev_append (List.rev x) xs))))
         (List.combine pats' cvals')
         (Some [])
-  | CaseDtor (Dnil _, []), Vlist (_, []) ->
+  | CaseDtor (Dnil _, []), Blist (_, []) ->
       let () =
         Cerb_debug.warn [] (fun () ->
             "Pattern matching nil without checking types!")
       in
       Some []
-  | CaseDtor (Dcons, [ pat_x; pat_xs ]), Vlist (ty1, x :: xs) ->
+  | CaseDtor (Dcons, [ pat_x; pat_xs ]), Blist (ty1, x :: xs) ->
       Lem.option_bind (match_pattern pat_x x) (fun x ->
           Lem.option_bind
-            (match_pattern pat_xs (Vlist (ty1, xs)))
+            (match_pattern pat_xs (Blist (ty1, xs)))
             (fun xs -> Some (List.rev_append (List.rev x) xs)))
   | _ -> None
 
@@ -1694,25 +1694,25 @@ let rec update_env_aux dict_Map_MapKeyType_a (Pattern (_, pat)) cval env1 =
   | CaseBase (Some sym1, _), _ ->
       (* e[sym \ v] *)
       Pmap.add sym1 cval env1
-  | CaseDtor (Dnil _, []), Vlist (_, []) ->
+  | CaseDtor (Dnil _, []), Blist (_, []) ->
       (* empty list (value) *)
       env1
-  | CaseDtor (Dcons, [ pat1; pat2 ]), Vlist (bTy_elem, cval1 :: cvals) ->
+  | CaseDtor (Dcons, [ pat1; pat2 ]), Blist (bTy_elem, cval1 :: cvals) ->
       (* populated list (value) *)
       update_env_aux dict_Map_MapKeyType_a pat1 cval1
         (update_env_aux dict_Map_MapKeyType_a pat2
-           (Vlist (bTy_elem, cvals))
+           (Blist (bTy_elem, cvals))
            env1)
-  | CaseDtor (Dtuple, pats'), Vtuple cvals ->
+  | CaseDtor (Dtuple, pats'), Btuple cvals ->
       List.fold_right
         (fun (pat', cval') acc ->
           update_env_aux dict_Map_MapKeyType_a pat' cval' acc)
         (List.combine pats' cvals)
         env1
-  | CaseDtor (Dspecified, [ pat' ]), Vloaded (LVspecified oval) ->
-      update_env_aux dict_Map_MapKeyType_a pat' (Vobject oval) env1
-  | CaseDtor (Dunspecified, [ pat' ]), Vloaded (LVunspecified ty1) ->
-      update_env_aux dict_Map_MapKeyType_a pat' (Vctype ty1) env1
+  | CaseDtor (Dspecified, [ pat' ]), Bloaded (LVspecified oval) ->
+      update_env_aux dict_Map_MapKeyType_a pat' (Bobject oval) env1
+  | CaseDtor (Dunspecified, [ pat' ]), Bloaded (LVunspecified ty1) ->
+      update_env_aux dict_Map_MapKeyType_a pat' (Bctype ty1) env1
   | CaseDtor (dtor1, pats), _ ->
       let str_dtor =
         match dtor1 with

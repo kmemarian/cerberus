@@ -44,9 +44,9 @@ let string_of_batch_exit exit =
     let open Core in
     match exit with
       | Unspecified ty ->
-        Vloaded (LVunspecified ty)
+        Bloaded (LVunspecified ty)
       | Specified n ->
-          Vloaded (LVspecified (OVinteger (Impl_mem.integer_ival n)))
+          Bloaded (LVspecified (OVinteger (Impl_mem.integer_ival n)))
       | OtherValue cval ->
           cval in
   String_core.string_of_value cval
@@ -161,11 +161,11 @@ let batch_drive (file: 'a Core.file) args fs_state conf =
       | ND.Active dres ->
           let exit =
             match dres.Driver.dres_core_value with
-              | Vloaded (LVspecified (OVinteger ival)) ->
+              | Bloaded (LVspecified (OVinteger ival)) ->
                   Impl_mem.case_integer_value ival
                     (fun n  -> Specified n)
                     (fun () -> OtherValue dres.Driver.dres_core_value)
-              | Vloaded (LVunspecified ty) ->
+              | Bloaded (LVunspecified ty) ->
                   Unspecified ty
               | _ ->
                   OtherValue dres.Driver.dres_core_value in

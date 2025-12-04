@@ -409,7 +409,7 @@ let rec texpr_of_pexpr (Pexpr (_, _, pe_)) =
     return @@ TEsym x
   | PEimpl c ->
     return @@ TEimpl c
-  | PEval v ->
+  | PEbase v ->
     return @@ TEval v
   | PEundef (loc, ub) ->
     return @@ TEundef (loc, ub)
@@ -471,7 +471,7 @@ let rec texpr_of_pexpr (Pexpr (_, _, pe_)) =
     return @@ TEis_unsigned te
   | PEbmc_assume _ ->
     (* NOTE: ignoring bmc_assumes *)
-    return @@ TEval Vunit
+    return @@ TEval Bunit
   | PEare_compatible (pe1, pe2) ->
     self pe1 >>= fun te1 ->
     self pe2 >>= fun te2 ->
@@ -485,7 +485,7 @@ let rec cond_of_pexpr (Pexpr (_, _, pe_)) =
     return @@ Csym x
   | PEimpl c ->
     assert false (* NOTE: not sure about this *)
-  | PEval v ->
+  | PEbase v ->
     return @@ Cval v
   | PEundef _ | PEerror _ | PEctor _ ->
     assert false
@@ -520,7 +520,7 @@ let rec cond_of_pexpr (Pexpr (_, _, pe_)) =
     return @@ Cis_unsigned te
   | PEbmc_assume _ ->
     (* NOTE: ignoring bmc_assumes *)
-    return @@ Cval Vtrue
+    return @@ Cval Btrue
   | PEare_compatible (pe1, pe2) ->
     texpr_of_pexpr pe1 >>= fun te1 ->
     texpr_of_pexpr pe2 >>= fun te2 ->
@@ -545,7 +545,7 @@ let rec add_pe (in_v, out_v) in_pat (Pexpr (_, _, pe_) as pe) =
     add (in_v, out_v) (Tassign (in_pat, te))
   | None ->
     match pe_ with
-    | PEsym _ | PEimpl _ | PEval _ ->
+    | PEsym _ | PEimpl _ | PEbase _ ->
       assert false
     | PEundef _ ->
       assert false

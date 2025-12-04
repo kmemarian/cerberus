@@ -181,11 +181,11 @@ let drive_fs_step tid th_st dr_st fs_oper =
   in
   let th_st_from_ptr p =
     let (Core.Expr arena_annots _) = th_st.Core_run.arena in
-    <| th_st with Core_run.arena= Core.Expr arena_annots (Core.Epure (Caux.mk_specified_pe (Caux.mk_value_pe (Core.Vobject (Core.OVpointer p))))) |>
+    <| th_st with Core_run.arena= Core.Expr arena_annots (Core.Epure (Caux.mk_specified_pe (Caux.mk_value_pe (Core.Bobject (Core.OVpointer p))))) |>
   in
   let th_st_from_void () =
     let (Core.Expr arena_annots _) = th_st.Core_run.arena in
-    <| th_st with Core_run.arena= Core.Expr arena_annots (Core.Epure (Caux.mk_value_pe Core.Vunit)) |>
+    <| th_st with Core_run.arena= Core.Expr arena_annots (Core.Epure (Caux.mk_value_pe Core.Bunit)) |>
   in
   let update fs_st th_st =
     ND.update $ fun dr_st ->
@@ -749,113 +749,113 @@ let perform_action_request2 with_concurrency loc tid request =
 val perform_memop_request2: Loc.t -> Mem_common.memop -> list Core.value -> Mem.thread_id -> (Core.value -> Core_run.thread_state) -> driverM unit
 let perform_memop_request2 loc memop cvals tid mk_th_st =
   match (memop, cvals) with
-    | (Mem_common.Ptrdiff, [Core.Vctype ty; Core.Vobject (Core.OVpointer ptr_val1); Core.Vobject (Core.OVpointer ptr_val2)]) ->
+    | (Mem_common.Ptrdiff, [Core.Bctype ty; Core.Bobject (Core.OVpointer ptr_val1); Core.Bobject (Core.OVpointer ptr_val2)]) ->
         liftMem (Mem.diff_ptrval loc ty ptr_val1 ptr_val2) >>= fun ival ->
-        ND.return (mk_th_st (Core.Vobject (Core.OVinteger ival)))
+        ND.return (mk_th_st (Core.Bobject (Core.OVinteger ival)))
     
-    | (Mem_common.IntFromPtr, [Core.Vctype ref_ty; Core.Vctype (Ctype.Ctype _ (Ctype.Basic (Ctype.Integer ity))); Core.Vobject (Core.OVpointer ptr_val)]) ->
+    | (Mem_common.IntFromPtr, [Core.Bctype ref_ty; Core.Bctype (Ctype.Ctype _ (Ctype.Basic (Ctype.Integer ity))); Core.Bobject (Core.OVpointer ptr_val)]) ->
         begin if ity = Ctype.Bool then
           ND.print_debug 0 [Debug.DB_driver] (fun () -> "IntFromPtr called on _Bool --> this is probably a bug in the elaboration")
         else
           ND.return ()
         end >>= fun () -> (* DEBUG *)
         liftMem (Mem.intfromptr loc ref_ty ity ptr_val) >>= fun ival ->
-        ND.return (mk_th_st (Core.Vobject (Core.OVinteger ival)))
+        ND.return (mk_th_st (Core.Bobject (Core.OVinteger ival)))
     
-    | (Mem_common.PtrFromInt, [Core.Vctype (Ctype.Ctype _ (Ctype.Basic (Ctype.Integer ity))); Core.Vctype ref_ty; Core.Vobject (Core.OVinteger ival)]) ->
+    | (Mem_common.PtrFromInt, [Core.Bctype (Ctype.Ctype _ (Ctype.Basic (Ctype.Integer ity))); Core.Bctype ref_ty; Core.Bobject (Core.OVinteger ival)]) ->
         liftMem (Mem.ptrfromint loc ity ref_ty ival) >>= fun ptrval ->
-        ND.return (mk_th_st (Core.Vobject (Core.OVpointer ptrval)))
+        ND.return (mk_th_st (Core.Bobject (Core.OVpointer ptrval)))
     
-    | (Mem_common.PtrValidForDeref, [Core.Vctype ref_ty; Core.Vobject (Core.OVpointer ptr_val)]) ->
+    | (Mem_common.PtrValidForDeref, [Core.Bctype ref_ty; Core.Bobject (Core.OVpointer ptr_val)]) ->
         liftMem (Mem.validForDeref_ptrval ref_ty ptr_val) >>= fun is_valid ->
-        ND.return (mk_th_st (if is_valid then Core.Vtrue else Core.Vfalse))
+        ND.return (mk_th_st (if is_valid then Core.Btrue else Core.Bfalse))
     
-    | (Mem_common.PtrEq, [Core.Vobject (Core.OVpointer ptr_val1); Core.Vobject (Core.OVpointer ptr_val2)]) ->
+    | (Mem_common.PtrEq, [Core.Bobject (Core.OVpointer ptr_val1); Core.Bobject (Core.OVpointer ptr_val2)]) ->
         ND.print_debug 2 [Debug.DB_driver] (fun () -> "PtrEq") >> (* DEBUG *)
         liftMem (Mem.eq_ptrval loc ptr_val1 ptr_val2) >>= fun is_eq ->
-        ND.return (mk_th_st (if is_eq then Core.Vtrue else Core.Vfalse))
+        ND.return (mk_th_st (if is_eq then Core.Btrue else Core.Bfalse))
     
-    | (Mem_common.PtrNe, [Core.Vobject (Core.OVpointer ptr_val1); Core.Vobject (Core.OVpointer ptr_val2)]) ->
+    | (Mem_common.PtrNe, [Core.Bobject (Core.OVpointer ptr_val1); Core.Bobject (Core.OVpointer ptr_val2)]) ->
         liftMem (Mem.ne_ptrval loc ptr_val1 ptr_val2) >>= fun is_ne ->
-        ND.return (mk_th_st (if is_ne then Core.Vtrue else Core.Vfalse))
+        ND.return (mk_th_st (if is_ne then Core.Btrue else Core.Bfalse))
     
-    | (Mem_common.PtrLt, [Core.Vobject (Core.OVpointer ptr_val1); Core.Vobject (Core.OVpointer ptr_val2)]) ->
+    | (Mem_common.PtrLt, [Core.Bobject (Core.OVpointer ptr_val1); Core.Bobject (Core.OVpointer ptr_val2)]) ->
         liftMem (Mem.lt_ptrval loc ptr_val1 ptr_val2) >>= fun is_lt ->
-        ND.return (mk_th_st (if is_lt then Core.Vtrue else Core.Vfalse))
+        ND.return (mk_th_st (if is_lt then Core.Btrue else Core.Bfalse))
     
-    | (Mem_common.PtrGt, [Core.Vobject (Core.OVpointer ptr_val1); Core.Vobject (Core.OVpointer ptr_val2)]) ->
+    | (Mem_common.PtrGt, [Core.Bobject (Core.OVpointer ptr_val1); Core.Bobject (Core.OVpointer ptr_val2)]) ->
         liftMem (Mem.gt_ptrval loc ptr_val1 ptr_val2) >>= fun is_gt ->
-        ND.return (mk_th_st (if is_gt then Core.Vtrue else Core.Vfalse))
+        ND.return (mk_th_st (if is_gt then Core.Btrue else Core.Bfalse))
     
-    | (Mem_common.PtrLe, [Core.Vobject (Core.OVpointer ptr_val1); Core.Vobject (Core.OVpointer ptr_val2)]) ->
+    | (Mem_common.PtrLe, [Core.Bobject (Core.OVpointer ptr_val1); Core.Bobject (Core.OVpointer ptr_val2)]) ->
         liftMem (Mem.le_ptrval loc ptr_val1 ptr_val2) >>= fun is_le ->
-        ND.return (mk_th_st (if is_le then Core.Vtrue else Core.Vfalse))
+        ND.return (mk_th_st (if is_le then Core.Btrue else Core.Bfalse))
     
-    | (Mem_common.PtrGe, [Core.Vobject (Core.OVpointer ptr_val1); Core.Vobject (Core.OVpointer ptr_val2)]) ->
+    | (Mem_common.PtrGe, [Core.Bobject (Core.OVpointer ptr_val1); Core.Bobject (Core.OVpointer ptr_val2)]) ->
         liftMem (Mem.ge_ptrval loc ptr_val1 ptr_val2) >>= fun is_ge ->
-        ND.return (mk_th_st (if is_ge then Core.Vtrue else Core.Vfalse))
+        ND.return (mk_th_st (if is_ge then Core.Btrue else Core.Bfalse))
     
-    | (Mem_common.Memcpy, [Core.Vobject (Core.OVpointer ptr_val1); Core.Vobject (Core.OVpointer ptr_val2);
-                          Core.Vobject (Core.OVinteger size_ival)]) ->
+    | (Mem_common.Memcpy, [Core.Bobject (Core.OVpointer ptr_val1); Core.Bobject (Core.OVpointer ptr_val2);
+                          Core.Bobject (Core.OVinteger size_ival)]) ->
         liftMem (Mem.memcpy loc ptr_val1 ptr_val2 size_ival) >>= fun res ->
-        ND.return (mk_th_st (Core.Vobject (Core.OVpointer res)))
+        ND.return (mk_th_st (Core.Bobject (Core.OVpointer res)))
     
-    | (Mem_common.Memcmp, [Core.Vobject (Core.OVpointer ptr_val1); Core.Vobject (Core.OVpointer ptr_val2);
-                          Core.Vobject (Core.OVinteger size_ival)]) ->
+    | (Mem_common.Memcmp, [Core.Bobject (Core.OVpointer ptr_val1); Core.Bobject (Core.OVpointer ptr_val2);
+                          Core.Bobject (Core.OVinteger size_ival)]) ->
         liftMem (Mem.memcmp ptr_val1 ptr_val2 size_ival) >>= fun res ->
-        ND.return (mk_th_st (Core.Vobject (Core.OVinteger res)))
+        ND.return (mk_th_st (Core.Bobject (Core.OVinteger res)))
     
-    | (Mem_common.PtrWellAligned, [Core.Vctype ref_ty; Core.Vobject (Core.OVpointer ptrval)]) ->
+    | (Mem_common.PtrWellAligned, [Core.Bctype ref_ty; Core.Bobject (Core.OVpointer ptrval)]) ->
         liftMem (Mem.isWellAligned_ptrval ref_ty ptrval) >>= fun b ->
-        ND.return (mk_th_st (if b then Core.Vtrue else Core.Vfalse))
+        ND.return (mk_th_st (if b then Core.Btrue else Core.Bfalse))
     
-    | (Mem_common.Realloc, [Core.Vobject (Core.OVinteger align_ival); Core.Vobject (Core.OVpointer old_ptr);
-                          Core.Vobject (Core.OVinteger size_ival)]) ->
+    | (Mem_common.Realloc, [Core.Bobject (Core.OVinteger align_ival); Core.Bobject (Core.OVpointer old_ptr);
+                          Core.Bobject (Core.OVinteger size_ival)]) ->
         liftMem (Mem.realloc loc tid align_ival old_ptr size_ival) >>= fun res ->
-        ND.return (mk_th_st (Core.Vobject (Core.OVpointer res)))
+        ND.return (mk_th_st (Core.Bobject (Core.OVpointer res)))
 
-    | (Mem_common.PtrArrayShift, [Core.Vobject (Core.OVpointer ptrval); Core.Vctype ty; Core.Vobject (Core.OVinteger n_ival)]) ->
+    | (Mem_common.PtrArrayShift, [Core.Bobject (Core.OVpointer ptrval); Core.Bctype ty; Core.Bobject (Core.OVinteger n_ival)]) ->
         liftMem (Mem.eff_array_shift_ptrval loc ptrval ty n_ival) >>= fun res ->
         ND.update (fun dr_st ->
           <| dr_st with
             trace= ME_eff_array_shift_ptrval ptrval ty n_ival res :: dr_st.trace
           |>
         ) >>
-        ND.return (mk_th_st (Core.Vobject (Core.OVpointer res)))
+        ND.return (mk_th_st (Core.Bobject (Core.OVpointer res)))
 
-    | (Mem_common.PtrMemberShift tag_sym membr_ident, [Core.Vobject (Core.OVpointer ptrval)]) ->
+    | (Mem_common.PtrMemberShift tag_sym membr_ident, [Core.Bobject (Core.OVpointer ptrval)]) ->
         liftMem (Mem.eff_member_shift_ptrval loc ptrval tag_sym membr_ident) >>= fun res ->
         ND.update (fun dr_st ->
           <| dr_st with
             trace= ME_eff_member_shift_ptrval tag_sym membr_ident ptrval res :: dr_st.trace
           |>
         ) >>
-        ND.return (mk_th_st (Core.Vobject (Core.OVpointer res)))
+        ND.return (mk_th_st (Core.Bobject (Core.OVpointer res)))
 
-    | (Mem_common.Va_start, [Core.Vlist _ ty_cvals]) ->
+    | (Mem_common.Va_start, [Core.Blist _ ty_cvals]) ->
         let ty_ptrs =
           List.map (function
-            | Core.Vtuple [Core.Vctype ty; Core.Vobject (Core.OVpointer ptr)] -> (ty, ptr)
+            | Core.Btuple [Core.Bctype ty; Core.Bobject (Core.OVpointer ptr)] -> (ty, ptr)
             | _ -> error "va_start"
           end) ty_cvals in
         liftMem (Mem.va_start ty_ptrs) >>= fun res ->
-        ND.return (mk_th_st (Core.Vobject (Core.OVinteger res)))
+        ND.return (mk_th_st (Core.Bobject (Core.OVinteger res)))
 
-    | (Mem_common.Va_copy, [Core.Vobject (Core.OVinteger va)]) ->
+    | (Mem_common.Va_copy, [Core.Bobject (Core.OVinteger va)]) ->
         liftMem (Mem.va_copy va) >>= fun res ->
-        ND.return (mk_th_st (Core.Vobject (Core.OVinteger res)))
+        ND.return (mk_th_st (Core.Bobject (Core.OVinteger res)))
 
-    | (Mem_common.Va_arg, [Core.Vobject (Core.OVinteger va); Core.Vctype ty]) ->
+    | (Mem_common.Va_arg, [Core.Bobject (Core.OVinteger va); Core.Bctype ty]) ->
         liftMem (Mem.va_arg va ty) >>= fun res ->
-        ND.return (mk_th_st (Core.Vobject (Core.OVpointer res)))
+        ND.return (mk_th_st (Core.Bobject (Core.OVpointer res)))
 
-    | (Mem_common.Va_end, [Core.Vobject (Core.OVinteger va)]) ->
+    | (Mem_common.Va_end, [Core.Bobject (Core.OVinteger va)]) ->
         liftMem (Mem.va_end va) >>
-        ND.return (mk_th_st Core.Vunit)
+        ND.return (mk_th_st Core.Bunit)
 
-    | (Mem_common.Copy_alloc_id, [Core.Vobject (Core.OVinteger ival); Core.Vobject (Core.OVpointer ptrval)]) ->
+    | (Mem_common.Copy_alloc_id, [Core.Bobject (Core.OVinteger ival); Core.Bobject (Core.OVpointer ptrval)]) ->
         liftMem (Mem.copy_alloc_id ival ptrval) >>= fun ptrval' ->
-        ND.return (mk_th_st (Core.Vobject (Core.OVpointer ptrval')))
+        ND.return (mk_th_st (Core.Bobject (Core.OVpointer ptrval')))
 
     | (Mem_common.CHERI_intrinsic str (ret_ty, tys), cvals) ->
         let mvals =
@@ -865,13 +865,13 @@ let perform_memop_request2 loc memop cvals tid mk_th_st =
         liftMem (Mem.call_intrinsic loc str mvals) >>= fun res_opt ->
         match res_opt with
           | Just res ->
-              ND.return (mk_th_st (Core.Vloaded (snd (Caux.loadedValueFromMemValue res))))
+              ND.return (mk_th_st (Core.Bloaded (snd (Caux.loadedValueFromMemValue res))))
           | Nothing ->
-            ND.return (mk_th_st Core.Vunit)
+            ND.return (mk_th_st Core.Bunit)
         end
 
     | _ ->
-        error ("INVALID memop request: " ^ show memop ^ " ==> " ^ Pp.stringFromCore_value (Core.Vtuple cvals) )
+        error ("INVALID memop request: " ^ show memop ^ " ==> " ^ Pp.stringFromCore_value (Core.Btuple cvals) )
   end >>= fun th_st' ->
   ND.update (fun dr_st ->
     update_core_state (Core_run.update_thread_state tid th_st' dr_st.core_state) dr_st
@@ -1464,7 +1464,7 @@ let finalize debug_str dr_st =
         let cval = hack dr_st.core_extern th_st.Core_run.env dr_st.layout_state dr_st.core_file dr_st.symbolic_assoc
             match Core_aux.to_pure th_st.Core_run.arena with
 (*
-              | Just (Core.PEval (Core.Vinteger ival)) ->
+              | Just (Core.PEbase (Core.Vinteger ival)) ->
                   let Just symb = Mem_aux.symbolicFromIntegerValue ival in
                   Core_aux.unsymbolify symb
 *)
@@ -1681,13 +1681,13 @@ let prepare_main_args loc callconv tid0 main_sym arg_strs argc_sym argv_sym =
             (Mem.store (Loc.other "argv init") argv_ty false argv_ptr_val (Mem.pointer_mval Ctype.pointer_to_char argv_array_ptr_val)) ( fun _ ->
 
             Mem.return
-              ( Core.Vobject (Core.OVpointer argc_ptr_val)
-              , Core.Vobject (Core.OVpointer argv_ptr_val) )
+              ( Core.Bobject (Core.OVpointer argc_ptr_val)
+              , Core.Bobject (Core.OVpointer argv_ptr_val) )
           ))))
         end
     | Core.Inner_arg_callconv ->
-        let argc_cval = Core.Vloaded (Core.LVspecified (Core.OVinteger (Mem.integer_ival number_of_args))) in
-        let argv_cval = Core.Vloaded (Core.LVspecified (Core.OVpointer argv_array_ptr_val)) in
+        let argc_cval = Core.Bloaded (Core.LVspecified (Core.OVinteger (Mem.integer_ival number_of_args))) in
+        let argv_cval = Core.Bloaded (Core.LVspecified (Core.OVpointer argv_array_ptr_val)) in
         ND.return (argc_cval, argv_cval)
   end
 
@@ -1754,14 +1754,14 @@ let drive (with_concurrency: bool) file (arg_strs: list string) =
               (* begin if false (*Global.has_switch Global.SW_inner_arg_temps*) then
                 (* in this switch (for CN) Core procedures elaborating C functions
                    receive values (and to the temp allocation themselves) *)
-                   ND.return (Core.Vobject (Core.OVinteger (Mem.integer_ival number_of_args)))
+                   ND.return (Core.Bobject (Core.OVinteger (Mem.integer_ival number_of_args)))
               else *)
                 (* allocating and initialising an object for main.argc *)
                 liftMem (
                   Mem.bind (Mem.allocate_object tid0 (Symbol.PrefSource loc [main_sym; argc_sym])
                               (Mem.alignof_ival Ctype.signed_int) Ctype.signed_int Nothing Nothing) (fun ptr_val ->
                     Mem.bind (Mem.store (Loc.other "argc init") Ctype.signed_int false ptr_val argc_mem_val) (fun _ ->
-                      Mem.return (Core.Vobject (Core.OVpointer ptr_val))
+                      Mem.return (Core.Bobject (Core.OVpointer ptr_val))
                     )
                   )
                 )
@@ -1799,7 +1799,7 @@ let drive (with_concurrency: bool) file (arg_strs: list string) =
                 Mem.bind (Mem.store (Loc.other "argv init") argv_ty false argv_ptr_val
                             (Mem.pointer_mval (Ctype.Ctype [] (Ctype.Pointer Ctype.no_qualifiers Ctype.char)) array_ptr_val)) ( fun _ ->
 
-                Mem.return (Core.Vobject (Core.OVpointer argv_ptr_val))
+                Mem.return (Core.Bobject (Core.OVpointer argv_ptr_val))
                 ))))
               ) >>= fun argv_cval ->
 *)

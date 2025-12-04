@@ -20,7 +20,7 @@ let insupported str:'a=
 (*val extract_ctype_pe: typed_pexpr -> maybe (either ctype (Symbol.sym * list (Symbol.identifier * (Annot.attributes * maybe alignment * qualifiers * ctype))))*)
 let extract_ctype_pe (Pexpr( _, _, pexpr_)):(((ctype),(Symbol.sym*(Symbol.identifier*(Annot.attributes*(alignment)option*qualifiers*ctype))list))Either.either)option=
    ((match pexpr_ with
-    | PEval (Vctype ((Ctype( _, ty1) as cty))) ->
+    | PEbase (Bctype ((Ctype( _, ty1) as cty))) ->
         Some (match ty1 with
           | Atomic (Ctype( _, (Struct _))) ->
               insupported "atomic struct"
@@ -42,7 +42,7 @@ let extract_ctype_pe (Pexpr( _, _, pexpr_)):(((ctype),(Symbol.sym*(Symbol.identi
 (*val extract_alignement_type: typed_pexpr -> maybe ctype*)
 let extract_alignement_type (Pexpr( _, _, pexpr_)):(ctype)option=
    ((match pexpr_ with
-    | PEctor( Civalignof, [Pexpr( _, _, (PEval (Vctype ty1)))]) ->
+    | PEctor( Civalignof, [Pexpr( _, _, (PEbase (Bctype ty1)))]) ->
         Some ty1
     | _ ->
         None
@@ -248,7 +248,7 @@ let rec explode_expr env1 ((Expr( annot1, expr_) as expr1)) =
                   Expr( [], (Esseq( (Pattern( [], (CaseBase (None, BTy_unit)))),
                                  (Expr( [], (Eaction (Paction( pol, (Action( loc1, a, (Kill( kind1, pe'))))))))),
                                  acc)))
-                ) (Expr( [], (Epure (Pexpr( [], Some BTy_unit, (PEval Vunit)))))) xs
+                ) (Expr( [], (Epure (Pexpr( [], Some BTy_unit, (PEbase Bunit)))))) xs
               end
         )
     

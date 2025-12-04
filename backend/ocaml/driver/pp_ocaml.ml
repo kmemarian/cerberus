@@ -474,18 +474,18 @@ and print_loaded_value globs = function
     !^"RT.Unspecified" ^^^ P.parens (print_ctype ty)
 
 let rec print_value globs = function
-  | Vunit        -> tunit
-  | Vtrue        -> ttrue
-  | Vfalse       -> tfalse
-  | Vlist _      -> failwith "TODO: this need to be lifted to memvalues, otherwise it does not type check!"
-  | Vtuple cvals -> failwith "TODO: this need to be lifted to memvalues, otherwise it does not type check!"
-  | Vctype ty    -> print_ctype ty
-  | Vobject obv  -> print_object_value globs obv
-  | Vloaded lv   -> print_loaded_value globs lv
+  | Bunit        -> tunit
+  | Btrue        -> ttrue
+  | Bfalse       -> tfalse
+  | Blist _      -> failwith "TODO: this need to be lifted to memvalues, otherwise it does not type check!"
+  | Btuple cvals -> failwith "TODO: this need to be lifted to memvalues, otherwise it does not type check!"
+  | Bctype ty    -> print_ctype ty
+  | Bobject obv  -> print_object_value globs obv
+  | Bloaded lv   -> print_loaded_value globs lv
 
 let print_is_expr str pp pe =
   match pe with
-  | Pexpr (_, _, PEval (Vctype _))
+  | Pexpr (_, _, PEbase (Bctype _))
   | Pexpr (_, _, PEsym _) -> !^"RT." ^^ !^str ^^^ P.parens (pp pe)
   | _ -> !^str ^^^ pp pe
 
@@ -569,7 +569,7 @@ let print_pure_expr globs pe =
       | PEsym sym ->
         print_globs_prefix globs sym ^^ print_symbol sym
       | PEimpl iCst -> print_impl_name iCst ^^^ P.parens P.space
-      | PEval cval -> print_value globs cval
+      | PEbase b -> print_value globs b
       | PEundef (_, ub) ->
         traise ^^^ P.parens (!^"RT.Undefined" ^^^ P.dquotes
                                (!^(Undefined.stringFromUndefined_behaviour ub)))
@@ -636,7 +636,7 @@ let print_memop globs memop pes =
 
 let choose_load_type pe =
   let get_ctype = function
-    | Pexpr (_, _, PEval (Vctype cty)) -> cty
+    | Pexpr (_, _, PEbase (Bctype cty)) -> cty
     | pe -> failwith @@ "fatal error: get_type: " ^ String_core.string_of_pexpr pe
   in
   match get_ctype pe with
@@ -679,7 +679,7 @@ let print_store_array_type = function
 
 let choose_store_type pe =
   let get_ctype = function
-    | Pexpr (_, _, PEval (Vctype cty)) -> cty
+    | Pexpr (_, _, PEbase (Bctype cty)) -> cty
     | Pexpr (_, _, PEsym (Symbol.Symbol (_, _, Some n))) -> (Basic0 (Integer Ctype.Char)) (* failwith ("choose_store: PEsym: " ^ n) *)
     | pe -> failwith @@ "fatal error: get_type: " ^ String_core.string_of_pexpr pe
   in

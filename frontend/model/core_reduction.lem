@@ -179,14 +179,14 @@ end
 
 let is_irreducible = function
     (* annot(..., annot(..., _)) ==> NOTE THE _ may be a value *)
-  | Expr _ (Eannot _ (Expr _ (Eannot _ (Expr _ (Epure (Pexpr _ _ (PEval _))))))) ->
+  | Expr _ (Eannot _ (Expr _ (Eannot _ (Expr _ (Epure (Pexpr _ _ (PEbase _))))))) ->
       (* TODO: this makes the function misnamed, but this has a one step reduction *)
       false
     (* v *)
-  | Expr _ (Epure (Pexpr _ _ (PEval _))) ->
+  | Expr _ (Epure (Pexpr _ _ (PEbase _))) ->
       true
     (* annot(..., v) *)
-  | Expr _ (Eannot _ (Expr _ (Epure (Pexpr _ _ (PEval _))))) ->
+  | Expr _ (Eannot _ (Expr _ (Epure (Pexpr _ _ (PEbase _))))) ->
       true
   | _ ->
       false
@@ -243,9 +243,9 @@ type one_step =
 let rec one_step_unseq_aux (fps_acc, cvals_acc) = function
   | [] ->
       Just (fps_acc, List.reverse cvals_acc)
-  | Expr _ (Epure (Pexpr _ _ (PEval cval))) :: xs ->
+  | Expr _ (Epure (Pexpr _ _ (PEbase cval))) :: xs ->
       one_step_unseq_aux (fps_acc, cval::cvals_acc) xs
-  | Expr _ (Eannot fps (Expr _ (Epure (Pexpr _ _ (PEval cval))))) :: xs ->
+  | Expr _ (Eannot fps (Expr _ (Epure (Pexpr _ _ (PEbase cval))))) :: xs ->
       if do_race fps fps_acc then
         let () = Debug.print_debug 2 [Debug.DB_core_dynamics] (fun () ->
           "FOUND AN UNSEQUENCED RACE: " ^ show fps ^ " <---> " ^ show fps_acc
@@ -345,9 +345,9 @@ let one_step eval_pexpr full_eval_pexpr env (Expr annots expr_ as expr) =
         Just begin
           TAU_WITH_RUNSTATE "Eif" begin
             full_eval_pexpr pe1 >>= function
-              | Vtrue ->
+              | Btrue ->
                   E.return (env, e2)
-              | Vfalse ->
+              | Bfalse ->
                   E.return (env, e3)
               | _ ->
                   error "TODO(use the core_runM) ILLTYPED, the first operand of an Eif didn't evaluated to a boolean"
@@ -365,7 +365,7 @@ let one_step eval_pexpr full_eval_pexpr env (Expr annots expr_ as expr) =
               (* unseq({A_1}?v1, ..., {A_n}?vn) -->
                  {A_1 ...union... A_n}(v1, ..., v2)    (in the absence of race) *)
               (* reduction: UNSEQ-PURE + UNSEQ-ANNOT *)
-              Just (TAU "Eunseq" env (Expr annots (Eannot fps (Caux.mk_value_e (Vtuple cvals)))))
+              Just (TAU "Eunseq" env (Expr annots (Eannot fps (Caux.mk_value_e (Btuple cvals)))))
         end
     
     | Ewseq pat (Expr pe1_annots (Epure pe1)) e2 ->
@@ -617,13 +617,13 @@ let step_action e_annots full_eval_pexpr is_excluded (Action loc act_annots act)
   match act with
     | Create pe1 pe2 pref ->
         match (valueFromPexpr pe1, valueFromPexpr pe2) with
-          | (Just (Vobject (OVinteger ival)), Just (Vctype ty)) ->
+          | (Just (Bobject (OVinteger ival)), Just (Bctype ty)) ->
               ACTION_REQUEST
                 "CreateRequest"
                 loc
                 begin
                   CreateRequest2 pref ival ty (Cerb_attributes.get_with_address e_annots) Nothing (fun aid ptrval ->
-                    Caux.mk_value_e (Vobject (OVpointer ptrval))
+                    Caux.mk_value_e (Bobject (OVpointer ptrval))
                   )
                 end
           | (Just _, Just _) ->
@@ -637,7 +637,7 @@ let step_action e_annots full_eval_pexpr is_excluded (Action loc act_annots act)
         end
     | CreateReadOnly pe1 pe2 pe3 pref ->
         match (valueFromPexpr pe1, valueFromPexpr pe2, valueFromPexpr pe3) with
-          | (Just (Vobject (OVinteger ival)), Just (Vctype ty), Just cval3) ->
+          | (Just (Bobject (OVinteger ival)), Just (Bctype ty), Just cval3) ->
               match memValueFromValue (Ctype.Ctype [] (Ctype.unatomic_ ty)) cval3 with
                 | Just mval ->
                     ACTION_REQUEST
@@ -645,7 +645,7 @@ let step_action e_annots full_eval_pexpr is_excluded (Action loc act_annots act)
                       loc
                       begin
                         CreateRequest2 pref ival ty (Cerb_attributes.get_with_address e_annots) (Just mval) (fun aid ptrval ->
-                          Caux.mk_value_e (Vobject (OVpointer ptrval))
+                          Caux.mk_value_e (Bobject (OVpointer ptrval))
                         )
                       end
                 | Nothing ->
@@ -667,7 +667,7 @@ let step_action e_annots full_eval_pexpr is_excluded (Action loc act_annots act)
         end
     | Store is_locking pe1 pe2 pe3 mo ->
         match (valueFromPexpr pe1, valueFromPexpr pe2, valueFromPexpr pe3) with
-          | (Just (Vctype ty), Just (Vobject (OVpointer ptrval)), Just cval) ->
+          | (Just (Bctype ty), Just (Bobject (OVpointer ptrval)), Just cval) ->
               match memValueFromValue (Ctype.Ctype [] (Ctype.unatomic_ ty)) cval with
                 | Just mval ->
                     ACTION_REQUEST
@@ -682,7 +682,7 @@ let step_action e_annots full_eval_pexpr is_excluded (Action loc act_annots act)
                               | Just excl_id ->
                                   [DA_neg excl_id [] fp]
                             end in
-                          Expr [] (Eannot dyn_annots (Caux.mk_value_e Vunit))
+                          Expr [] (Eannot dyn_annots (Caux.mk_value_e Bunit))
                         )
                       end
                 | Nothing ->
@@ -704,7 +704,7 @@ let step_action e_annots full_eval_pexpr is_excluded (Action loc act_annots act)
         end
     | Load pe1 pe2 mo ->
         match (valueFromPexpr pe1, valueFromPexpr pe2) with
-          | (Just (Vctype ty), Just (Vobject (OVpointer ptrval)))  ->
+          | (Just (Bctype ty), Just (Bobject (OVpointer ptrval)))  ->
               ACTION_REQUEST
                 "LoadRequest"
                 loc
@@ -734,13 +734,13 @@ let step_action e_annots full_eval_pexpr is_excluded (Action loc act_annots act)
         error "Core_reduction.step_action ==> SeqRMW" (* this should not be possible *)
     | Alloc pe1 pe2 pref ->
         match (valueFromPexpr pe1, valueFromPexpr pe2) with
-          | (Just (Vobject (OVinteger ival1)), Just (Vobject (OVinteger ival2))) ->
+          | (Just (Bobject (OVinteger ival1)), Just (Bobject (OVinteger ival2))) ->
               ACTION_REQUEST
                 "AllocRequest"
                 loc
                 begin
                   AllocRequest2 pref ival1 ival2 (fun aid ptrval ->
-                    Caux.mk_value_e (Vobject (OVpointer ptrval))
+                    Caux.mk_value_e (Bobject (OVpointer ptrval))
                   )
                 end
           | (Just _, Just _) ->
@@ -754,13 +754,13 @@ let step_action e_annots full_eval_pexpr is_excluded (Action loc act_annots act)
         end
     | Kill kind pe ->
         match valueFromPexpr pe with
-          | Just (Vobject (OVpointer ptrval)) ->
+          | Just (Bobject (OVpointer ptrval)) ->
               ACTION_REQUEST
                 "KillRequest"
                 loc
                 begin
                   KillRequest2 (is_dynamic kind) ptrval
-                    (fun aid -> Caux.mk_value_e Vunit)
+                    (fun aid -> Caux.mk_value_e Bunit)
                 end
           | Just _ ->
               ACTION_ILLTYPED "Kill"
@@ -953,7 +953,7 @@ let process_impl_proc full_eval_pexpr wrap_proc wrap_expr th_st iCst pes =
         match pes with
           | [] ->
               Step_tau2 "errno" Core_run.TSK_Misc (
-                wrap_expr (Caux.mk_pure_e (Caux.mk_specified_pe (Caux.mk_value_pe (Vobject (OVpointer th_st.errno)))))
+                wrap_expr (Caux.mk_pure_e (Caux.mk_specified_pe (Caux.mk_value_pe (Bobject (OVpointer th_st.errno)))))
               )
           | _ ->
               error "wrong arguments for __builtin_errno"
@@ -983,7 +983,7 @@ let process_impl_proc full_eval_pexpr wrap_proc wrap_expr th_st iCst pes =
           match pes with
             | [pe] ->
                 full_eval_pexpr pe >>= function
-                  | Vobject (OVinteger n_ival) ->
+                  | Bobject (OVinteger n_ival) ->
                       let n' = Builtins.gcc_builtin_generic_ffs (forceIntegerFromIntegerValue "generic_ffs" n_ival) in
                       E.return (wrap_expr (Caux.mk_pure_e (Caux.mk_specified_pe (Caux.mk_integer_pe n'))))
                   | _ ->
@@ -998,7 +998,7 @@ let process_impl_proc full_eval_pexpr wrap_proc wrap_expr th_st iCst pes =
           match pes with
             | [pe] ->
                 full_eval_pexpr pe >>= function
-                  | Vobject (OVinteger n_ival) ->
+                  | Bobject (OVinteger n_ival) ->
                       let n' = Builtins.gcc_builtin_ctz (forceIntegerFromIntegerValue "ctz" n_ival) in
                       E.return (wrap_expr (Caux.mk_pure_e (Caux.mk_specified_pe (Caux.mk_integer_pe n'))))
                   | _ ->
@@ -1014,7 +1014,7 @@ let process_impl_proc full_eval_pexpr wrap_proc wrap_expr th_st iCst pes =
           match pes with
             | [pe] ->
                 full_eval_pexpr pe >>= function
-                  | Vobject (OVinteger n_ival) ->
+                  | Bobject (OVinteger n_ival) ->
                       let n' = Builtins.gcc_builtin_bswap16 (forceIntegerFromIntegerValue "bswap16" n_ival) in
                       E.return (wrap_expr (Caux.mk_pure_e (Caux.mk_specified_pe (Caux.mk_integer_pe n'))))
                   | _ ->
@@ -1029,7 +1029,7 @@ let process_impl_proc full_eval_pexpr wrap_proc wrap_expr th_st iCst pes =
           match pes with
             | [pe] ->
                 full_eval_pexpr pe >>= function
-                  | Vobject (OVinteger n_ival) ->
+                  | Bobject (OVinteger n_ival) ->
                       let n' = Builtins.gcc_builtin_bswap32 (forceIntegerFromIntegerValue "bswap32" n_ival) in
                       E.return (wrap_expr (Caux.mk_pure_e (Caux.mk_specified_pe (Caux.mk_integer_pe n'))))
                   | _ ->
@@ -1044,7 +1044,7 @@ let process_impl_proc full_eval_pexpr wrap_proc wrap_expr th_st iCst pes =
           match pes with
             | [pe] ->
                 full_eval_pexpr pe >>= function
-                  | Vobject (OVinteger n_ival) ->
+                  | Bobject (OVinteger n_ival) ->
                       let n' = Builtins.gcc_builtin_bswap64 (forceIntegerFromIntegerValue "bswap64" n_ival) in
                       E.return (wrap_expr (Caux.mk_pure_e (Caux.mk_specified_pe (Caux.mk_integer_pe n'))))
                   | _ ->
@@ -1073,7 +1073,7 @@ let step_ctx mem_st file core_extern current_tid (parent_tid_opt, th_st) =
   let full_eval_pexpr' pe =
     full_eval_pexpr th_st core_extern mem_st file pe in
   List.map (function
-    | (CTX, Expr e_annots (Epure (Pexpr _ _ (PEval cval)))) ->
+    | (CTX, Expr e_annots (Epure (Pexpr _ _ (PEbase cval)))) ->
         match th_st.stack with
           | Stack_empty ->
               (* reached the end of the execution of a thread. *)
@@ -1117,7 +1117,7 @@ let step_ctx mem_st file core_extern current_tid (parent_tid_opt, th_st) =
               error "Core_reduction ==> Stack_cons"
         end
     
-    | (CTX, (Expr _ (Eannot _ (Expr _ (Epure (Pexpr _ _ (PEval _))) as expr')))) ->
+    | (CTX, (Expr _ (Eannot _ (Expr _ (Epure (Pexpr _ _ (PEbase _))) as expr')))) ->
         (* {A}v -> v   (in empty context) *)
         (* reduction: REMOVE-ANNOT *)
         Step_tau2 "CTX, Eannot(value)" Core_run.TSK_Misc begin
@@ -1181,18 +1181,18 @@ let step_ctx mem_st file core_extern current_tid (parent_tid_opt, th_st) =
                 Step_error2 str
           end in
         match expr_ with
-          | Epure (Pexpr _ _ (PEval _)) ->
+          | Epure (Pexpr _ _ (PEbase _)) ->
               error ("Core_run.step_ctx ==> found a value with ctx <> CTX ==> " ^
                      Pp.stringFromCore_expr expr ^ " <--> " ^ show ctx)
           
-          | Ebound (Expr _ (Eannot _ (Expr _ (Epure (Pexpr _ _ (PEval _))) as expr'))) ->
+          | Ebound (Expr _ (Eannot _ (Expr _ (Epure (Pexpr _ _ (PEbase _))) as expr'))) ->
               (* bound({A}v)-> v *)
               (* reduction: REMOVE-BOUND *)
               Step_tau2 "CTX, Ebound Eannot(value)" Core_run.TSK_Misc begin
                 wrap_expr expr'
               end
           
-          | Ebound (Expr _ (Epure (Pexpr _ _ (PEval _))) as expr') ->
+          | Ebound (Expr _ (Epure (Pexpr _ _ (PEbase _))) as expr') ->
               (* bound(v)-> v *)
               (* reduction: REMOVE-BOUND *)
               Step_tau2 "CTX, Ebound(value)" Core_run.TSK_Misc begin
@@ -1207,7 +1207,7 @@ let step_ctx mem_st file core_extern current_tid (parent_tid_opt, th_st) =
                   full_eval_pexpr' pe1 >>= fun cval1 ->
                   full_eval_pexpr' pe2 >>= fun cval2 ->
                   match (cval1, cval2) with
-                    | (Vctype ty, Vobject (OVpointer ptrval)) ->
+                    | (Bctype ty, Bobject (OVpointer ptrval)) ->
                         E.fresh_excluded_id >>= fun n ->
                         E.return begin
                           SeqRMWRequest2 ty ptrval (fun mval ->
@@ -1240,7 +1240,7 @@ let step_ctx mem_st file core_extern current_tid (parent_tid_opt, th_st) =
                                     let expr' =
                                       Caux.mk_wseq_e (Caux.mk_tuple_pat [ Caux.mk_empty_pat BTy_unit(*TODO:HACKHACK*)
                                                                         ; Caux.mk_sym_pat sym BTy_unit(*TODO:HACKHACK*) ])
-                                                     (Caux.mk_unseq_e [ mk_annot_e (Caux.mk_value_e Vunit)
+                                                     (Caux.mk_unseq_e [ mk_annot_e (Caux.mk_value_e Bunit)
                                                                       ; apply_ctx ctxA' cval_e ])
                                                      (Caux.mk_pure_e (Caux.mk_sym_pe sym)) in
                                     <| th_st with arena= apply_ctx ctx_bound expr' |>
@@ -1253,7 +1253,7 @@ let step_ctx mem_st file core_extern current_tid (parent_tid_opt, th_st) =
                                     let expr' =
                                       Caux.mk_sseq_e (Caux.mk_tuple_pat [ Caux.mk_empty_pat BTy_unit(*TODO:HACKHACK*)
                                                                         ; sseq_pat ])
-                                                     (Caux.mk_unseq_e [ mk_annot_e (Caux.mk_value_e Vunit)
+                                                     (Caux.mk_unseq_e [ mk_annot_e (Caux.mk_value_e Bunit)
                                                                       ; apply_ctx ctxB' cval_e ])
                                                      sseq_e2 in
                                     <| th_st with arena= apply_ctx ctx_bound (apply_ctx ctxA expr') |>
@@ -1318,7 +1318,7 @@ let step_ctx mem_st file core_extern current_tid (parent_tid_opt, th_st) =
               (* Step_with_runstate2 (RSK_eval "Eccall") begin *)
               Step_ccall2 current_tid begin
                 full_eval_pexpr' pe >>= function
-                  | Vloaded (LVspecified (OVpointer pv)) ->
+                  | Bloaded (LVspecified (OVpointer pv)) ->
                       E.mapM full_eval_pexpr' pes >>= fun cvals ->
                       let case_funptrval = function
                         | Nothing ->

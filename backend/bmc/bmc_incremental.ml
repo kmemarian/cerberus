@@ -169,10 +169,10 @@ module BmcInline = struct
     (Pattern( [], (CaseBase (sym_opt, bTy))))
 
   let mk_ctype_pe ty: pexpr =
-    (Pexpr( [], Some BTy_ctype, (PEval (Vctype ty))))
+    (Pexpr( [], Some BTy_ctype, (PEbase (Bctype ty))))
 
   let mk_boolean_pe b: pexpr =
-    (Pexpr( [], Some BTy_boolean, (PEval (if b then Vtrue else Vfalse))))
+    (Pexpr( [], Some BTy_boolean, (PEbase (if b then Btrue else Bfalse))))
 
   let rec mk_list_pe pes : pexpr =
     (Pexpr( [], Some (BTy_list BTy_ctype), (match pes with
@@ -203,7 +203,7 @@ module BmcInline = struct
             return (PEimpl const)
         | _ -> assert false
         end
-    | PEval _  -> return pe_
+    | PEbase _  -> return pe_
     | PEundef _ -> return pe_
     | PEerror _ -> return pe_
     | PEctor (ctor, pes) ->
@@ -292,7 +292,7 @@ module BmcInline = struct
           let error_msg =
             sprintf "call_depth_exceeded: %s" (name_to_string  name) in
           let new_pexpr =
-            (Pexpr([], Some ty, PEerror(error_msg, Pexpr([], Some BTy_unit,PEval(Vunit))))) in
+            (Pexpr([], Some ty, PEerror(error_msg, Pexpr([], Some BTy_unit,PEbase(Bunit))))) in
           inline_pe new_pexpr >>= fun inlined_new_pexpr ->
           add_inlined_pexpr id inlined_new_pexpr >>
           return (PEcall (name, inlined_pes))
@@ -488,7 +488,7 @@ module BmcInline = struct
           let new_expr =
             (Expr([],Epure(Pexpr([], Some fun_ty,
                            PEerror(error_msg,
-                                   Pexpr([], Some BTy_unit, PEval(Vunit))))))) in
+                                   Pexpr([], Some BTy_unit, PEbase(Bunit))))))) in
           inline_e new_expr >>= fun inlined_new_expr ->
           add_inlined_expr id inlined_new_expr >>
           return (Eccall(a, pe_ty, pe_fn, pe_args))
@@ -541,7 +541,7 @@ module BmcInline = struct
           let new_expr =
             (Expr([],Epure(Pexpr([], Some ty,
                            PEerror(error_msg,
-                                   Pexpr([], Some BTy_unit, PEval(Vunit))))))) in
+                                   Pexpr([], Some BTy_unit, PEbase(Bunit))))))) in
           inline_e new_expr >>= fun inlined_new_expr ->
           add_inlined_expr id inlined_new_expr >>
           return (Eproc(a, name, pes))
@@ -607,9 +607,9 @@ module BmcInline = struct
           let new_expr =
             (Expr([],Epure(Pexpr([], Some ret_type,
                            PEerror(error_msg,
-                                   Pexpr([], Some BTy_unit, PEval(Vunit)))))))
+                                   Pexpr([], Some BTy_unit, PEbase(Bunit)))))))
                            (*error(error_msg,
-                                  Pexpr([], BTy_unit, PEval (Vunit))))))) *)in
+                                  Pexpr([], BTy_unit, PEbase (Bunit))))))) *)in
           inline_e new_expr >>= fun inlined_new_expr ->
           add_inlined_expr id inlined_new_expr >>
           return (Erun(a, label, pelist))
@@ -789,7 +789,7 @@ module BmcSSA = struct
         ssa_pe inlined_pe    >>= fun ssad_inlined_pe ->
         update_inline_pexpr uid ssad_inlined_pe >>
         return pe_
-    | PEval _ -> return pe_
+    | PEbase _ -> return pe_
     | PEundef _ -> return pe_
     | PEerror _ -> return pe_
     | PEctor (ctor, pelist) ->
@@ -1285,7 +1285,7 @@ module BmcZ3 = struct
     | PEimpl _ ->
         get_inline_pexpr uid >>= fun inline_pe ->
         z3_pe inline_pe
-    | PEval cval ->
+    | PEbase cval ->
        get_file >>= fun file ->
        return (value_to_z3 cval file)
     | PEundef _ ->
@@ -1296,7 +1296,7 @@ module BmcZ3 = struct
         get_file >>= fun file ->
         let sort = cbt_to_z3 bTy file in
         return (mk_fresh_const (sprintf "error_%d" uid) sort)
-    | PEctor (Civmin, [Pexpr(_, Some BTy_ctype, PEval (Vctype ty))]) ->
+    | PEctor (Civmin, [Pexpr(_, Some BTy_ctype, PEbase (Bctype ty))]) ->
         (* TODO: Get rid of ImplFunctions *)
         begin match strip_atomic ty with
           | Ctype (_, Basic (Integer ity)) as ty' ->
@@ -1309,7 +1309,7 @@ module BmcZ3 = struct
           | _ ->
               assert false
         end
-    | PEctor(Civmax, [Pexpr(_, Some BTy_ctype, PEval (Vctype ty))]) ->
+    | PEctor(Civmax, [Pexpr(_, Some BTy_ctype, PEbase (Bctype ty))]) ->
         begin match strip_atomic ty with
           | Ctype (_, Basic (Integer ity)) as ty' ->
               begin match Pmap.lookup ity ImplFunctions.ivmax_map with
@@ -1321,7 +1321,7 @@ module BmcZ3 = struct
           | _ ->
               assert false
         end
-    | PEctor(Civsizeof, [Pexpr(_, Some BTy_ctype, PEval (Vctype ctype))]) ->
+    | PEctor(Civsizeof, [Pexpr(_, Some BTy_ctype, PEbase (Bctype ctype))]) ->
         (*let raw_ctype = strip_atomic ctype in*)
         get_file >>= fun file ->
         let type_size = PointerSort.type_size ctype file in
@@ -1342,7 +1342,7 @@ module BmcZ3 = struct
           end
         end
         *)
-    | PEctor(Civalignof, [Pexpr(_, Some BTy_ctype, PEval (Vctype ctype))]) ->
+    | PEctor(Civalignof, [Pexpr(_, Some BTy_ctype, PEbase (Bctype ctype))]) ->
         (* We can just directly compute the values rather than do it in the
          * roundabout way as in the above *)
         let raw_ctype = strip_atomic ctype in
@@ -1435,7 +1435,7 @@ module BmcZ3 = struct
     | PEis_scalar _  -> assert false
     | PEis_integer _ -> assert false
     | PEis_signed _  -> assert false
-    | PEis_unsigned (Pexpr(_, Some BTy_ctype, PEval (Vctype ty))) ->
+    | PEis_unsigned (Pexpr(_, Some BTy_ctype, PEbase (Bctype ty))) ->
         begin match strip_atomic ty with
           | Ctype (_, Basic (Integer ity)) as ty' ->
               begin match Pmap.lookup ity ImplFunctions.is_unsigned_map with
@@ -1502,13 +1502,13 @@ module BmcZ3 = struct
 
   let z3_action (Paction(p, Action(loc, a, action_)) ) uid =
     (match action_ with
-    | Create (Pexpr(_, _, PEctor(Civalignof, [Pexpr(_, Some BTy_ctype, PEval (Vctype align))])),
-              Pexpr(_, Some BTy_ctype, PEval (Vctype ctype)), prefix) ->
+    | Create (Pexpr(_, _, PEctor(Civalignof, [Pexpr(_, Some BTy_ctype, PEbase (Bctype align))])),
+              Pexpr(_, Some BTy_ctype, PEbase (Bctype ctype)), prefix) ->
         mk_create ctype align prefix
     | Create _ ->
         assert false
-    | CreateReadOnly (Pexpr(_, _, PEctor(Civalignof, [Pexpr(_, Some BTy_ctype, PEval (Vctype align))])),
-              Pexpr(_, Some BTy_ctype, PEval (Vctype ctype)),
+    | CreateReadOnly (Pexpr(_, _, PEctor(Civalignof, [Pexpr(_, Some BTy_ctype, PEbase (Bctype align))])),
+              Pexpr(_, Some BTy_ctype, PEbase (Bctype ctype)),
               initial_value, prefix) ->
         z3_pe initial_value >>= fun z3d_initial_value ->
         mk_create_read_only ctype align prefix z3d_initial_value
@@ -1524,7 +1524,7 @@ module BmcZ3 = struct
         bmc_debug_print 7 "TODO: kill ignored";
         z3_pe pe >>= fun z3d_pe ->
         return (UnitSort.mk_unit, IKill (aid, z3d_pe, is_dynamic))
-    | Store0 (b, Pexpr(_,_,PEval (Vctype ty)), Pexpr(_,_,PEsym sym), wval, mo) ->
+    | Store0 (b, Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), wval, mo) ->
         get_fresh_aid  >>= fun aid ->
         lookup_sym sym >>= fun sym_expr ->
         z3_pe wval     >>= fun z3d_wval ->
@@ -1535,7 +1535,7 @@ module BmcZ3 = struct
                 IStore (aid, ty, flat_sortlist, sym_expr, z3d_wval, mo))
     | Store0 _ ->
         assert false
-    | Load0 (Pexpr(_,_,PEval (Vctype ty)), Pexpr(_,_,PEsym sym), mo) ->
+    | Load0 (Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), mo) ->
         get_fresh_aid  >>= fun aid ->
         get_file >>= fun file ->
         let flat_sortlist = flatten_bmcz3sort (ctype_to_bmcz3sort ty file) in
@@ -1549,11 +1549,11 @@ module BmcZ3 = struct
         assert false
     | RMW0 (pe1, pe2, pe3, pe4, mo1, mo2) ->
         assert false
-    | CompareExchangeStrong(Pexpr(_,_,PEval (Vctype ty)),
+    | CompareExchangeStrong(Pexpr(_,_,PEbase (Bctype ty)),
                             Pexpr(_,_,PEsym obj),
                             Pexpr(_,_,PEsym expected),
                             desired, mo_success, mo_failure) (* fall through *)
-    | CompareExchangeWeak  (Pexpr(_,_,PEval (Vctype ty)),
+    | CompareExchangeWeak  (Pexpr(_,_,PEbase (Bctype ty)),
                             Pexpr(_,_,PEsym obj),
                             Pexpr(_,_,PEsym expected),
                             desired, mo_success, mo_failure) ->
@@ -1618,7 +1618,7 @@ module BmcZ3 = struct
         assert_memory_mode_linux ();
         get_fresh_aid  >>= fun aid ->
         return (UnitSort.mk_unit, ILinuxFence (aid, mo))
-    | LinuxLoad (Pexpr(_,_,PEval (Vctype ty)), Pexpr(_,_,PEsym sym), mo) ->
+    | LinuxLoad (Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), mo) ->
         assert_memory_mode_linux ();
         assert (!!bmc_conf.concurrent_mode);
         get_fresh_aid  >>= fun aid ->
@@ -1633,7 +1633,7 @@ module BmcZ3 = struct
                 sym_expr, rval_expr, mo))
     | LinuxLoad _ ->
         assert false
-    | LinuxStore (Pexpr(_,_,PEval (Vctype ty)), Pexpr(_,_,PEsym sym), wval, mo) ->
+    | LinuxStore (Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), wval, mo) ->
         assert_memory_mode_linux ();
         get_fresh_aid  >>= fun aid ->
         lookup_sym sym >>= fun sym_expr ->
@@ -1645,7 +1645,7 @@ module BmcZ3 = struct
                 ILinuxStore (aid, ty, flat_sortlist, sym_expr, z3d_wval, mo))
     | LinuxStore _ ->
         assert false
-    | LinuxRMW (Pexpr(_,_,PEval (Vctype ty)), Pexpr(_,_,PEsym sym), wval, mo) ->
+    | LinuxRMW (Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), wval, mo) ->
         assert_memory_mode_linux ();
         get_fresh_aid  >>= fun aid ->
         lookup_sym sym >>= fun sym_expr ->
@@ -1720,7 +1720,7 @@ module BmcZ3 = struct
         z3_pe p2 >>= fun z3d_p2 ->
         return (binop_to_z3 OpGe (PointerSort.get_addr_index z3d_p1)
                                  (PointerSort.get_addr_index z3d_p2))
-    | Ememop (Ptrdiff, [((Pexpr(_,Some BTy_ctype, (PEval (Vctype ctype)))) as ty);p1;p2]) ->
+    | Ememop (Ptrdiff, [((Pexpr(_,Some BTy_ctype, (PEbase (Bctype ctype)))) as ty);p1;p2]) ->
         assert (g_pnvi);
         z3_pe ty >>= fun _ ->
         z3_pe p1 >>= fun z3d_p1 ->
@@ -1790,7 +1790,7 @@ module BmcZ3 = struct
                       (int_to_z3 0)
                )
     | Ememop (PtrArrayShift,
-              [ptr;Pexpr(_, Some BTy_ctype, PEval (Vctype ctype));index]) ->
+              [ptr;Pexpr(_, Some BTy_ctype, PEbase (Bctype ctype));index]) ->
         (* We treat this like a PEarray_shift;
          * except in the memory model we add a check for pointer
          * validity/lifetime
@@ -2258,7 +2258,7 @@ module BmcBind = struct
     | PEimpl _ ->
         get_inline_pexpr uid >>= fun inline_pe ->
         bind_pe inline_pe
-    | PEval _ ->
+    | PEbase _ ->
         return []
     | PEundef _ ->
         return []
@@ -2344,7 +2344,7 @@ module BmcBind = struct
         assert false
     | PEis_signed _ ->
         assert false
-    | PEis_unsigned (Pexpr (_, Some BTy_ctype, PEval (Vctype ctype))) ->
+    | PEis_unsigned (Pexpr (_, Some BTy_ctype, PEbase (Bctype ctype))) ->
         return []
     | PEis_unsigned _ ->
         assert false
@@ -2398,11 +2398,11 @@ module BmcBind = struct
     | Alloc0 _ -> assert false
     | Kill (_, pe) ->
         bind_pe pe
-    | Store0 (b, Pexpr(_,_,PEval (Vctype ty)), Pexpr(_,_,PEsym sym), wval, mo) ->
+    | Store0 (b, Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), wval, mo) ->
         bind_pe wval
     | Store0 _ ->
         assert false
-    | Load0 (Pexpr(_,_,PEval (Vctype ty)), Pexpr(_,_,PEsym sym), mo) ->
+    | Load0 (Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), mo) ->
         return []
     | Load0 _ ->
         assert false
@@ -2659,7 +2659,7 @@ module BmcVC = struct
     | PEimpl _          ->
        get_inline_pexpr uid >>= fun inline_pe ->
        vcs_pe inline_pe
-    | PEval _           -> return []
+    | PEbase _          -> return []
     | PEundef (loc, ub) -> return [(mk_false, VcDebugUndef (loc,ub))]
     | PEerror (str, _)  -> return [(mk_false, VcDebugStr (string_of_int uid ^ "_" ^ str))]
     | PEctor (ctor, pelist) ->
@@ -2733,17 +2733,17 @@ module BmcVC = struct
                       uid
                       : (bmc_vc list) eff =
     match action_ with
-    | Create (align, Pexpr(_, Some BTy_ctype, PEval (Vctype ctype)), prefix) ->
+    | Create (align, Pexpr(_, Some BTy_ctype, PEbase (Bctype ctype)), prefix) ->
         return []
     | Create _ -> assert false
-    | CreateReadOnly (align, Pexpr(_, Some BTy_ctype, PEval (Vctype ctype)), initial_value, prefix) ->
+    | CreateReadOnly (align, Pexpr(_, Some BTy_ctype, PEbase (Bctype ctype)), initial_value, prefix) ->
         vcs_pe initial_value >>= fun vcs_initial_value ->
         return vcs_initial_value
     | CreateReadOnly _  -> assert false
     | Alloc0 _          -> assert false
     | Kill (_, pe) ->
         vcs_pe pe
-    | Store0 (_, Pexpr(_,_,PEval (Vctype ty)),
+    | Store0 (_, Pexpr(_,_,PEbase (Bctype ty)),
                  (Pexpr(_,_,PEsym sym)), wval, memorder) ->
         (* TODO: Where should we check whether the ptr is valid? *)
         let valid_memorder =
@@ -2757,7 +2757,7 @@ module BmcVC = struct
                    VcDebugStr ("out of bounds pointer at memory store"))
                 :: vcs_wval)
     | Store0 _          -> assert false
-    | Load0 (Pexpr(_,_,PEval (Vctype ty)),
+    | Load0 (Pexpr(_,_,PEbase (Bctype ty)),
              (Pexpr(_,_,PEsym sym)), memorder) ->
         let valid_memorder =
               mk_bool (not (memorder = Release || memorder = Acq_rel)) in
@@ -2771,11 +2771,11 @@ module BmcVC = struct
     | Load0 _ -> assert false
     | RMW0 _  -> assert false
     | Fence0 _ -> return []
-    | CompareExchangeStrong (Pexpr(_,_,PEval (Vctype ty)),
+    | CompareExchangeStrong (Pexpr(_,_,PEbase (Bctype ty)),
                              Pexpr(_,_,PEsym obj),
                              Pexpr(_,_,PEsym expected),
                              desired, mo_success, mo_failure)  (* fall through *)
-    | CompareExchangeWeak   (Pexpr(_,_,PEval (Vctype ty)),
+    | CompareExchangeWeak   (Pexpr(_,_,PEbase (Bctype ty)),
                              Pexpr(_,_,PEsym obj),
                              Pexpr(_,_,PEsym expected),
                              desired, mo_success, mo_failure) ->
@@ -2807,7 +2807,7 @@ module BmcVC = struct
     | CompareExchangeStrong _ -> assert false
     | CompareExchangeWeak _ -> assert false
     | LinuxFence _ -> return []
-    | LinuxStore (Pexpr(_,_,PEval (Vctype ty)),
+    | LinuxStore (Pexpr(_,_,PEbase (Bctype ty)),
                   (Pexpr(_,_,PEsym sym)), wval, memorder) ->
         assert_memory_mode_linux ();
         vcs_pe wval                     >>= fun vcs_wval ->
@@ -2820,7 +2820,7 @@ module BmcVC = struct
                    VcDebugStr ("out of bounds pointer at memory store"))
                 :: vcs_wval)
     | LinuxStore _ -> assert false
-    | LinuxLoad (Pexpr(_,_,PEval (Vctype ty)),
+    | LinuxLoad (Pexpr(_,_,PEbase (Bctype ty)),
                  (Pexpr(_,_,PEsym sym)), memorder) ->
         assert_memory_mode_linux ();
         lookup_sym sym >>= fun ptr_z3 ->
@@ -2830,7 +2830,7 @@ module BmcVC = struct
                    VcDebugStr ("out of bounds pointer at memory load")
                ]
     | LinuxLoad _  -> assert false
-    | LinuxRMW (Pexpr(_,_,PEval (Vctype ty)), Pexpr(_,_,PEsym sym), wval, mo) ->
+    | LinuxRMW (Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), wval, mo) ->
         assert (!!bmc_conf.concurrent_mode);
         assert_memory_mode_linux ();
         vcs_pe wval >>= fun vcs_wval ->
@@ -2898,7 +2898,7 @@ module BmcVC = struct
         vcs_pe ptr       >>= fun vcs_ptr ->
 
         let ity = (match ctype_dst with
-          | Pexpr(_, Some BTy_ctype, PEval (Vctype (Ctype (_, Basic (Integer z))))) -> z
+          | Pexpr(_, Some BTy_ctype, PEbase (Bctype (Ctype (_, Basic (Integer z))))) -> z
           | _ -> assert false
           ) in
         get_expr (get_id_pexpr ptr) >>= fun z3d_ptr ->
@@ -5139,7 +5139,7 @@ module BmcConcActions = struct
     | PEimpl const ->
         get_inline_pexpr uid >>= fun inline_pe ->
         do_taint_pe inline_pe
-    | PEval cval ->
+    | PEbase cval ->
         return (Pset.empty Stdlib.compare)
     | PEundef _ ->
         return (Pset.empty Stdlib.compare)
@@ -5233,7 +5233,7 @@ module BmcConcActions = struct
         end
     | Kill _ ->
         assert false
-    | Store0 (b, Pexpr(_,_,PEval (Vctype ty)), Pexpr(_,_,PEsym sym), wval, mo) ->
+    | Store0 (b, Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), wval, mo) ->
         get_action uid >>= fun interm_action ->
         do_taint_pe wval >>= fun taint_wval ->
         get_taint sym >>= fun taint_ptr ->
@@ -5248,7 +5248,7 @@ module BmcConcActions = struct
         end
     | Store0 _ ->
         assert false
-    | Load0 (Pexpr(_,_,PEval (Vctype ty)), Pexpr(_,_,PEsym sym), mo) ->
+    | Load0 (Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), mo) ->
         get_action uid >>= fun interm_action ->
         get_taint sym >>= fun taint_ptr ->
         begin match interm_action with
@@ -5280,7 +5280,7 @@ module BmcConcActions = struct
     | LinuxFence mo ->
         return (Pset.empty Stdlib.compare, empty_deps)
 
-    | LinuxLoad (Pexpr(_,_,PEval (Vctype ty)), Pexpr(_,_,PEsym sym), mo) ->
+    | LinuxLoad (Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), mo) ->
         get_action uid >>= fun interm_action ->
         get_taint sym >>= fun taint_ptr ->
         begin match interm_action with
@@ -5293,7 +5293,7 @@ module BmcConcActions = struct
                    )
         | _ -> assert false
         end
-    | LinuxStore (Pexpr(_,_,PEval (Vctype ty)), Pexpr(_,_,PEsym sym), wval, mo) ->
+    | LinuxStore (Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), wval, mo) ->
         get_action uid >>= fun interm_action ->
         do_taint_pe wval >>= fun taint_wval ->
         get_taint sym >>= fun taint_ptr ->
@@ -5306,7 +5306,7 @@ module BmcConcActions = struct
                  })
         | _ -> assert false
         end
-    | LinuxRMW (Pexpr(_,_,PEval (Vctype ty)), Pexpr(_,_,PEsym sym), wval, mo) ->
+    | LinuxRMW (Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), wval, mo) ->
         get_action uid   >>= fun interm_action ->
         do_taint_pe wval >>= fun taint_wval ->
         get_taint sym >>= fun taint_ptr ->
