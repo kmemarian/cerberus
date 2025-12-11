@@ -112,7 +112,11 @@ type token =
   | PIPE_EQ
   | COMMA
   | LBRACK_LBRACK
-  (* | RBRACK_RBRACK *)
+
+  (* GNU extensions *)
+  | BUILTIN_TYPES_COMPATIBLE_P
+  | BUILTIN_CHOOSE_EXPR
+  | EXTENSION
 
   (* NON-STD *)
   | ASSERT
@@ -129,9 +133,6 @@ type token =
   | ASM
   | ASM_VOLATILE
   | QUESTION_COLON
-  | BUILTIN_TYPES_COMPATIBLE_P
-  | BUILTIN_CHOOSE_EXPR
-  | EXTENSION
 
   (* Magic comments as tokens *)
   | CERB_MAGIC of (Cerb_location.t * (char * string))
@@ -158,7 +159,6 @@ type token =
   | CN_APPLY
   | CN_PRINT
   | CN_MATCH
-  (* | CN_PREDNAME of string *)
   | CN_BITS of ([`U|`I] * int)
   | CN_BOOL
   | CN_INTEGER
@@ -191,6 +191,7 @@ type token =
 
 
 let string_of_token = function
+  | EOF -> "EOF"
   | AUTO -> "AUTO"
   | BREAK -> "BREAK"
   | CASE -> "CASE"
@@ -244,8 +245,6 @@ let string_of_token = function
   | STRING_LITERAL _ -> "STRING_LITERAL"
   | LBRACK -> "LBRACK"
   | RBRACK -> "RBRACK"
-  | LBRACK_LBRACK -> "LBRACK_LBRACK"
-  (* | RBRACK_RBRACK -> "RBRACK_RBRACK" *)
   | LPAREN -> "LPAREN"
   | RPAREN -> "RPAREN"
   | LBRACE -> "LBRACE"
@@ -276,8 +275,8 @@ let string_of_token = function
   | PIPE_PIPE -> "PIPE_PIE"
   | QUESTION -> "QUESTION"
   | COLON -> "COLON"
-  | COLON_COLON -> "COLON_COLON"
   | SEMICOLON -> "SEMICOLON"
+  | COLON_COLON -> "COLON_COLON"
   | ELLIPSIS -> "ELLIPSIS"
   | EQ -> "EQ"
   | STAR_EQ -> "STAR_EQ"
@@ -291,26 +290,33 @@ let string_of_token = function
   | CARET_EQ -> "CARET_EQ"
   | PIPE_EQ -> "PIPE_EQ"
   | COMMA -> "COMMA"
+  | LBRACK_LBRACK -> "LBRACK_LBRACK"
+  | BUILTIN_TYPES_COMPATIBLE_P -> "BUILTIN_TYPES_COMPATIBLE_P"
+  | BUILTIN_CHOOSE_EXPR -> "BUILTIN_CHOOSE_EXPR"
+  | EXTENSION -> "EXTENSION"
   | ASSERT -> "ASSERT"
   | OFFSETOF -> "OFFSETOF"
   | LBRACES -> "LBRACES"
   | PIPES -> "PIPES"
   | RBRACES -> "RBRACES"
   | VA_START -> "__cerbvar_va_start"
-  | VA_ARG -> "__cerbvar_va_arg"
   | VA_COPY -> "__cerbvar_va_copy"
+  | VA_ARG -> "__cerbvar_va_arg"
   | VA_END -> "__cerbvar_va_end"
   | BMC_ASSUME -> "__bmc_assume"
   | PRINT_TYPE -> "__cerb_printtype"
   | ASM -> "ASM"
   | ASM_VOLATILE -> "ASM_VOLATILE"
   | QUESTION_COLON -> "QUESTION_COLON"
-  | BUILTIN_TYPES_COMPATIBLE_P -> "BUILTIN_TYPES_COMPATIBLE_P"
-  | BUILTIN_CHOOSE_EXPR -> "BUILTIN_CHOOSE_EXPR"
-  | EXTENSION -> "EXTENSION"
-  | EOF -> "EOF"
   | CERB_MAGIC (_, (c,str)) -> Printf.sprintf "/*%c %s %c*/" c str c
   | CN_CONSTANT _ -> "CN_CONSTANT"
+  | CN_FUNCTION -> "CN_FUNCTION"
+  | CN_LIFT_FUNCTION -> "CN_LIFT_FUNCTION"
+  | CN_PREDICATE -> "CN_PREDICATE"
+  | CN_LEMMA -> "CN_LEMMA"
+  | CN_SPEC -> "CN_SPEC"
+  | CN_DATATYPE -> "CN_DATATYPE"
+  | CN_TYPE_SYNONYM -> "CN_TYPE_SYNONYM"
   | CN_GOOD -> "CN_GOOD"
   | CN_PACK -> "CN_PACK"
   | CN_UNPACK -> "CN_UNPACK"
@@ -324,8 +330,8 @@ let string_of_token = function
   | CN_APPLY -> "CN_APPLY"
   | CN_PRINT -> "CN_PRINT"
   | CN_MATCH -> "CN_MATCH"
-  | CN_BOOL -> "CN_BOOL"
   | CN_BITS _ -> "CN_BITS"
+  | CN_BOOL -> "CN_BOOL"
   | CN_INTEGER -> "CN_INTEGER"
   | CN_REAL -> "CN_REAL"
   | CN_POINTER -> "CN_POINTER"
@@ -342,13 +348,6 @@ let string_of_token = function
   | CN_NULL -> "CN_NULL"
   | CN_TRUE -> "CN_TRUE"
   | CN_FALSE -> "CN_FALSE"
-  | CN_FUNCTION -> "CN_FUNCTION"
-  | CN_LIFT_FUNCTION -> "CN_LIFT_FUNCTION"
-  | CN_PREDICATE -> "CN_PREDICATE"
-  | CN_LEMMA -> "CN_LEMMA"
-  | CN_SPEC -> "CN_SPEC"
-  | CN_DATATYPE -> "CN_DATATYPE"
-  | CN_TYPE_SYNONYM -> "CN_TYPE_SYNONYM"
   | CN_REQUIRES -> "CN_REQUIRES"
   | CN_GHOST -> "CN_GHOST"
   | CN_ENSURES -> "CN_ENSURES"
