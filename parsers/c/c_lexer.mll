@@ -168,7 +168,6 @@ let optional_cerb_keywords: (string * Tokens.token) list =
  * __builtin_stdc_trailing_zeros
  * __builtin_tgmath
  * __builtin_va_arg
- * __extension__
  * __func__
  * __imag
  * __imag__
@@ -205,6 +204,7 @@ let gnu_keywords: (string * Tokens.token) list =
   (* ; "__typeof_unqual__" , TYPEOF_UNQUAL *)
   (* ; "__typeof_unqual"   , TYPEOF_UNQUAL *)
   ; "__typeof"          , TYPEOF
+  ; "__extension__", EXTENSION
 
   (* ; "__attribute__", ATTRIBUTE *)
   (* ; "__attribute"  , ATTRIBUTE *)

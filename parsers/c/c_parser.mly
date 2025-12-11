@@ -145,6 +145,9 @@ type asm_qualifier =
 (* BMC syntax *)
 %token BMC_ASSUME
 
+(* GNUC extensions *)
+%token EXTENSION
+
 (* magic comment token *)
 %token<Cerb_location.t * (char * string)> CERB_MAGIC
 
@@ -623,6 +626,9 @@ unary_expression:
 | ALIGNOF LPAREN ty= type_name RPAREN
     { CabsExpression ( region ($startpos, $endpos) (pointCursor $startpos($1))
                      , CabsEalignof ty ) }
+| EXTENSION expr= cast_expression
+    (* GNUC syntax extension: __extension__ *)
+    { expr }
 ;
 
 unary_operator:
@@ -997,6 +1003,9 @@ struct_declaration_list: (* NOTE: the list is in reverse *)
 ;
 
 struct_declaration:
+| EXTENSION decl= struct_declaration
+    (* GNUC syntax extension: __extension__ *)
+    { decl }
 | attr_opt= ioption(attribute_specifier_sequence) tspecs_tquals= specifier_qualifier_list
     rev_sdeclrs_opt= struct_declarator_list? SEMICOLON has_extra= boption(SEMICOLON+)
     { if has_extra then warn_extra_semicolon $startpos(has_extra) INSIDE_STRUCT;
@@ -1354,8 +1363,20 @@ block_item_list: (* NOTE: the list is in reverse *)
     { stmt::stmts }
 ;
 
+nested_declaration:
+(* GNUC syntax extension: __extension__ *)
+| EXTENSION decl= declaration
+| decl= declaration
+    { decl }
+;
+
 block_item:
-| xs_decl= declaration
+(* NOTE: the nested_declaration indirection (the ISO grammar instead has
+ * a `declaration` here) is added to support the GNUC __extension__ keyword
+ * that can occur before the declaration without conflicting with that
+ * occurences of that same keyword before expression_statement
+ * (see unary_expression) *)
+| xs_decl= nested_declaration
     { CabsStatement
         ( region ($startpos, $endpos) noCursor
         , Annot.no_attributes
@@ -1433,7 +1454,12 @@ iteration_statement:
         ( region ($startpos, $endpos) noCursor
         , magic_to_attrs magic
         , CabsSfor (Option.map (fun x -> FC_expr x) expr1_opt, expr2_opt,expr3_opt, stmt) ) }
-| FOR LPAREN xs_decl= declaration expr2_opt= expression? SEMICOLON
+(* NOTE: the nested_declaration indirection (the ISO grammar instead has
+ * a `declaration` here) is added to support the GNUC __extension__ keyword
+ * that can occur before the declaration without conflicting with that
+ * occurences of that same keyword before expression_statement
+ * (see unary_expression) *)
+| FOR LPAREN xs_decl= nested_declaration expr2_opt= expression? SEMICOLON
   expr3_opt= expression? RPAREN magic= magic_comment_list stmt= scoped(statement)
     { CabsStatement
         ( region ($startpos, $endpos) noCursor
@@ -1559,6 +1585,8 @@ external_declaration_list: (* NOTE: the list is in reverse *)
 ;
 
 external_declaration:
+| EXTENSION edecl= external_declaration
+    { edecl }
 | magic= CERB_MAGIC
     { EDecl_magic (fst magic, snd (snd magic)) }
 | fdef= function_definition
@@ -1611,6 +1639,8 @@ attribute_specifier_sequence:  (* NOTE: the list is in reverse *)
 
 attribute_specifier:
 | LBRACK_LBRACK attrs= attribute_list RBRACK RBRACK
+  (* GNUC syntax extension: __extension__ *)
+| LBRACK_LBRACK EXTENSION attrs= attribute_list RBRACK RBRACK
     { List.rev attrs }
 ;
 

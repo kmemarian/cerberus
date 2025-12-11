@@ -131,6 +131,7 @@ type token =
   | QUESTION_COLON
   | BUILTIN_TYPES_COMPATIBLE_P
   | BUILTIN_CHOOSE_EXPR
+  | EXTENSION
 
   (* Magic comments as tokens *)
   | CERB_MAGIC of (Cerb_location.t * (char * string))
@@ -306,6 +307,7 @@ let string_of_token = function
   | QUESTION_COLON -> "QUESTION_COLON"
   | BUILTIN_TYPES_COMPATIBLE_P -> "BUILTIN_TYPES_COMPATIBLE_P"
   | BUILTIN_CHOOSE_EXPR -> "BUILTIN_CHOOSE_EXPR"
+  | EXTENSION -> "EXTENSION"
   | EOF -> "EOF"
   | CERB_MAGIC (_, (c,str)) -> Printf.sprintf "/*%c %s %c*/" c str c
   | CN_CONSTANT _ -> "CN_CONSTANT"
