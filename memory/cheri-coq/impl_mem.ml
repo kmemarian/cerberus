@@ -1289,9 +1289,6 @@ module CHERIMorello : Memory = struct
     lift_coq_memM "copy_alloc_id" (MM.copy_alloc_id ival ptrval)
 
   (* Integer value constructors *)
-  let concurRead_ival ity sym =
-    lift_coq_serr (MM.concurRead_ival (toCoq_integerType ity) (toCoq_Symbol_sym sym))
-
   let integer_ival = MM.integer_ival
   let max_ival ity = lift_coq_serr @@ MM.max_ival (toCoq_integerType ity)
   let min_ival ity = lift_coq_serr @@ MM.min_ival (toCoq_integerType ity)
@@ -1322,8 +1319,6 @@ module CHERIMorello : Memory = struct
      it OK to have in in OCaml for now *)
   let case_integer_value v f_concrete _ =
     f_concrete (MM.num_of_int v)
-
-  let is_specified_ival = MM.is_specified_ival
 
   (* Predicats on integer values *)
   let eq_ival = MM.eq_ival
@@ -1411,11 +1406,6 @@ module CHERIMorello : Memory = struct
          (fromCoq_Symbol_sym tag_sym)
          (fromCoq_Symbol_identifier memb_ident)
          mval'
-
-
-  (* For race detection *)
-  let sequencePoint =
-    lift_coq_memM "sequencePoint" (MM.sequencePoint)
 
   (* Memory intrinsics (currently used in CHERI) *)
   let call_intrinsic loc name args =

@@ -130,7 +130,6 @@ module type Memory = sig
 
   
   (* Integer value constructors *)
-  val concurRead_ival: Ctype.integerType -> Symbol.sym -> integer_value
   val integer_ival: Nat_big_num.num -> integer_value
   val max_ival: Ctype.integerType -> integer_value
   val min_ival: Ctype.integerType -> integer_value
@@ -150,8 +149,6 @@ module type Memory = sig
     (Nat_big_num.num -> 'a) ->
     (unit -> 'a) ->
     'a
-  
-  val is_specified_ival: integer_value -> bool
   
   (* Predicats on integer values *)
   val eq_ival: integer_value -> integer_value -> bool option
@@ -200,29 +197,17 @@ module type Memory = sig
     (Symbol.sym -> (Symbol.identifier * Ctype.ctype * mem_value) list -> 'a) ->
     (Symbol.sym -> Symbol.identifier -> mem_value -> 'a) ->
     'a
-  
-  
-  (* For race detection *)
-  val sequencePoint: unit memM
+
 
   (* Memory intrinsics (currently used in CHERI) *)
-
   val call_intrinsic: Cerb_location.t -> string -> (mem_value list) -> (mem_value option) memM
   val get_intrinsic_type_spec: string -> Mem_common.intrinsics_signature option
 
 
-  (* pretty printing *)
-  val pp_integer_value: integer_value -> PPrint.document
-  val pp_pretty_integer_value: ?basis:basis -> use_upper:bool -> integer_value -> PPrint.document
-  val pp_integer_value_for_core: integer_value -> PPrint.document
+  (* Only used by cn-coq *)
   val pp_integer_value_for_coq: integer_value -> PPrint.document
-    
-  val pp_pointer_value: ?is_verbose:bool -> pointer_value -> PPrint.document
-  val pp_pretty_pointer_value: pointer_value -> PPrint.document
+  val pp_floating_value_for_coq: floating_value -> PPrint.document
   val pp_pointer_value_for_coq: (Symbol.sym -> PPrint.document) -> pointer_value -> PPrint.document
-
-  val pp_mem_value: mem_value -> PPrint.document
-  val pp_pretty_mem_value: ?basis:basis -> use_upper:bool -> mem_value -> PPrint.document
   (* This is a bit ugly as we need to pass all the pretty printers for the different types *)
   val pp_mem_value_for_coq: 
     (Symbol.sym -> PPrint.document) ->
@@ -231,27 +216,18 @@ module type Memory = sig
     (Ctype.ctype -> PPrint.document) ->
     (Symbol.identifier -> PPrint.document) ->
     mem_value -> PPrint.document
-    
-  val pp_floating_value_for_coq: floating_value -> PPrint.document
-(*
-  val string_of_pointer_value: pointer_value -> string
-  val string_of_integer_value: integer_value -> string
-  val string_of_mem_value: mem_value -> stri(g
-*)
+
+  (* pretty printing *)
+  val pp_integer_value: integer_value -> PPrint.document
+  val pp_pretty_integer_value: ?basis:basis -> use_upper:bool -> integer_value -> PPrint.document
+  val pp_integer_value_for_core: integer_value -> PPrint.document
+
+  val pp_pointer_value: ?is_verbose:bool -> pointer_value -> PPrint.document
+  val pp_pretty_pointer_value: pointer_value -> PPrint.document
+
+  val pp_mem_value: mem_value -> PPrint.document
+  val pp_pretty_mem_value: ?basis:basis -> use_upper:bool -> mem_value -> PPrint.document
 
   (* JSON serialisation *)
   val serialise_mem_state: Digest.t -> mem_state -> Cerb_json.json
-  
-  
-  
-  
-  
-(*  
-  val runND:
-    Driver.driver_result Driver.driverM ->
-    Driver.driver_state ->
-    ( (Driver.driver_result, Driver.driver_error) Nondeterminism.nd_status
-    * string list
-    * Driver.driver_state ) list
-*)
 end

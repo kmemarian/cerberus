@@ -993,9 +993,6 @@ let intfrombyte ival : integer_value =
 
 
 (* Integer value constructors *)
-let concurRead_ival: Ctype.integerType -> Symbol.sym -> integer_value =
-  fun _ _ -> assert false (* TODO *)
-
 let integer_ival n =
   IVint n
 let max_ival ity =
@@ -1030,9 +1027,6 @@ let bitwise_xor_ival _ ival1 ival2 =
 
 let case_integer_value ival f_concrete _ =
   f_concrete (ival_to_int ival)
-
-let is_specified_ival _ =
-  true
 
 (* Predicats on integer values *)
 let eq_ival ival1 ival2 =
@@ -1120,11 +1114,6 @@ let case_mem_value mval f_unspec f_concur f_ival f_fval f_ptr f_array f_struct f
         f_struct tag_sym xs
     | MVunion (tag_sym, memb_ident, mval') ->
         f_union tag_sym memb_ident mval'
-
-(* For race detection *)
-let sequencePoint : unit memM =
-  (* No unseq-race detection *)
-  return ()
 
 (* pretty printing *)
 open PPrint
