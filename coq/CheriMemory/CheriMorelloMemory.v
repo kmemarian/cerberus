@@ -2869,9 +2869,6 @@ Module Type CheriMemoryImpl
     intfromptr Loc_unknown CoqCtype.void (CoqIntegerType.Unsigned CoqIntegerType.Intptr_t) ptrval ;;
     ptrfromint Loc_unknown (CoqIntegerType.Unsigned CoqIntegerType.Intptr_t) CoqCtype.void ival.
 
-  Definition concurRead_ival: CoqIntegerType.integerType -> CoqSymbol.sym -> serr (integer_value)
-    := fun _ _ => raise "TODO: concurRead_ival".
-
   Definition integer_ival (z:Z): integer_value := IV z.
 
   Definition int_bin
@@ -2933,8 +2930,6 @@ Module Type CheriMemoryImpl
     (_ : unit -> A) : A :=
     f (num_of_int v).
    *)
-
-  Definition is_specified_ival (ival : integer_value) : bool := true.
 
   Definition eq_ival (n1 n2: integer_value) :=
     Some (num_of_int n1 =? num_of_int n2).
@@ -3050,9 +3045,6 @@ Module Type CheriMemoryImpl
     | MVunion tag_sym memb_ident mval' => f_union tag_sym memb_ident mval'
     end.
    *)
-
-  Definition sequencePoint: memM unit :=
-    ret tt.
 
   Definition cap_of_mem_value
     (funptrmap : ZMap.M.t (digest * string * C.t))

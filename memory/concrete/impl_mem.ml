@@ -2358,9 +2358,6 @@ module Concrete : Memory = struct
 let eff_member_shift_ptrval _ tag_sym membr_ident ptrval =
   return (member_shift_ptrval tag_sym membr_ident ptrval)
 
-  let concurRead_ival ity sym =
-    failwith "TODO: concurRead_ival"
-  
   let integer_ival n =
     IV (Prov_none, n)
   
@@ -2513,9 +2510,6 @@ let eff_member_shift_ptrval _ tag_sym membr_ident ptrval =
   let case_integer_value (IV (_, n)) f_concrete _ =
     f_concrete n
   
-  let is_specified_ival ival =
-    true
-  
   let zero_fval =
     0.0
   let one_fval =
@@ -2593,10 +2587,8 @@ let eff_member_shift_ptrval _ tag_sym membr_ident ptrval =
       | MVunion (tag_sym, memb_ident, mval') ->
           f_union tag_sym memb_ident mval'
   
-  let sequencePoint =
-    return ()
-  
-  
+
+
 
 
   let pp_pretty_pointer_value = pp_pointer_value ~is_verbose:false
