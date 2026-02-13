@@ -150,10 +150,6 @@ Module Type Memory (A:PTRADDR) (B:PTRADDR_INTERVAL A) (MC:Mem_common(A)(B)).
 
   Parameter copy_alloc_id : integer_value -> pointer_value -> memM pointer_value.
 
-  Parameter concurRead_ival :
-    CoqIntegerType.integerType -> CoqSymbol.sym ->
-    serr integer_value.
-
   Parameter integer_ival : Z -> integer_value.
   Parameter max_ival : CoqIntegerType.integerType -> serr integer_value.
   Parameter min_ival : CoqIntegerType.integerType -> serr integer_value.
@@ -184,7 +180,6 @@ Module Type Memory (A:PTRADDR) (B:PTRADDR_INTERVAL A) (MC:Mem_common(A)(B)).
     forall {a : Set},
       integer_value -> (Z -> a) -> (unit -> a) -> a. *)
 
-  Parameter is_specified_ival : integer_value -> bool.
   Parameter eq_ival : integer_value -> integer_value -> option bool.
   Parameter lt_ival : integer_value -> integer_value -> option bool.
   Parameter le_ival : integer_value -> integer_value -> option bool.
@@ -244,7 +239,6 @@ Module Type Memory (A:PTRADDR) (B:PTRADDR_INTERVAL A) (MC:Mem_common(A)(B)).
       (CoqSymbol.sym -> CoqSymbol.identifier ->
        mem_value -> a) -> a. *)
 
-  Parameter sequencePoint : memM unit.
   Parameter call_intrinsic :
     location_ocaml -> string -> list mem_value -> memM (option mem_value).
   Parameter get_intrinsic_type_spec :
