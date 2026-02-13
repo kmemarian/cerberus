@@ -181,7 +181,6 @@ declare ocaml target_rep function bytefromint = `Impl_mem.bytefromint`
 declare ocaml target_rep function intfrombyte = `Impl_mem.intfrombyte`
 
 (* Integer value constructors *)
-val concurRead_ival: Ctype.integerType -> Symbol.sym -> integer_value
 val integer_ival: integer -> integer_value
 val max_ival: Ctype.integerType -> integer_value
 val min_ival: Ctype.integerType -> integer_value
@@ -193,7 +192,6 @@ val bitwise_complement_ival: Ctype.integerType -> integer_value -> integer_value
 val bitwise_and_ival: Ctype.integerType -> integer_value -> integer_value -> integer_value
 val bitwise_or_ival: Ctype.integerType -> integer_value -> integer_value -> integer_value
 val bitwise_xor_ival: Ctype.integerType -> integer_value -> integer_value -> integer_value
-declare ocaml target_rep function concurRead_ival = `Impl_mem.concurRead_ival`
 declare ocaml target_rep function integer_ival = `Impl_mem.integer_ival`
 declare ocaml target_rep function max_ival = `Impl_mem.max_ival`
 declare ocaml target_rep function min_ival = `Impl_mem.min_ival`
@@ -212,9 +210,7 @@ val case_integer_value: forall 'a. (* TODO: expose more ctors *)
     (integer -> 'a) ->
     (unit -> 'a) ->
     'a
-val is_specified_ival: integer_value -> bool
 declare ocaml target_rep function case_integer_value = `Impl_mem.case_integer_value`
-declare ocaml target_rep function is_specified_ival = `Impl_mem.is_specified_ival`
 
 (* Predicates on integer values *)
 val eq_ival: integer_value -> integer_value -> maybe bool
