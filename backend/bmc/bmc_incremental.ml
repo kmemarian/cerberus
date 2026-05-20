@@ -12,7 +12,6 @@ open Core
 open Core_aux
 open Impl_mem
 open Printf
-open Cerb_util
 open Z3
 
 module Caux = Core_aux

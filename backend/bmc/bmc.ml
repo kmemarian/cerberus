@@ -9,7 +9,6 @@ open Z3
 open Cerb_frontend
 open Core
 open Printf
-open Cerb_util
 
 open Bmc_incremental
 

@@ -35,12 +35,12 @@ type block =
 (* Free Variables *)
 let fv_be fvs = function
   | CpsPure pe -> fv_pe pe fvs
-  | CpsMemop (memop, pes) -> List.fold_left (flip fv_pe) fvs pes
+  | CpsMemop (memop, pes) -> List.fold_left (Fun.flip fv_pe) fvs pes
   | CpsAction act -> fv_act act fvs
 
 let rec fv_ce ce fvs =
   match ce with
-  | CpsGoto (_, pes, _) -> List.fold_left (flip fv_pe) fvs pes
+  | CpsGoto (_, pes, _) -> List.fold_left (Fun.flip fv_pe) fvs pes
   | CpsIf (pe1, ce2, ce3) ->
     fv_pe pe1 fvs
     |> fv_ce ce2
@@ -51,11 +51,11 @@ let rec fv_ce ce fvs =
     ) [] cases
     |> fv_pe pe
   | CpsCcall (pe, (_, fvs'), pes) ->
-    List.fold_left (flip fv_pe) (fvs@fvs') (pe::pes)
+    List.fold_left (Fun.flip fv_pe) (fvs@fvs') (pe::pes)
   | CpsProc (_, (_, fvs'), pes) ->
-    List.fold_left (flip fv_pe) (fvs@fvs') pes
+    List.fold_left (Fun.flip fv_pe) (fvs@fvs') pes
   | CpsCont _ -> fvs
-  | CpsNd xs -> List.fold_left (flip fv_ce) fvs xs
+  | CpsNd xs -> List.fold_left (Fun.flip fv_ce) fvs xs
 
 let fv_pat_be (pat_opt, be) fvs =
   fv_be fvs be |> fvs_rm (fv_pat_opt pat_opt)
@@ -65,7 +65,7 @@ let fv_cont (pat_opt, ce) =
 
 let uniq_fv globs bes cont =
   let fv bes cont =
-    List.fold_left (flip fv_pat_be) (fv_cont cont) (List.rev bes)
+    List.fold_left (Fun.flip fv_pat_be) (fv_cont cont) (List.rev bes)
   in fv bes cont |> fvs_rm globs |> sort_uniq
 
 (* TODO: this is ugly but whatever *)
