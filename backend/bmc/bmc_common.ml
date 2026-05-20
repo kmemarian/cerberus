@@ -6,7 +6,6 @@ open Cerb_frontend
 open Ctype
 open Core
 open Printf
-open Cerb_util
 open Z3
 
 (* =========== <> =========== *)

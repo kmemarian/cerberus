@@ -4,7 +4,6 @@ open Bmc_utils
 open Cerb_frontend
 open Core
 open Printf
-open Cerb_util
 open Z3
 open Z3.Arithmetic
 

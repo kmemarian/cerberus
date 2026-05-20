@@ -1,6 +1,5 @@
 open Cerb_frontend
 open Cerb_backend
-open Cerb_util
 open Instance_api
 open Pipeline
 
@@ -360,7 +359,7 @@ let get_state_details st =
     let arena = Pp_utils.to_plain_pretty_string @@ Pp_core.Basic.pp_expr ts.arena in
     let Core.Expr (arena_annots, _) = ts.arena in
     let maybe_uid = Annot.get_uid arena_annots in
-    let loc = Option.case id (fun _ -> ts.Core_run.current_loc) @@ Annot.get_loc arena_annots in
+    let loc = Option.value ~default:ts.Core_run.current_loc @@ Annot.get_loc arena_annots in
     (loc, maybe_uid, arena, string_of_env ts.env, stdout, stderr)
   | _ ->
     (Cerb_location.unknown, None, "", "", stdout, stderr)
@@ -661,7 +660,7 @@ let instance debug_level =
       |> respond filename name (fun s -> Execution s)
     | `Step (conf, filename, name, active) ->
       step ~conf:(setup conf) ~filename active
-      |> respond filename name id
+      |> respond filename name Fun.id
     | `BMC (conf, bmc_model, filename, name) ->
       try
         bmc ~filename ~name ~conf:(add_bmc_macro ~bmc_model @@ setup conf) ~bmc_model ~filename ()
