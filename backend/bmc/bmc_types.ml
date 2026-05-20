@@ -36,7 +36,7 @@
 (*  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.                         *)
 (*========================================================================*)
 
-open Cerb_backend.Auxl
+open Auxl
 open Bmc_sorts
 
 open Cerb_frontend
