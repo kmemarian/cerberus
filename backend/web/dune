@@ -1,6 +1,6 @@
 (library
  (name instance_api)
- (modules instance_api)
+ (modules debug instance_api)
  (wrapped false)
  (libraries cmdliner lwt
   cerb_frontend bmc))

@@ -41,7 +41,6 @@ open Bmc_sorts
 
 open Cerb_frontend
 open Printf
-open Cerb_util
 open Z3
 
 (* ======== Concurrency ========= *)
