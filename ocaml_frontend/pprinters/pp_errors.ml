@@ -5,6 +5,7 @@ open TypingError
 open Constraint
 
 open Cerb_global
+open Cerb_symbol
 open Cerb_location
 
 open Cerb_colour
@@ -24,7 +25,7 @@ let string_of_kind = function
       ansi_format ~err:true [Bold; Black] "note:"
 
 
-let string_of_cid (Symbol.Identifier (_, s)) = s
+let string_of_cid ident = ident.Identifier.str
 let string_of_ctype ?(qs=Ctype.no_qualifiers) ty = String_ail.string_of_ctype ~is_human:true qs ty
 let string_of_sym = Pp_symbol.to_string_pretty
 let string_of_gentype = String_ail.string_of_genType
@@ -304,10 +305,10 @@ let string_of_constraint_violation = function
       "array designator value is negative"
   | IllegalMemberDesignatorUsage ->
       "member designator used for an entity with a non-struct/union type"
-  | IllegalMemberDesignatorFlexibleArrayMember (Symbol.Identifier (_, memb_str)) ->
-      "member designator '." ^ memb_str ^ "' refers to a flexible array member"
-  | IllegalMemberDesignator (Symbol.Identifier (_, memb_str), ty) ->
-      "member designator '." ^ memb_str ^ "' does not refer to a valid member for type '" ^ string_of_ctype ty ^ "'"
+  | IllegalMemberDesignatorFlexibleArrayMember Identifier.{str; _} ->
+      "member designator '." ^ str ^ "' refers to a flexible array member"
+  | IllegalMemberDesignator (Identifier.{str; _}, ty) ->
+      "member designator '." ^ str ^ "' does not refer to a valid member for type '" ^ string_of_ctype ty ^ "'"
   | InitializationAsSimpleAssignment (IncompatibleType, ty1, gty2) ->
       "initializing '" ^ string_of_ctype ty1 ^ "' with an expression of incompatible type '" ^ string_of_gentype gty2 ^ "'"
   | InitializationAsSimpleAssignment (IncompatiblePointerType, ty1, gty2) ->
@@ -476,14 +477,14 @@ let string_of_core_typing_cause = function
       String_core.string_of_core_base_type found_bTy ^ ")"
   | InvalidTag tag_sym ->
       "InvalidTag(" ^ Pp_symbol.to_string tag_sym ^ ")"
-  | InvalidMember (tag_sym, Symbol.Identifier (_, memb_str)) ->
-      "InvalidMember(" ^ Pp_symbol.to_string tag_sym ^ ", " ^ memb_str ^ ")"
+  | InvalidMember (tag_sym, Identifier.{str; _}) ->
+      "InvalidMember(" ^ Pp_symbol.to_string tag_sym ^ ", " ^ str ^ ")"
   | CoreTyping_TODO str ->
       "CoreTyping_TODO(" ^ str ^ ")"
 
 let string_of_core_linking_cause = function
-  | DuplicateExternalName (Symbol.Identifier (_, name)) ->
-      "duplicate external symbol: " ^ name
+  | DuplicateExternalName Identifier.{str; _} ->
+      "duplicate external symbol: " ^ str
   | DuplicateMain ->
       "duplicate main function"
   | IncompatibleCallingConvention ->

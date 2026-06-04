@@ -19,7 +19,11 @@ let rec fetch_stdlib_symbol_aux pred xs =
 
 val fetch_stdlib_symbol: list Symbol.sym -> string -> Symbol.sym
 let fetch_stdlib_symbol syms str =
-  match fetch_stdlib_symbol_aux (function (Symbol.Symbol _ _ (SD_Id z)) -> z = str | _ -> false end) syms with
+  let match_sym sym = match Symbol.match_id sym with
+    | Just z -> z = str
+    | Nothing -> false
+  end in
+  match fetch_stdlib_symbol_aux match_sym syms with
     | Just sym ->
         sym
     | Nothing ->
@@ -39,7 +43,11 @@ let rec mk_stdcall_aux pred xs =
 
 val mk_stdcall: forall 'a. Core.fun_map 'a -> string -> (list Core.pexpr -> Core.pexpr)
 let mk_stdcall stdlib fname =
-  match mk_stdcall_aux (function ((Symbol _ _ (SD_Id z)), _) -> z = fname | _ -> false end) (Map_extra.toList stdlib) with
+  let match_sym (sym, _) = match Symbol.match_id sym with
+    | Just z -> z = fname
+    | Nothing -> false
+  end in
+  match mk_stdcall_aux match_sym (Map_extra.toList stdlib) with
     | Just (f, Core.Fun bTy params _) ->
         fun pes -> Caux.mk_call_pe (Core.Sym f) pes
     | _ ->

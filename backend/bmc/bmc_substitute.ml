@@ -1,9 +1,8 @@
-open Bmc_utils
-
 open Cerb_frontend
+open Cerb_symbol
 open Core
 
-type substitute_map = (sym_ty, pexpr) Pmap.map
+type substitute_map = (Sym.t, pexpr) Pmap.map
 
 (* WARNING: all these functions assume the symbols in the
    substitute_map doesn't clash with the binders in the Core exprs *)

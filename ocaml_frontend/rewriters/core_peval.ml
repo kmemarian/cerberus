@@ -1,13 +1,15 @@
 (* NOTE: this is work in progress *)
+open Cerb_debug
+open Cerb_symbol
+
 open Core_rewriter
 open Core
 
-open Cerb_debug
 
 
 (* TODO: move this to Core_aux *)
 let rec match_pattern_pexpr loc_opt (Pattern (annots_pat, pat_) as pat) (Pexpr (annots_pe, bTy, pexpr_) as pexpr)
-  : [ `MATCHED of (pattern * pexpr) option * (Symbol.sym * Cerb_location.t option * [ `VAL of value | `SYM of Symbol.sym ]) list | `MISMATCHED ] =
+  : [ `MATCHED of (pattern * pexpr) option * (Sym.t * Cerb_location.t option * [ `VAL of value | `SYM of Sym.t ]) list | `MISMATCHED ] =
   let wrap_pat z = Pattern (annots_pat, z) in
   let wrap_pexpr z = Pexpr (annots_pe, bTy, z) in
   match pat_, pexpr_ with
@@ -88,7 +90,7 @@ Bloaded (LVspecified oval)) ->
 
 
 let rec match_pattern_expr (Pattern (annots_pat, pat_) as pat) (Expr (annots_e, expr_) as expr)
-   : [ `MATCHED of (pattern * 'a expr) option * (Symbol.sym * Cerb_location.t option * [ `VAL of value | `SYM of Symbol.sym ]) list | `MISMATCHED ] =
+   : [ `MATCHED of (pattern * 'a expr) option * (Sym.t * Cerb_location.t option * [ `VAL of value | `SYM of Sym.t ]) list | `MISMATCHED ] =
   let wrap_pat z = Pattern (annots_pat, z) in
   let wrap_expr z = Expr (annots_e, z) in
   match pat_, expr_ with
@@ -166,7 +168,7 @@ let rec match_pattern_expr (Pattern (annots_pat, pat_) as pat) (Expr (annots_e, 
 *)
 
 
-(* val     select_case_pexpr: forall 'a. (Symbol.sym -> value -> 'a -> 'a) -> value -> list (pattern * 'a) -> maybe 'a *)
+(* val     select_case_pexpr: forall 'a. (Sym.t -> value -> 'a -> 'a) -> value -> list (pattern * 'a) -> maybe 'a *)
 let rec select_case_pexpr loc_opt subst_sym pexpr = function
   | [] ->
       `MISMATCHED
@@ -248,7 +250,7 @@ let rec subst_sym_pexpr2 sym z (Pexpr (annot, bTy, pexpr_)) =
   let wrap z = Pexpr (annot, bTy, z) in
   match pexpr_ with
     | PEsym sym' ->
-      if sym = sym' then
+      if Sym.equal sym sym' then
         let annot' = match fst z with
           | Some loc ->
               Annot.Aloc loc :: annot
@@ -364,7 +366,7 @@ let rec subst_sym_expr2 sym z (Expr (annot, expr_)) =
                 let sym_bTy_pes' = List.map (fun (x, (bTy, pe)) ->
                   (x, (bTy, subst_sym_pexpr2 sym z pe))
                 ) sym_bTy_pes in
-                if List.exists (fun (z, _) -> sym = z) sym_bTy_pes then
+                if List.exists (fun (z, _) -> Sym.equal sym z) sym_bTy_pes then
                   (* TODO: check *)
                   Esave (lab_sym, sym_bTy_pes', e)
                 else
@@ -399,7 +401,7 @@ and subst_sym_action_2 sym z = function
   | SeqRMW (b, pe1, pe2, rmw_sym, pe3) ->
       (* sym is bound in pe3 *)
       let pe3' =
-        if Symbol.symbolEquality sym rmw_sym then
+        if Sym.equal sym rmw_sym then
           pe3
         else
           subst_sym_pexpr2 sym z pe3 in
@@ -445,7 +447,7 @@ let apply_substs_expr xs e =
 
 
 (* FIXME: probably this should be passed like a proper parameter *)
-let config_unfold_stdlib : (Symbol.sym -> bool) ref =
+let config_unfold_stdlib : (Sym.t -> bool) ref =
   ref (fun _ -> false)
 
 
@@ -462,8 +464,7 @@ let core_peval file : RW.rewriter =
   in
 
   let eval_pexpr pexpr =
-    let emp = Pmap.empty Symbol.instance_Basic_classes_Ord_Symbol_sym_dict.compare_method in
-    Core_eval.eval_pexpr Cerb_location.unknown None emp [] None file pexpr in
+    Core_eval.eval_pexpr Cerb_location.unknown None Sym.empty_pmap [] None file pexpr in
   
   let to_unfold_funs =
     (* The list of stdlib functions to be unfolded (see PEcall) *)
@@ -849,8 +850,8 @@ let rewrite_file file =
   in
 
 
-  let rewrite_globs_list (gs : (Symbol.sym *  'a generic_globs) list )
-      : (Symbol.sym * 'a generic_globs) list = 
+  let rewrite_globs_list (gs : (Sym.t *  'a generic_globs) list )
+      : (Sym.t * 'a generic_globs) list = 
     List.map (fun (sym,g) -> (sym, rewrite_globs g)) gs
   in
 
@@ -881,7 +882,7 @@ let sym_eq =
 
 
 
-let symbol_of_funname file str : Symbol.sym option =
+let symbol_of_funname file str : Sym.t option =
   List.find_opt (fun (Symbol.Symbol (_, _, str_opt)) ->
       match str_opt with
         | Some str' when str = str' ->
@@ -950,7 +951,7 @@ let is_recursive_function file sym : bool =
         end
 
 
-let unfold_functions file (funames: string (*Symbol.sym list*)) expr : unit expr =
+let unfold_functions file (funames: string (*Sym.t list*)) expr : unit expr =
   let funames =
     List.find (fun (Symbol.Symbol (_, _, str_opt)) ->
       match str_opt with

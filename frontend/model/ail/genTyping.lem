@@ -888,8 +888,18 @@ let rec annotate_expression annotate_block sigm gamm ctx (AnnotatedExpression ()
     
     | AilEcall (AnnotatedExpression _ annots' loc' (AilEbuiltin b)) args ->
         let loc_cursor = Loc.with_cursor loc' in
-        let memorder_ty = Ctype [] $ Basic (Integer (Signed (Int_))) (* TODO: actually memory_order enum *) in
+        let memorder_ty = Cty.signed_int (* TODO: actually memory_order enum *) in
         match (b, args) with
+        | (AilBatomic AilBAthread_fence, order_e :: args) ->
+            (* void atomic_thread_fence(memory_order) *)
+            let gen_fun_ty =
+              GenRValueType
+                (GenFunction (no_qualifiers, Cty.void) [(no_qualifiers, memorder_ty, false)] false) in
+            annotate_rvalue order_e >>= fun (order_e', order_gty) ->
+            (* TODO: check order_gty *)
+            E.return ( AilEcall (AnnotatedExpression gen_fun_ty annots' loc' (AilEbuiltin b)) [order_e']
+                     , GenRValueType GenVoid )
+
         | (AilBatomic AilBAstore, object_e :: desired_e :: order_e :: args) ->
             annotate_rvalue object_e >>= fun (object_e',  object_gty)  ->
             match object_gty with
@@ -1089,13 +1099,7 @@ let rec annotate_expression annotate_block sigm gamm ctx (AnnotatedExpression ()
        | (_, _) ->
             error "WIP: typing builtin"
     end
-    
-    (* TODO: this is wrong in so many ways!! *)
-    | AilEcall (AnnotatedExpression _ annots' loc' (AilEident (Symbol.Symbol digest s (Symbol.SD_Id "atomic_thread_fence")))) [order_e] ->
-        (* TODO: do typechecking *)
-        annotate_rvalue order_e >>= fun (order_e', order_gty) ->
-        E.return (AilEcall (AnnotatedExpression (GenRValueType GenVoid) annots' loc' (AilEident (Symbol.Symbol digest s (Symbol.SD_Id "atomic_thread_fence")))) [order_e'], GenRValueType GenVoid)
-    
+
     | AilEcall e es ->
         E.add "§6.5.2.2#1" >>
         let check_return_type ret_ty =

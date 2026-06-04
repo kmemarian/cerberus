@@ -1,5 +1,5 @@
+open Cerb_symbol
 open Annot
-type symbol = Symbol.sym
 
 (* copying some types and logic from an earlier version of mucore.ml
    and from the Core module *)
@@ -7,33 +7,33 @@ type symbol = Symbol.sym
 type loc = Cerb_location.t
 
 type bt = Core.core_base_type
-type ft = Ctype.ctype * (Symbol.sym * Ctype.ctype) list * bool
-type lt = (Symbol.sym option * (Ctype.ctype * Core.pass_by_value_or_pointer)) list
+type ft = Ctype.ctype * (Sym.t * Ctype.ctype) list * bool
+type lt = (Sym.t option * (Ctype.ctype * Core.pass_by_value_or_pointer)) list
 
 type 'a mi_label_def = 
   | Mi_Return of loc
-  | Mi_Label of loc * lt * ((symbol * bt) list) * 'a Core.expr * annot list
+  | Mi_Label of loc * lt * ((Sym.t * bt) list) * 'a Core.expr * annot list
 
-type 'a mi_label_defs = (symbol, ('a mi_label_def)) Pmap.map
+type 'a mi_label_defs = (Sym.t, ('a mi_label_def)) Pmap.map
 
 type 'a mi_fun_map_decl =
-  | Mi_Fun of bt * (symbol * bt) list * Core.pexpr
-  | Mi_Proc of Cerb_location.t * int option * bt * (symbol * bt) list * 'a Core.expr * 'a mi_label_defs
+  | Mi_Fun of bt * (Sym.t * bt) list * Core.pexpr
+  | Mi_Proc of Cerb_location.t * int option * bt * (Sym.t * bt) list * 'a Core.expr * 'a mi_label_defs
   | Mi_ProcDecl of Cerb_location.t * bt * bt list
   | Mi_BuiltinDecl of Cerb_location.t * bt * bt list
 
-type 'a mi_fun_map = (symbol, 'a mi_fun_map_decl) Pmap.map
+type 'a mi_fun_map = (Sym.t, 'a mi_fun_map_decl) Pmap.map
 
 
-type mi_funinfo = (Symbol.sym, (Cerb_location.t * Annot.attributes * Ctype.ctype * (Symbol.sym option * Ctype.ctype) list * bool * bool)) Pmap.map
+type mi_funinfo = (Sym.t, (Cerb_location.t * Annot.attributes * Ctype.ctype * (Sym.t option * Ctype.ctype) list * bool * bool)) Pmap.map
 
 (* a Core file is just a set of named functions *)
 type 'a mi_file = {
-  mi_main    : symbol option;
+  mi_main    : Sym.t option;
   mi_tagDefs : Core.core_tag_definitions;
   mi_stdlib  : 'a mi_fun_map;
   mi_impl    : Core.impl;
-  mi_globs   : (Symbol.sym * 'a Core.generic_globs) list;
+  mi_globs   : (Sym.t * 'a Core.generic_globs) list;
   mi_funs    : 'a mi_fun_map;
   mi_extern  : Core.extern_map;
   mi_funinfo :  mi_funinfo;

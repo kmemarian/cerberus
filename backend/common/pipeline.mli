@@ -1,4 +1,5 @@
 open Cerb_frontend
+open Cerb_symbol
 
 type language =
   | Cabs | Ail | Core | Types
@@ -37,10 +38,10 @@ val run_pp: string option -> PPrint.document -> unit
 val core_stdlib_path: unit -> string
 
 val load_core_stdlib:
-  unit -> ((string, Symbol.sym) Pmap.map * unit Core.fun_map, Cerb_location.t * Errors.cause) result
+  unit -> ((string, Sym.t) Pmap.map * unit Core.fun_map, Cerb_location.t * Errors.cause) result
 
 val load_core_impl:
-  (string, Symbol.sym) Pmap.map * unit Core.fun_map -> string ->
+  (string, Sym.t) Pmap.map * unit Core.fun_map -> string ->
   (Core.impl, Cerb_location.t * Errors.cause) result
 
 val cpp: (configuration * io_helpers) -> filename:string -> (string, Cerb_location.t * Errors.cause) result
@@ -48,7 +49,7 @@ val cpp: (configuration * io_helpers) -> filename:string -> (string, Cerb_locati
 val c_frontend:
   ?cn_init_scope: Cn_desugaring.init_scope ->
   (configuration * io_helpers) ->
-  (((string, Symbol.sym) Pmap.map * unit Core.generic_fun_map) * Core.impl) ->
+  (((string, Sym.t) Pmap.map * unit Core.generic_fun_map) * Core.impl) ->
   filename:string ->
   ( Cabs.translation_unit
   * (Cabs_to_ail_effect.fin_markers_env * GenTypes.genTypeCategory AilSyntax.ail_program)
@@ -57,7 +58,7 @@ val c_frontend:
 val c_frontend_and_elaboration:
   ?cn_init_scope: Cn_desugaring.init_scope ->
   (configuration * io_helpers) ->
-  (((string, Symbol.sym) Pmap.map * unit Core.generic_fun_map) * Core.impl) ->
+  (((string, Sym.t) Pmap.map * unit Core.generic_fun_map) * Core.impl) ->
   filename:string ->
   ( Cabs.translation_unit option
   * (Cabs_to_ail_effect.fin_markers_env * GenTypes.genTypeCategory AilSyntax.ail_program) option
@@ -66,7 +67,7 @@ val c_frontend_and_elaboration:
 
 val core_frontend:
   'a * io_helpers ->
-  ('b * (Symbol.sym, unit Core.generic_fun_map_decl) Pmap.map) *
+  ('b * (Sym.t, unit Core.generic_fun_map_decl) Pmap.map) *
   (Implementation.implementation_constant, Core.impl_decl)
   Pmap.map ->
   filename:string ->
@@ -94,7 +95,7 @@ val ocaml_backend:
 
 val read_core_object:
   (configuration * io_helpers) -> ?is_lib:bool ->
-  (((string, Symbol.sym) Pmap.map * unit Core.generic_fun_map) * Core.impl) ->
+  (((string, Sym.t) Pmap.map * unit Core.generic_fun_map) * Core.impl) ->
   string ->
   (unit Core.file, Cerb_location.t * Errors.cause) result
 val write_core_object: unit Core.file -> string -> unit

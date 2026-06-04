@@ -216,7 +216,7 @@ instance (Show tag_definition)
   let show def =
     let string_of_identifiers tag_defs =
       List.foldl (fun acc (ident, _) ->
-        acc ^ (show ident) ^ "; "
+        acc ^ Symbol.string_of_identifier ident ^ "; "
       ) "[" tag_defs ^ "]"
     in
     match def with

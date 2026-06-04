@@ -1,5 +1,6 @@
 %{
 open Cerb_frontend
+open Cerb_symbol
 
 open Lem_pervasives
 open Either
@@ -18,9 +19,6 @@ open Ctype
 let pos = Cerb_position.from_lexing
 let region (x,y) = Cerb_location.region (pos x, pos y)
 let pointCursor x = Cerb_location.PointCursor (pos x)
-
-let sym_compare =
-  Symbol.instance_Basic_classes_Ord_Symbol_sym_dict.compare_method
 
 let iCst_compare =
   compare
@@ -72,9 +70,9 @@ let ensure_list_core_base_type loc = function
 
 
 type symbolify_state = {
-  labels: (Core_parser_util._sym, Symbol.sym * Cerb_location.t) Pmap.map;
-  sym_scopes: ((Core_parser_util._sym, Symbol.sym * Cerb_location.t) Pmap.map) list;
-  ailnames: (string, Symbol.sym) Pmap.map
+  labels: (Core_parser_util._sym, Sym.t * Cerb_location.t) Pmap.map;
+  sym_scopes: ((Core_parser_util._sym, Sym.t * Cerb_location.t) Pmap.map) list;
+  ailnames: (string, Sym.t) Pmap.map
 }
 
 let initial_symbolify_state = {
@@ -163,7 +161,7 @@ let open_scope : unit Eff.t =
   Eff.put {st with sym_scopes= Pmap.empty Core_parser_util._sym_compare :: st.sym_scopes} >>= fun () ->
   Eff.return ()
   
-let close_scope : ((Core_parser_util._sym, Symbol.sym * Cerb_location.t) Pmap.map) Eff.t =
+let close_scope : ((Core_parser_util._sym, Sym.t * Cerb_location.t) Pmap.map) Eff.t =
   Eff.get >>= fun st ->
   match st.sym_scopes with
     | [] ->
@@ -179,9 +177,9 @@ let under_scope (m: 'a Eff.t) : 'a Eff.t =
   Eff.return ret
 
 
-let register_sym ((_, (start_p, end_p)) as _sym) : Symbol.sym Eff.t =
+let register_sym ((_, (start_p, end_p)) as _sym) : Sym.t Eff.t =
   Eff.get >>= fun st ->
-  let sym = Symbol.Symbol (Cerb_fresh.digest(), Cerb_fresh.int(), SD_Id (fst _sym)) in
+  let sym = Sym.fresh_pretty (fst _sym) in
 (*  let sym = Symbol.Symbol (Cerb_global.new_int (), Some (fst _sym)) in *)
   Eff.put {st with
     sym_scopes=
@@ -193,7 +191,7 @@ let register_sym ((_, (start_p, end_p)) as _sym) : Symbol.sym Eff.t =
   } >>= fun () ->
   Eff.return sym
 
-let lookup_sym _sym : ((Symbol.sym * Cerb_location.t) option) Eff.t =
+let lookup_sym _sym : ((Sym.t * Cerb_location.t) option) Eff.t =
   Eff.get >>= fun st ->
   Eff.return (match st.sym_scopes with
     | [] ->
@@ -217,12 +215,12 @@ let lookup_sym _sym : ((Symbol.sym * Cerb_location.t) option) Eff.t =
 let register_label ((_, (start_p, end_p)) as _sym) : unit Eff.t =
   let loc = Cerb_location.(region (start_p, end_p) NoCursor) in
   Eff.get >>= fun st ->
-  let sym = Symbol.Symbol (Cerb_fresh.digest(), Cerb_fresh.int(), SD_Id (fst _sym)) in
+  let sym = Sym.fresh_pretty (fst _sym) in
   Eff.put {st with
     labels= Pmap.add _sym (sym, loc) st.labels
   }
 
-let lookup_label _sym: ((Symbol.sym * Cerb_location.t) option) Eff.t =
+let lookup_label _sym: ((Sym.t * Cerb_location.t) option) Eff.t =
   Eff.get >>= fun st ->
   Eff.return (Pmap.lookup _sym st.labels)
 
@@ -246,7 +244,7 @@ let symbolify_sym _sym =
 
 let rec symbolify_ctype (Ctype (annots, ty)) =
   let symbolify_symbol = function
-    | Symbol.Symbol (_, _, SD_Id str) ->
+    | Sym.{ desc= SD_Id str; _ } ->
       (*begin lookup_sym (str, (Lexing.dummy_pos, Lexing.dummy_pos)) >>= function*)
       let dummy = Cerb_position.dummy in
       begin lookup_sym (str, (dummy, dummy)) >>= function
@@ -965,7 +963,7 @@ let symbolify_impl_or_file decls : ((Core.impl, parsed_core_file) either) Eff.t 
             | None ->
                 assert false
           end
-  ) (Pmap.empty iCst_compare, [], Pmap.empty sym_compare, Pmap.empty sym_compare) decls >>= fun (impl, globs, fun_map, tagDefs) ->
+  ) (Pmap.empty iCst_compare, [], Pmap.empty Sym.compare, Pmap.empty Sym.compare) decls >>= fun (impl, globs, fun_map, tagDefs) ->
   if not (Pmap.is_empty impl) &&  globs = [] && Pmap.is_empty fun_map then
     Eff.return (Left impl)
   else
@@ -1044,7 +1042,7 @@ let symbolify_std decls : (unit Core.fun_map) Eff.t =
         )
       | Aggregate_decl ((_, p), _tags) ->
           Eff.fail (Cerb_location.(region p NoCursor)) Core_parser_wrong_decl_in_std
-  ) (Pmap.empty sym_compare) decls
+  ) (Pmap.empty Sym.compare) decls
 
 let symbolify_impl decls : impl Eff.t =
   Eff.foldrM (fun decl impl_acc ->
@@ -1205,7 +1203,7 @@ let mk_file decls =
 %start <Core_parser_util.result>start
 %parameter <M : sig
                   val mode: Core_parser_util.mode
-                  val std: (Core_parser_util._sym, Cerb_frontend.Symbol.sym) Pmap.map
+                  val std: (Core_parser_util._sym, Cerb_frontend.Cerb_symbol.Sym.t) Pmap.map
                 end>
 
 %%
@@ -1336,10 +1334,10 @@ ctype:
     }
 | STRUCT tag= SYM
     (* NOTE: we only collect the string name here *)
-    { Ctype.Ctype ([], Ctype.Struct (Symbol.Symbol ("", -1, SD_Id (fst tag)))) }
+    { Ctype.Ctype ([], Ctype.Struct (Sym.mk "" (-1) (SD_Id (fst tag)))) }
 | UNION tag= SYM
     (* NOTE: we only collect the string name here *)
-    { Ctype.Ctype ([], Ctype.Union (Symbol.Symbol ("", -1, SD_Id (fst tag)))) }
+    { Ctype.Ctype ([], Ctype.Union (Sym.mk "" (-1) (SD_Id (fst tag)))) }
 ;
 
 params:
@@ -1376,12 +1374,12 @@ core_object_type:
 *)
 | ARRAY oTy= delimited(LPAREN, core_object_type, RPAREN)
     { OTy_array oTy }
-(* NOTE: this is a hack to use Symbol.sym instead of _sym!
+(* NOTE: this is a hack to use Sym.t instead of _sym!
  * The symbol is checked later, but we lose the location *)
 | STRUCT tag= SYM
-    { OTy_struct (Symbol.Symbol ("", 0, SD_Id (fst tag))) }
+    { OTy_struct (Sym.mk "" 0 (SD_Id (fst tag))) }
 | UNION tag= SYM
-    { OTy_union (Symbol.Symbol ("", 0, SD_Id (fst tag))) }
+    { OTy_union (Sym.mk "" 0 (SD_Id (fst tag))) }
 ;
 
 core_base_type:
@@ -1438,7 +1436,7 @@ name:
 
 cabs_id:
 | n= SYM
-  { Symbol.Identifier (Cerb_location.(region (snd n) NoCursor), fst n) }
+  { Identifier.mk (Cerb_location.(region (snd n) NoCursor)) (fst n) }
 ;
 
 memory_order:
@@ -1706,11 +1704,11 @@ expr:
 
 action:
 | CREATE LPAREN _pe1= pexpr COMMA _pe2= pexpr RPAREN
-    { Create (_pe1, _pe2, Symbol.PrefOther "Core") }
+    { Create (_pe1, _pe2, PrefOther "Core") }
 | CREATE_READONLY LPAREN _pe1= pexpr COMMA _pe2= pexpr COMMA _pe3= pexpr RPAREN
-    { CreateReadOnly (_pe1, _pe2, _pe3, Symbol.PrefOther "Core") }
+    { CreateReadOnly (_pe1, _pe2, _pe3, PrefOther "Core") }
 | ALLOC LPAREN _pe1= pexpr COMMA _pe2= pexpr RPAREN
-    { Alloc (_pe1, _pe2, Symbol.PrefOther "Core") }
+    { Alloc (_pe1, _pe2, PrefOther "Core") }
 | FREE _pe= delimited(LPAREN, pexpr, RPAREN)
     { Kill (Dynamic, _pe) }
 | KILL LPAREN _ct = core_ctype COMMA _pe= pexpr RPAREN

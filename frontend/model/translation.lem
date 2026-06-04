@@ -237,15 +237,15 @@ let translate_function_designator translate_expr stdlib (A.AnnotatedExpression _
         translate_expr e                                    >>= fun core_e  ->
         E.return (Caux.mk_sseq_e fun_wrp.E.sym_pat core_e (Caux.mk_pure_e fun_wrp.E.sym_pe))
     | (Ctype.Function _ params is_variadic, A.AilEident fid) ->
-        let fid_pe = match fid with
-          | Symbol.Symbol _ _ (Symbol.SD_Id str) ->
+        let fid_pe = match Symbol.match_id fid with
+          | Just str ->
               match Map.lookup str stdlib.ailnames with
                 | Just sym ->
                     Caux.mk_value_pe (Core.Bloaded (C.LVspecified (Core.OVpointer (Mem.fun_ptrval sym))))
                 | Nothing ->
                     Caux.mk_value_pe (Core.Bloaded (C.LVspecified (Core.OVpointer (Mem.fun_ptrval fid))))
               end
-          | _ ->
+          | Nothing ->
               Caux.mk_value_pe (Core.Bloaded (C.LVspecified (Core.OVpointer (Mem.fun_ptrval fid))))
         end in
         E.return (Caux.mk_pure_e fid_pe)
@@ -931,7 +931,7 @@ let translate_function_call loc annots is_used translate_expr stdlib e es =
                 Atomics.NA in
             Caux.add_std "§6.5.2.2#7, sentence 1" begin
               Caux.mk_wseq_e arg_ptr_wrp.E.sym_pat
-                (Caux.pcreate loc (Caux.mk_alignof_pe expect_param_ty_pe) expect_param_ty_pe (Symbol.PrefFunArg loc (Symbol.digest ()) (intFromInteger n)))
+                (Caux.pcreate loc (Caux.mk_alignof_pe expect_param_ty_pe) expect_param_ty_pe (Symbol.mk_funarg_prefix loc (intFromInteger n)))
                 begin
                   Caux.mk_wseq_e (Caux.mk_empty_pat C.BTy_unit)
                     (Caux.pstore loc expect_param_ty_pe arg_ptr_wrp.E.sym_pe conv_value mo)
@@ -2528,12 +2528,12 @@ end
             A.AnnotatedExpression annot [] loc (A.AilEassign e1 (A.AnnotatedExpression (GenTypes.GenRValueType arith_gty) [] loc (A.AilEbinary e1_rvalue (A.Arithmetic aop) e2)))
           end
       
+      | A.AilEcall (A.AnnotatedExpression _ _ _ (A.AilEbuiltin (A.AilBatomic A.AilBAthread_fence))) es ->
+          translate_atomic_explicit loc self AtomicThreadFence es
       | A.AilEcall (A.AnnotatedExpression _ _ _ (A.AilEbuiltin (A.AilBatomic A.AilBAstore))) es ->
           translate_atomic_explicit loc self AtomicStoreExplicit es
       | A.AilEcall (A.AnnotatedExpression _ _ _ (A.AilEbuiltin (A.AilBatomic A.AilBAload))) es ->
           translate_atomic_explicit loc self AtomicLoadExplicit es
-      | A.AilEcall (A.AnnotatedExpression _ _ _ (A.AilEident (Symbol.Symbol _ _ (Symbol.SD_Id "atomic_thread_fence")))) es ->
-          translate_atomic_explicit loc self AtomicThreadFence es
       | A.AilEcall (A.AnnotatedExpression _ _ _ (A.AilEbuiltin (A.AilBatomic A.AilBAcompare_exchange_strong))) es ->
           translate_atomic_explicit loc self AtomicCompareExchangeStrongExplicit es
       | A.AilEcall (A.AnnotatedExpression _ _ _ (A.AilEbuiltin (A.AilBatomic A.AilBAcompare_exchange_weak))) es ->
@@ -2849,7 +2849,7 @@ end
           E.wrapped_fresh_symbol (C.BTy_loaded oTy)           >>= fun e_wrp   ->
           self e                                              >>= fun core_e  ->
           (* STD §6.5.2.5#3 *)
-          E.register_compound_literal loc (Symbol.PrefCompoundLiteral (locOf e) (Symbol.digest_of_sym e_wrp.E.sym_sym)) obj_wrp.E.sym_sym qs.Ctype.const ty >>= fun () ->
+          E.register_compound_literal loc (Symbol.compound_literal_prefix (locOf e) e_wrp.E.sym_sym) obj_wrp.E.sym_sym qs.Ctype.const ty >>= fun () ->
           E.return begin
             (* NOTE: the elaboration ensures [ty] and the type of [e] are the same *)
             Caux.mk_wseq_e e_wrp.E.sym_pat core_e begin
@@ -3477,7 +3477,7 @@ let mk_run_with_lifetime_e loc sym visibles_before visibles_after pes =
       List.map (fun (sym, ty) ->
         (C.Pattern [] (C.CaseBase (Just sym, C.BTy_object C.OTy_pointer)),
          let core_ty = Caux.mk_ail_ctype_pe ty in
-         Caux.pcreate loc (Caux.mk_alignof_pe core_ty) core_ty (Symbol.PrefSource loc [(*f; *)sym]))
+         Caux.pcreate loc (Caux.mk_alignof_pe core_ty) core_ty (Symbol.source_prefix loc [(*f; *)sym]))
       ) created_sym_tys
     end in
   mk_kills_e (mk_creates_e (Caux.mk_run_e sym ((List.map (fun (sym, _) -> Caux.mk_sym_pe sym) visibles_after) ++ pes)))
@@ -3528,7 +3528,7 @@ let wrapped_translate_expression translate_block_opt is_used ctx variadic_env st
             List.map (fun (ptr_wrp, ty) ->
               ( ( ptr_wrp.E.sym_pat
                 , let core_ty = Caux.mk_ail_ctype_pe ty in
-                  Caux.pcreate loc (Caux.mk_alignof_pe core_ty) core_ty (Symbol.PrefTemporaryLifetime loc (Symbol.digest_of_sym ptr_wrp.E.sym_sym)) )
+                  Caux.pcreate loc (Caux.mk_alignof_pe core_ty) core_ty (Symbol.temporary_lifetime_prefix loc ptr_wrp.E.sym_sym) )
               , Caux.pkill loc (C.Static ty) ptr_wrp.E.sym_pe )
             ) xs
           end in
@@ -3611,7 +3611,7 @@ let translate_block translate_expr_opt self loc f binds ss =
             Caux.mk_alignof_pe c_ty
       end in    
       ( Caux.mk_sym_pat sym (C.BTy_object C.OTy_pointer)
-      , Caux.pcreate (Loc.with_cursor_from loc ident_loc) align_ival c_ty (Symbol.PrefSource ident_loc [f; sym]) )
+      , Caux.pcreate (Loc.with_cursor_from loc ident_loc) align_ival c_ty (Symbol.source_prefix ident_loc [f; sym]) )
     ) decls_with_loc in
   let cheri_const_intrinsic =
     if Global.is_CHERI () then
@@ -3696,7 +3696,7 @@ let rec translate_stmt stdlib tagDefs f env stmt : E.elabM (C.expr unit) =
         let new_loc = Loc.with_cursor_from loc ident_loc in
         E.return begin
           Caux.mk_sseq_e (Caux.mk_sym_pat sym (C.BTy_object C.OTy_pointer))
-             (Caux.pcreate new_loc align_ival c_ty (Symbol.PrefSource ident_loc [f; sym])) (
+             (Caux.pcreate new_loc align_ival c_ty (Symbol.source_prefix ident_loc [f; sym])) (
             List.foldr (fun core_s acc ->
               Caux.mk_sseq_e (Caux.mk_empty_pat C.BTy_unit) core_s acc
             ) (Caux.pkill new_loc (C.Static ty) (Caux.mk_sym_pe sym)) core_ss
@@ -3730,7 +3730,7 @@ let rec translate_stmt stdlib tagDefs f env stmt : E.elabM (C.expr unit) =
                   Caux.mk_alignof_pe c_ty
             end in    
             ( Caux.mk_sym_pat sym (C.BTy_object C.OTy_pointer)
-            , Caux.pcreate (Loc.with_cursor_from loc ident_loc) align_ival c_ty (Symbol.PrefSource ident_loc [f; sym]) )
+            , Caux.pcreate (Loc.with_cursor_from loc ident_loc) align_ival c_ty (Symbol.source_prefix ident_loc [f; sym]) )
           ) decls_with_loc in
         let cheri_const_intrinsic =
           if Global.is_CHERI () then
@@ -4226,7 +4226,7 @@ let translate_program stdlib (startup_sym_opt, sigm) =
                   Caux.add_annot (Annot.Acerb (Annot.ACerb_with_address addr))
               | _ ->
                   (fun z -> z)
-            end (Caux.pcreate loc align_ival core_ty (Symbol.PrefSource loc [sym])) in
+            end (Caux.pcreate loc align_ival core_ty (Symbol.source_prefix loc [sym])) in
           let sym_global  = Symbol.fresh () in
 
           match List.lookup sym sigm.A.object_definitions with
@@ -4309,18 +4309,18 @@ let translate_program stdlib (startup_sym_opt, sigm) =
                   ( gacc
                   , Map.insert sym (C.ProcDecl loc ret_bTy param_bTys) facc
                     (* get the correct symbol if a proxy exists *)
-                  , match sym with
-                      | Symbol.Symbol _ _ (Symbol.SD_Id str) ->
+                  , match Symbol.match_id sym with
+                      | Just str ->
                           match Map.lookup str stdlib.ailnames with
                             | Just sym_proxy -> Map.insert sym_proxy finfo finfoacc
                             | Nothing -> Map.insert sym finfo finfoacc
                           end
-                      | _ -> Map.insert sym finfo finfoacc
+                      | Nothings -> Map.insert sym finfo finfoacc
                     end )
             
             | Just (loc, mrk, _, param_syms, stmt) ->
                 E.mapM (fun (s, bTy) ->
-                  let descr = 
+                  let descr =
                     if not (Global.has_switch Global.SW_inner_arg_temps) then Symbol.SD_None else
                       match Symbol.symbol_description s with
                       | Symbol.SD_ObjectAddress v -> Symbol.SD_FunArgValue v
@@ -4339,7 +4339,7 @@ let translate_program stdlib (startup_sym_opt, sigm) =
                         if Global.has_switch Global.SW_inner_arg_temps then 
                           let descr = match Symbol.symbol_description sym with
                             | Symbol.SD_ObjectAddress v -> Symbol.SD_FunArgValue v
-                            | _ -> Assert_extra.failwith "function argument does not have SD_ObjectAddress description"
+                            | _ -> error "function argument does not have SD_ObjectAddress description"
                           end in
                           (Just (Symbol.set_symbol_description sym descr), ty)
                         else
@@ -4386,7 +4386,7 @@ let translate_program stdlib (startup_sym_opt, sigm) =
                           List.mapi (fun i ((_, ty, _), (ptr_sym, (_, value_sym_pe))) ->
                             let ty_pe = Caux.mk_ctype_pe ty in
                             [ ( Caux.mk_sym_pat ptr_sym (C.BTy_object C.OTy_pointer)
-                              , Caux.pcreate loc (Caux.mk_alignof_pe ty_pe) ty_pe (Symbol.PrefFunArg loc (Symbol.digest ()) (intFromNat i)) )
+                              , Caux.pcreate loc (Caux.mk_alignof_pe ty_pe) ty_pe (Symbol.mk_funarg_prefix loc (intFromNat i)) )
                             ; ( Caux.mk_empty_pat C.BTy_unit
                               , Caux.pstore loc ty_pe (Caux.mk_sym_pe ptr_sym) value_sym_pe Atomics.NA ) ]
                           ) (List.zip params (List.zip param_syms arg_value_decls))
@@ -4472,7 +4472,7 @@ let translate_program stdlib (startup_sym_opt, sigm) =
           Caux.mk_sseqs [
             ( ptr_wrp.E.sym_pat
             , Caux.pcreate loc (Caux.mk_alignof_pe ty_pe) ty_pe
-                (Symbol.PrefStringLiteral loc (Symbol.digest_of_sym sym)) )
+                (Symbol.string_literal_prefix loc sym) )
           ; ( Caux.mk_empty_pat C.BTy_unit
             , Caux.pstore_lock loc ty_pe ptr_wrp.E.sym_pe e_init Atomics.NA )
           ] begin
@@ -4491,7 +4491,7 @@ let translate_program stdlib (startup_sym_opt, sigm) =
           (Caux.mk_alignof_pe (Caux.mk_ctype_pe ty))
           (Caux.mk_ctype_pe ty)
           e_init
-          (Symbol.PrefStringLiteral loc (Symbol.digest_of_sym sym)) in
+          (Symbol.string_literal_prefix loc sym) in
       E.return ((sym, C.GlobalDef (C.BTy_object C.OTy_pointer, ty) expr) :: acc)
   end globs (List.reverse xs) >>= fun globs' ->
   E.return (core_tagDefs, globs', cfuns, funinfo)

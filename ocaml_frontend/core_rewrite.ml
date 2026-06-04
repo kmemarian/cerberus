@@ -718,7 +718,7 @@ let rec remove_conv_int_pexpr (Pexpr( annot1, bTy, _pe)) =
         let pes' = (Lem_list.map remove_conv_int_pexpr pes) in
         (match (nm, pes') with
           (* TODO: hack !!!!!!!!! *)
-          | (Sym (Symbol.Symbol( _, _, (Symbol.SD_Id "conv_int"))), [pe_ty; pe_n]) ->
+          | (Sym sym, [pe_ty; pe_n]) when Cerb_symbol.Sym.match_id sym = Some "conv_int" ->
               (match (Core_aux.valueFromPexpr pe_ty, Core_aux.valueFromPexpr pe_n) with
                 | (Some (Bctype ty1), Some (((Bobject (OVinteger ival)) as cval))) ->
                     (match Mem_aux.integerFromIntegerValue ival with
@@ -734,7 +734,7 @@ let rec remove_conv_int_pexpr (Pexpr( annot1, bTy, _pe)) =
                     PEcall( nm, pes')
 (*                    assert_false ("remove_conv_int_pexpr: Core type error? ==> " ^ pp_pexpr pexpr ^ " <==> " ^ pp_pexpr (PEbase cval)) *)
               )
-          | (Sym (Symbol.Symbol( _, _, (Symbol.SD_Id "conv"))), [pe_ty1; pe_ty2; Pexpr( _, _, _pe_n)]) ->
+          | (Sym sym, [pe_ty1; pe_ty2; Pexpr( _, _, _pe_n)]) when Cerb_symbol.Sym.match_id sym = Some "conv" ->
               if pe_ty1 = pe_ty2 then
                 _pe_n
               else
@@ -1427,7 +1427,7 @@ let rewrite_expr expr1 =
    sequentialise_creates_kills) expr
 *)
 
-let rewrite_fun_map dict_Map_MapKeyType_b fun_map1 =
+let rewrite_fun_map fun_map1 =
    (Pmap.map ((function
     | Fun( ty1, params, pe) ->
         Fun( ty1, params, (rewrite_pexpr pe))
@@ -1453,7 +1453,5 @@ let rewrite_glob_map globs_map =
 
 (* TODO *)
 let rewrite_file file1 =
-   ({ file1 with funs=  (rewrite_fun_map 
-  (instance_Map_MapKeyType_var_dict
-     Symbol.instance_Basic_classes_SetType_Symbol_sym_dict) file1.funs);
+   ({ file1 with funs=  (rewrite_fun_map file1.funs);
                globs= (rewrite_glob_map file1.globs) })

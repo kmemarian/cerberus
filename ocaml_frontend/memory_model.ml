@@ -46,7 +46,7 @@ module type Memory = sig
   (* Memory actions *)
   val allocate_object:
        Mem_common.thread_id      (* the allocating thread *)
-    -> Symbol.prefix  (* symbols coming from the Core/C program, for debugging purpose *)
+    -> Cerb_symbol.prefix  (* symbols coming from the Core/C program, for debugging purpose *)
 (*    -> bool           (* whether to zero init the allocated bytes *) *)
     -> integer_value  (* alignment constraint *)
     -> Ctype.ctype    (* type of the allocation *)
@@ -56,7 +56,7 @@ module type Memory = sig
   
   val allocate_region:
        Mem_common.thread_id      (* the allocating thread *)
-    -> Symbol.prefix  (* symbols coming from the Core/C program, for debugging purpose *)
+    -> Cerb_symbol.prefix  (* symbols coming from the Core/C program, for debugging purpose *)
     -> integer_value  (* alignment constraint *)
     -> integer_value  (* size *)
     -> pointer_value memM
@@ -68,15 +68,15 @@ module type Memory = sig
   
   (* Pointer value constructors *)
   val null_ptrval: Ctype.ctype -> pointer_value
-  val fun_ptrval: Symbol.sym -> pointer_value
+  val fun_ptrval: Cerb_symbol.Sym.t -> pointer_value
 
   (*TODO: revise that, just a hack for codegen*)
   val concrete_ptrval: Z.t -> Z.t -> pointer_value
   val case_ptrval: pointer_value ->
    (* null pointer *) (Ctype.ctype -> 'a) ->
-   (* function pointer *) (Symbol.sym option -> 'a) ->
+   (* function pointer *) (Cerb_symbol.Sym.t option -> 'a) ->
    (* concrete pointer *) (Z.t option -> Z.t -> 'a) -> 'a
-  val case_funsym_opt: mem_state -> pointer_value -> Symbol.sym option
+  val case_funsym_opt: mem_state -> pointer_value -> Cerb_symbol.Sym.t option
 
   (* Operations on pointer values *)
   val eq_ptrval: Cerb_location.t -> pointer_value -> pointer_value -> bool memM
@@ -87,7 +87,7 @@ module type Memory = sig
   val ge_ptrval: Cerb_location.t -> pointer_value -> pointer_value -> bool memM
   val diff_ptrval: Cerb_location.t -> Ctype.ctype -> pointer_value -> pointer_value -> integer_value memM
 
-  val update_prefix: (Symbol.prefix * mem_value) -> unit memM
+  val update_prefix: (Cerb_symbol.prefix * mem_value) -> unit memM
   val prefix_of_pointer: pointer_value -> string option memM
   
   val validForDeref_ptrval: Ctype.ctype -> pointer_value -> bool memM
@@ -107,10 +107,10 @@ module type Memory = sig
 
   (* Pointer shifting constructors *)
   val array_shift_ptrval:  pointer_value -> Ctype.ctype -> integer_value -> pointer_value
-  val member_shift_ptrval: pointer_value -> Symbol.sym -> Symbol.identifier -> pointer_value
+  val member_shift_ptrval: pointer_value -> Cerb_symbol.Sym.t -> Cerb_symbol.Identifier.t -> pointer_value
   
   val eff_array_shift_ptrval: Cerb_location.t -> pointer_value -> Ctype.ctype -> integer_value -> pointer_value memM
-  val eff_member_shift_ptrval: Cerb_location.t -> pointer_value -> Symbol.sym -> Symbol.identifier -> pointer_value memM
+  val eff_member_shift_ptrval: Cerb_location.t -> pointer_value -> Cerb_symbol.Sym.t -> Cerb_symbol.Identifier.t -> pointer_value memM
   
   val memcpy: Cerb_location.t -> pointer_value -> pointer_value -> integer_value -> pointer_value memM
   val memcmp: pointer_value -> pointer_value -> integer_value -> integer_value memM
@@ -134,7 +134,7 @@ module type Memory = sig
   val max_ival: Ctype.integerType -> integer_value
   val min_ival: Ctype.integerType -> integer_value
   val op_ival: Mem_common.integer_operator -> integer_value -> integer_value -> integer_value
-  val offsetof_ival: (Symbol.sym, Cerb_location.t * Ctype.tag_definition) Pmap.map -> Symbol.sym -> Symbol.identifier -> integer_value
+  val offsetof_ival: (Cerb_symbol.Sym.t, Cerb_location.t * Ctype.tag_definition) Pmap.map -> Cerb_symbol.Sym.t -> Cerb_symbol.Identifier.t -> integer_value
   
   val sizeof_ival: Ctype.ctype -> integer_value
   val alignof_ival: Ctype.ctype -> integer_value
@@ -181,20 +181,20 @@ module type Memory = sig
   val floating_value_mval: Ctype.floatingType -> floating_value -> mem_value
   val pointer_mval: Ctype.ctype -> pointer_value -> mem_value
   val array_mval: mem_value list -> mem_value
-  val struct_mval: Symbol.sym -> (Symbol.identifier * Ctype.ctype * mem_value) list -> mem_value
-  val union_mval: Symbol.sym -> Symbol.identifier -> mem_value -> mem_value
+  val struct_mval: Cerb_symbol.Sym.t -> (Cerb_symbol.Identifier.t * Ctype.ctype * mem_value) list -> mem_value
+  val union_mval: Cerb_symbol.Sym.t -> Cerb_symbol.Identifier.t -> mem_value -> mem_value
   
   (* Memory value destructor *)
   val case_mem_value:
     mem_value ->
     (Ctype.ctype -> 'a) -> (* unspecified case *)
-    (Ctype.integerType -> Symbol.sym -> 'a) -> (* concurrency read case *)
+    (Ctype.integerType -> Cerb_symbol.Sym.t -> 'a) -> (* concurrency read case *)
     (Ctype.integerType -> integer_value -> 'a) ->
     (Ctype.floatingType -> floating_value -> 'a) ->
     (Ctype.ctype -> pointer_value -> 'a) ->
     (mem_value list -> 'a) ->
-    (Symbol.sym -> (Symbol.identifier * Ctype.ctype * mem_value) list -> 'a) ->
-    (Symbol.sym -> Symbol.identifier -> mem_value -> 'a) ->
+    (Cerb_symbol.Sym.t -> (Cerb_symbol.Identifier.t * Ctype.ctype * mem_value) list -> 'a) ->
+    (Cerb_symbol.Sym.t -> Cerb_symbol.Identifier.t -> mem_value -> 'a) ->
     'a
 
 
@@ -206,14 +206,14 @@ module type Memory = sig
   (* Only used by cn-coq *)
   val pp_integer_value_for_coq: integer_value -> PPrint.document
   val pp_floating_value_for_coq: floating_value -> PPrint.document
-  val pp_pointer_value_for_coq: (Symbol.sym -> PPrint.document) -> pointer_value -> PPrint.document
+  val pp_pointer_value_for_coq: (Cerb_symbol.Sym.t -> PPrint.document) -> pointer_value -> PPrint.document
   (* This is a bit ugly as we need to pass all the pretty printers for the different types *)
   val pp_mem_value_for_coq: 
-    (Symbol.sym -> PPrint.document) ->
+    (Cerb_symbol.Sym.t -> PPrint.document) ->
     (Ctype.integerType -> PPrint.document) ->
     (Ctype.floatingType -> PPrint.document) ->
     (Ctype.ctype -> PPrint.document) ->
-    (Symbol.identifier -> PPrint.document) ->
+    (Cerb_symbol.Identifier.t -> PPrint.document) ->
     mem_value -> PPrint.document
 
   (* pretty printing *)

@@ -194,7 +194,8 @@ let decode_memory_order  = function
 end
 
 val translate_builtin_varnames: Symbol.identifier -> maybe (expression_ unit)
-let translate_builtin_varnames (Symbol.Identifier _ str) =
+let translate_builtin_varnames ident =
+  let str = Symbol.string_of_identifier ident in
   let const_int ic: maybe(expression_ unit) =
     Just (AilEconst (ConstantInteger ic))
   in

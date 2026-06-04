@@ -1,3 +1,4 @@
+open Cerb_symbol
 open Ctype
 open Memory_model
 open Memory_utils
@@ -59,7 +60,7 @@ let name = "VIP memory model"
 type pointer_value =
   | PVnull
   | PVloc of location
-  | PVfunptr of Symbol.sym
+  | PVfunptr of Sym.t
 
 (* EXTERNAL *)
 type integer_value =
@@ -84,8 +85,8 @@ type mem_value =
   | MVfloating of floatingType * floating_value
   | MVpointer of ctype * pointer_value
   | MVarray of mem_value list
-  | MVstruct of Symbol.sym (*struct/union tag*) * (Symbol.identifier (*member*) * ctype * mem_value) list
-  | MVunion of Symbol.sym (*struct/union tag*) * Symbol.identifier (*member*) * mem_value
+  | MVstruct of Sym.t (*struct/union tag*) * (Identifier.t (*member*) * ctype * mem_value) list
+  | MVunion of Sym.t (*struct/union tag*) * Identifier.t (*member*) * mem_value
 
 type mem_iv_constraint = integer_value MC.mem_constraint
 let cs_module = (module struct
@@ -150,7 +151,7 @@ type allocation = {
   killed: bool;
   (* NON-semantics fields *)
   ty: Ctype.ctype;
-  prefix: Symbol.prefix;
+  prefix: prefix;
 }
 
 type mem_state = {
@@ -337,7 +338,7 @@ let rec repr funptrmap mval : ((Digest.t * string) IntMap.t * AbsByte.t list) =
               Cerb_debug.print_debug 1 [] (fun () -> "NOTE: we fix the representation of all NULL pointers to be 0x0");
               ret @@ List.init ptr_size
                 (fun _ -> AbsByte.{prov= Prov_empty; value= (Some '\000'); ptrfrag_idx= None})
-          | PVfunptr (Symbol.Symbol (file_dig, n, opt_name)) ->
+          | PVfunptr _ ->
               (* TODO: *)
               not_implemented "VIP.repr => function pointer"
               (* (begin match opt_name with
@@ -651,7 +652,7 @@ let case_ptrval ptrval f_null f_funptr f_concrete =
     | PVfunptr sym ->
         f_funptr (Some sym)
 
-let case_funsym_opt _ ptrval : Symbol.sym option =
+let case_funsym_opt _ ptrval : Sym.t option =
   match ptrval with
     | PVfunptr sym ->
         Some sym
@@ -665,7 +666,7 @@ let eq_ptrval _ ptrval1 ptrval2 : bool memM =
     | PVnull, PVnull ->
         true
     | PVfunptr sym1, PVfunptr sym2 ->
-        (Symbol.symbolEquality sym1 sym2)
+        (Sym.equal sym1 sym2)
     | PVloc (_, addr1), PVloc (_, addr2) ->
         (Z.equal addr1 addr2)
     | _ ->
@@ -721,7 +722,7 @@ let diff_ptrval loc diff_ty ptrval1 ptrval2 : integer_value memM =
     | _ ->
       fail ~loc MerrPtrdiff
 
-let update_prefix: (Symbol.prefix * mem_value) -> unit memM =
+let update_prefix: (prefix * mem_value) -> unit memM =
   fun _ ->
     (* TODO: VIP.update_prefix isn't doing anything *)
     return ()
@@ -866,7 +867,7 @@ let array_shift_ptrval ptrval ty ival : pointer_value =
 let offsetof_ival tagDefs tag_sym membr_ident =
   let (xs, _) = Common.offsetsof tagDefs tag_sym in
   let pred (ident, _, _) =
-    Common.ident_equal ident membr_ident in
+    Identifier.equal ident membr_ident in
   match List.find_opt pred xs with
     | Some (_, _, offset) ->
         IVint (Z.of_int offset)
@@ -1283,7 +1284,7 @@ type allocation = {
   killed: bool;
   (* NON-semantics fields *)
   ty: Ctype.ctype;
-  prefix: Symbol.prefix;
+  prefix: prefix;
 }
 
 *)
@@ -1293,7 +1294,7 @@ type ui_alloc = {
   base: string;
   length: int;
   killed: bool;
-  prefix: Symbol.prefix;
+  prefix: prefix;
   (* dyn: bool; (* dynamic memory *) *)
   ty: ctype;
   values: ui_value list;
@@ -1355,20 +1356,20 @@ let rec mk_ui_values st bs ty mval : ui_value list =
         (* TODO: the Z.to_int on the sizeof() will raise Overflow on huge structs *)
         let (bs1, bs2) = L.split_at (Common.sizeof ty) bs in
             let (rev_rowss, _, bs') = List.fold_left begin
-            fun (acc_rowss, previous_offset, acc_bs) (Symbol.Identifier (_, memb), memb_ty, memb_offset_) ->
+            fun (acc_rowss, previous_offset, acc_bs) (memb, memb_ty, memb_offset_) ->
               let memb_offset = of_int memb_offset_ in
               let pad = to_int (sub memb_offset previous_offset) in
               let acc_bs' = L.drop pad acc_bs in
               let (mval, acc_bs'') = abst memb_ty acc_bs' in
               let rows = mk_ui_values acc_bs' memb_ty mval in
-              let rows' = List.map (add_path memb) rows in
+              let rows' = List.map (add_path memb.Identifier.str) rows in
               (* TODO: set padding value here *)
               let rows'' = if pad = 0 then rows' else mk_pad pad "" :: rows' in
               (rows''::acc_rowss, Z.add memb_offset (of_int (Common.sizeof memb_ty)), acc_bs'')
           end ([], Z.zero, bs1) (fst (Common.offsetsof (Tags.tagDefs ()) tag_sym))
         in List.concat (List.rev rev_rowss)
-    | MVunion (tag_sym, Symbol.Identifier (_, memb), mval) ->
-        List.map (add_path memb) (mk_ui_values bs ty mval) (* FIXME: THE TYPE IS WRONG *)
+    | MVunion (tag_sym, memb, mval) ->
+        List.map (add_path memb.Identifier.str) (mk_ui_values bs ty mval) (* FIXME: THE TYPE IS WRONG *)
 
 let mk_ui_alloc st id (alloc: allocation) : ui_alloc =
   (* let ty = match alloc.ty with Some ty -> ty | None -> Ctype ([], Array (Ctype ([], Basic (Integer Char)), Some alloc.length)) in *)
@@ -1426,11 +1427,11 @@ let serialise_mem_state dig (st: mem_state) : Cerb_json.json =
   let allocs =
     IntMap.filter (fun _ (alloc : allocation) ->
       match alloc.prefix with
-        | Symbol.PrefSource (_, syms) -> List.exists (fun (Symbol.Symbol (hash, _, _)) -> hash = dig) syms
-        | Symbol.PrefStringLiteral (_, hash) -> hash = dig
-        | Symbol.PrefCompoundLiteral (_, hash) -> hash = dig
-        | Symbol.PrefFunArg (_, hash, _) -> hash = dig
-        | Symbol.PrefMalloc -> true
+        | PrefSource (_, syms) -> List.exists (fun sym -> Digest.equal sym.Sym.tunit dig) syms
+        | PrefStringLiteral (_, hash) -> hash = dig
+        | PrefCompoundLiteral (_, hash) -> hash = dig
+        | PrefFunArg (_, hash, _) -> hash = dig
+        | PrefMalloc -> true
         | _ -> false
     ) st.allocations in
   `Assoc [ ("map", serialise_int_map (fun id alloc -> serialise_ui_alloc @@ mk_ui_alloc st id alloc) allocs)

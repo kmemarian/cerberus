@@ -1,8 +1,8 @@
 open Core
 
-type env = (Symbol.sym, pexpr) Pmap.map
+type env = (Cerb_symbol.Sym.t, pexpr) Pmap.map
 
-let empty_env : env = Pmap.empty Symbol.compare_sym
+let empty_env : env = Pmap.empty Cerb_symbol.Sym.compare
 
 let extend_env env alias pe = Pmap.add alias pe env
 
@@ -10,7 +10,7 @@ let extend_env_list env bindings =
   List.fold_left (fun acc (s, pe) -> extend_env acc s pe) env bindings
 
 let sym_in binders s =
-  List.exists (fun b -> Symbol.compare_sym s b = 0) binders
+  List.exists (fun b -> Cerb_symbol.Sym.compare s b = 0) binders
 
 (* a conservative free-variable and replaceable-with-unit check
 

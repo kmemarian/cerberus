@@ -1,3 +1,4 @@
+open Cerb_symbol
 open Core
 open Ctype
 
@@ -14,13 +15,13 @@ val to_pure : 'a expr -> pexpr option
 
 (* Core pattern builders  ************************************************** *)
 val mk_empty_pat : core_base_type -> pattern
-val mk_sym_pat : Symbol.sym -> core_base_type -> pattern
+val mk_sym_pat : Sym.t -> core_base_type -> pattern
 val mk_tuple_pat : pattern list -> pattern
 val mk_specified_pat : pattern -> pattern
 val mk_unspecified_pat : pattern -> pattern
 
 (* Core pexpr builders  ***************************************************** *)
-val mk_sym_pe : Symbol.sym -> pexpr
+val mk_sym_pe : Sym.t -> pexpr
 val mk_integer_pe : Z.t -> pexpr
 val mk_floating_value_pe : Impl_mem.floating_value -> pexpr
 val mk_nullptr_pe : ctype -> pexpr
@@ -52,13 +53,13 @@ val mk_catch_exceptional_condition_pe :
 val mk_let_pe : pattern -> pexpr -> pexpr -> pexpr
 val mk_if_pe : pexpr -> pexpr -> pexpr -> pexpr
 val mk_array_shift : pexpr -> ctype -> pexpr -> pexpr
-val mk_member_shift_pe : pexpr -> Symbol.sym -> Symbol.identifier -> pexpr
+val mk_member_shift_pe : pexpr -> Sym.t -> Identifier.t -> pexpr
 val mk_memop_pe : Mem_common.pure_memop -> pexpr list -> pexpr
 val mk_case_pe : pexpr -> (pattern * pexpr) list -> pexpr
 val mk_neg_pe : integerType -> pexpr -> pexpr
-val mk_struct_pe : Symbol.sym -> (Symbol.identifier * pexpr) list -> pexpr
-val mk_union_pe : Symbol.sym -> Symbol.identifier -> pexpr -> pexpr
-val mk_memberof_pe : Symbol.sym -> Symbol.identifier -> pexpr -> pexpr
+val mk_struct_pe : Sym.t -> (Identifier.t * pexpr) list -> pexpr
+val mk_union_pe : Sym.t -> Identifier.t -> pexpr -> pexpr
+val mk_memberof_pe : Sym.t -> Identifier.t -> pexpr -> pexpr
 val mk_value_pe : value -> pexpr
 val mk_cfunction_pe : pexpr -> pexpr
 val mk_std_pe : string -> pexpr -> pexpr
@@ -89,14 +90,14 @@ val mk_sseq_e : pattern -> 'a expr -> 'a expr -> 'a expr
 
 val mk_save_e_ :
   Annot.annot list ->
-  Symbol.sym * core_base_type ->
-  (Symbol.sym
+  Sym.t * core_base_type ->
+  (Sym.t
   * ((core_base_type * (Ctype.ctype * pass_by_value_or_pointer) option) * pexpr))
   list ->
   unit expr ->
   unit expr
 
-val mk_run_e : Symbol.sym -> pexpr list -> unit expr
+val mk_run_e : Sym.t -> pexpr list -> unit expr
 val mk_nd_e : unit expr list -> unit expr
 val mk_if_e_ : Annot.annot list -> pexpr -> unit expr -> unit expr -> unit expr
 val mk_if_e : pexpr -> unit expr -> unit expr -> unit expr
@@ -112,10 +113,10 @@ val mk_sseqs : (pattern * unit expr) list -> unit expr -> unit expr
 val concat_sseq : 'a expr -> 'a expr -> 'a expr
 
 (* Core (positive) memory action builders **************************************)
-val pcreate : Cerb_location.t -> pexpr -> pexpr -> Symbol.prefix -> unit expr
+val pcreate : Cerb_location.t -> pexpr -> pexpr -> Cerb_symbol.prefix -> unit expr
 
 val pcreate_readonly :
-  Cerb_location.t -> pexpr -> pexpr -> pexpr -> Symbol.prefix -> unit expr
+  Cerb_location.t -> pexpr -> pexpr -> pexpr -> Cerb_symbol.prefix -> unit expr
 
 val pkill : Cerb_location.t -> kill_kind -> pexpr -> unit expr
 
@@ -183,21 +184,21 @@ val seq_rmw :
   pexpr ->
   Core.core_object_type ->
   pexpr ->
-  Symbol.sym ->
+  Sym.t ->
   pexpr ->
   unit expr
 
 (* Substitutions and pattern matching *)
-val subst_sym_pexpr : Symbol.sym -> value -> pexpr -> pexpr
-val subst_sym_expr : Symbol.sym -> value -> 'a expr -> 'a expr
+val subst_sym_pexpr : Sym.t -> value -> pexpr -> pexpr
+val subst_sym_expr : Sym.t -> value -> 'a expr -> 'a expr
 val subst_wait : Mem_common.thread_id -> value -> 'a expr -> 'a expr
 val subst_pattern : pattern -> pexpr -> 'a expr -> 'a expr option
 val unsafe_subst_pattern : pattern -> pexpr -> 'a expr -> 'a expr
-val unsafe_subst_sym_pexpr : Symbol.sym -> pexpr -> pexpr -> pexpr
-val unsafe_subst_sym_expr : Symbol.sym -> pexpr -> 'a expr -> 'a expr
+val unsafe_subst_sym_pexpr : Sym.t -> pexpr -> pexpr -> pexpr
+val unsafe_subst_sym_expr : Sym.t -> pexpr -> 'a expr -> 'a expr
 
 val select_case :
-  (Symbol.sym -> value -> 'a -> 'a) -> value -> (pattern * 'a) list -> 'a option
+  (Sym.t -> value -> 'a -> 'a) -> value -> (pattern * 'a) list -> 'a option
 
 (* Annotations and attributes *)
 val add_loc : Cerb_location.t -> unit expr -> unit expr
@@ -211,27 +212,27 @@ val add_annots : Annot.annot list -> unit expr -> unit expr
 val annotate_integer_type_pexpr : integerType -> pexpr -> pexpr
 val maybe_annotate_integer_type_pexpr : ctype -> pexpr -> pexpr
 val maybe_annotate_integer_type : ctype -> unit expr -> unit expr
-val lookup_env : Symbol.sym -> (Symbol.sym, value) Pmap.map list -> value option
+val lookup_env : Sym.t -> (Sym.t, value) Pmap.map list -> value option
 
 val update_env :
   pattern ->
   value ->
-  (Symbol.sym, value) Pmap.map list ->
-  (Symbol.sym, value) Pmap.map list
+  (Sym.t, value) Pmap.map list ->
+  (Sym.t, value) Pmap.map list
 
 val find_labeled_continuation :
-  Symbol.sym -> 'a expr -> (Symbol.sym list * 'a expr) option
+  Sym.t -> 'a expr -> (Sym.t list * 'a expr) option
 
 val collect_labeled_continuations_NEW :
   'a file ->
-  ( Symbol.sym,
-    (Symbol.sym, (Symbol.sym * core_base_type) list * 'a expr) Pmap.map )
+  ( Sym.t,
+    (Sym.t, (Sym.t * core_base_type) list * 'a expr) Pmap.map )
   Pmap.map
 
 (* ONLY USED by millicore.ml *)
 type 'a m_labeled_continuation =
   core_base_type
-  * (Symbol.sym
+  * (Sym.t
     * ((core_base_type * (Ctype.ctype * pass_by_value_or_pointer) option)
       * pexpr))
     list
@@ -239,10 +240,10 @@ type 'a m_labeled_continuation =
   * Annot.annot list
 
 type 'a m_labeled_continuations =
-  (Symbol.sym, 'a m_labeled_continuation) Pmap.map
+  (Sym.t, 'a m_labeled_continuation) Pmap.map
 
 val m_collect_saves : 'a expr -> 'a m_labeled_continuations
 
 (* ONLY USED by  ocaml core_peval.ml *)
-val in_pattern : Symbol.sym -> pattern -> bool
-val match_pattern : pattern -> value -> (Symbol.sym * value) list option
+val in_pattern : Sym.t -> pattern -> bool
+val match_pattern : pattern -> value -> (Sym.t * value) list option

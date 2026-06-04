@@ -4,6 +4,7 @@ open Utils
 open Core
 open Ctype
 open Ctype_aux
+open Cerb_symbol
 (*import Symbol State Core_aux Ctype*)
 
 (*import Core_typing Core_typing_effect Core_typing_aux*)
@@ -17,8 +18,8 @@ let insupported str:'a=
    (Cerb_debug.error ("Core_unstruct: unsupported ==> " ^ str))
 
 
-(*val extract_ctype_pe: typed_pexpr -> maybe (either ctype (Symbol.sym * list (Symbol.identifier * (Annot.attributes * maybe alignment * qualifiers * ctype))))*)
-let extract_ctype_pe (Pexpr( _, _, pexpr_)):(((ctype),(Symbol.sym*(Symbol.identifier*(Annot.attributes*(alignment)option*qualifiers*ctype))list))Either.either)option=
+(*val extract_ctype_pe: typed_pexpr -> maybe (either ctype (Sym.t * list (Identifier.t * (Annot.attributes * maybe alignment * qualifiers * ctype))))*)
+let extract_ctype_pe (Pexpr( _, _, pexpr_)):(((ctype),(Sym.t*(Identifier.t*(Annot.attributes*(alignment)option*qualifiers*ctype))list))Either.either)option=
    ((match pexpr_ with
     | PEbase (Bctype ((Ctype( _, ty1) as cty))) ->
         Some (match ty1 with
@@ -78,13 +79,13 @@ let is_pointer_type:core_base_type ->bool=  ((function
 ))
 
 
-type explode_env = (Symbol.sym, ( (Symbol.identifier * Symbol.sym)list))
+type explode_env = (Sym.t, ( (Identifier.t * Sym.t)list))
   Pmap.map
 
 
 
 (* If the given expression is a pointer to a struct, explode it to pointers to the members *)
-(*val explode_ptr_pexpr: explode_env -> typed_pexpr -> maybe (list (Symbol.identifier * typed_pexpr))*)
+(*val explode_ptr_pexpr: explode_env -> typed_pexpr -> maybe (list (Identifier.t * typed_pexpr))*)
 let explode_ptr_pexpr env1 (Pexpr( annot1, bTy, pexpr_)) =
    ((match pexpr_ with
     | PEsym ptr_sym ->
@@ -228,7 +229,7 @@ let mk_ptr_tuple_pe pes =
   let bTy = (BTy_tuple (replicate_list (BTy_object OTy_pointer) n)) in
   Pexpr( [], Some bTy, (PEctor( Ctuple, pes))))
 
-(*val mk_ptr_sym_pe: Symbol.sym -> typed_pexpr*)
+(*val mk_ptr_sym_pe: Sym.t -> typed_pexpr*)
 let mk_ptr_sym_pe sym1 =
    (Pexpr( [], Some (BTy_object OTy_pointer), (PEsym sym1)))
 
@@ -259,7 +260,7 @@ let rec explode_expr env1 ((Expr( annot1, expr_) as expr1)) =
           | Some xs ->
               let (syms, rev_xs) =
                 (List.fold_left (fun (acc1, acc2) (ident, e_) ->
-                  let sym' = (Symbol.fresh ()) in
+                  let sym' = (Sym.fresh ()) in
                   (((ident, sym') :: acc1), ((sym', e_) :: acc2))
                 ) ([], []) xs) in
               let env' : explode_env = (Pmap.add sym1 syms env1) in
@@ -277,7 +278,7 @@ let rec explode_expr env1 ((Expr( annot1, expr_) as expr1)) =
               let e1' = (Expr( annot1, (Epure (mk_ptr_tuple_pe (Lem_list.map (fun (_, z) -> mk_ptr_sym_pe z) xs))))) in
               
               let ys =
-                (Lem_list.map (fun (ident, _) -> (ident, Symbol.fresh ())) xs) in
+                (Lem_list.map (fun (ident, _) -> (ident, Sym.fresh ())) xs) in
               
               let pat' =
                 (Pattern( pat_annot, (CaseDtor( Dtuple, (Lem_list.map (fun (_, z) ->
@@ -288,10 +289,9 @@ let rec explode_expr env1 ((Expr( annot1, expr_) as expr1)) =
         )
     
     | Epure (Pexpr( _, _, (PEmember_shift( (Pexpr( _, _, (PEsym ptr_sym))), _, ident)))) ->
-        (match Lem.option_bind (Pmap.lookup ptr_sym env1) ((lookupBy Symbol.idEqual ident)) with
+        (match Lem.option_bind (Pmap.lookup ptr_sym env1) ((lookupBy Identifier.equal ident)) with
           | None ->
-              let () = (Cerb_debug.print_debug 0 [] (fun () -> stringFromMaybe (fun xs->stringFromList (stringFromPair (fun ident->let Symbol.Identifier( _, str) = ident in
-    str) Symbol.show_symbol) xs) (Pmap.lookup ptr_sym env1))) in
+              let () = (Cerb_debug.print_debug 0 [] (fun () -> stringFromMaybe (fun xs->stringFromList (stringFromPair Identifier.to_string Sym.show) xs) (Pmap.lookup ptr_sym env1))) in
               expr1 (* error "Core_unstruct.explode_expr: Epure PEmember_shift -- lookup failed" *)
           | Some sym1 ->
               wrap (Epure (mk_ptr_sym_pe sym1))
@@ -350,8 +350,7 @@ let rec explode_expr env1 ((Expr( annot1, expr_) as expr1)) =
 let explode_fun_map funs1 =
    (Pmap.map ((function
     | Proc( loc1, mrk, bTy, xs, e) ->
-        Proc( loc1, mrk, bTy, xs, (explode_expr (Pmap.empty (fun sym1 sym2->ordCompare 
-  Symbol.instance_Basic_classes_Eq_Symbol_sym_dict Symbol.instance_Basic_classes_Ord_Symbol_sym_dict sym1 sym2)) e))
+        Proc( loc1, mrk, bTy, xs, (explode_expr Sym.empty_pmap e))
     | z ->
         z
   )) funs1)

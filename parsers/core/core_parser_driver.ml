@@ -41,9 +41,8 @@ let parse_stdlib =
 let parse stdlib =
   genparse ImplORFileMode
     begin List.fold_left (fun acc (fsym, _) ->
-        let open Symbol in
-        let Symbol (_, _, sd) = fsym in
-        match sd with
+        let open Cerb_symbol in
+        match fsym.Sym.desc with
         | SD_Id str ->
           let std_pos = Cerb_position.from_lexing {Lexing.dummy_pos with Lexing.pos_fname= "core_stdlib"} in
           Pmap.add (str, (std_pos, std_pos)) fsym acc

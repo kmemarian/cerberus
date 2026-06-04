@@ -1716,7 +1716,9 @@ let rec desugar_type_specifiers specs =
               E.return (Ctype.no_qualifiers, Ctype.Ctype [Annot.Aloc loc] (Ctype.Basic (Ctype.Integer (Ctype.Enum tag_sym))))
           
           (* *)
-          | [TSpec _ (TSpec_name ((Symbol.Identifier cid_loc str) as ident))] ->
+          | [TSpec _ (TSpec_name ident)] ->
+              let cid_loc = Symbol.loc_of_identifier ident in
+              let str = Symbol.string_of_identifier ident in
               E.print_debugM 2 (fun () -> "Cabs_to_ail, TSpec_name ==> " ^ str) >>
               match Builtins.translate_builtin_typenames str with
                 | Just ty ->
@@ -2249,7 +2251,7 @@ and desugar_expression (CabsExpression loc expr) =
   match expr with
     | CabsEident ident ->
         AnnotatedExpression () [] loc <$>
-        let (Symbol.Identifier _ str) = ident in (* DEBUG *)
+        let str = Symbol.string_of_identifier ident in (* DEBUG *)
         E.print_debugM 2 (fun () -> "DESUGARING, CabsEident: " ^ str) >>= fun () -> (* DEBUG *)
 STD_ "§6.5.1#2" $
         E.resolve_ordinary_identifier loc ident >>= function
@@ -3783,7 +3785,7 @@ and desugar_statement_aux ctx (CabsStatement loc attrs stmt_) =
       
       | CabsSwhile e s ->
           (* TODO: when supporting VLAs ==> §6.8.4.2#2 *)
-          E.freshify (Symbol.Identifier loc "__cerb_continue") >>= fun cont_ident ->
+          E.freshify (Symbol.mk_identifier loc "__cerb_continue") >>= fun cont_ident ->
           E.register_label cont_ident >>
           E.resolve_label cont_ident >>= fun cont_sym ->
           let ctx' =
@@ -3815,7 +3817,7 @@ and desugar_statement_aux ctx (CabsStatement loc attrs stmt_) =
             E.return (AilSwhile d_e d_s loop_id)
       
       | CabsSdo e s ->
-          E.freshify (Symbol.Identifier loc "__cerb_continue") >>= fun cont_ident ->
+          E.freshify (Symbol.mk_identifier loc "__cerb_continue") >>= fun cont_ident ->
           E.register_label cont_ident >>
           E.resolve_label cont_ident >>= fun cont_sym ->
           let ctx' =
@@ -3847,7 +3849,7 @@ and desugar_statement_aux ctx (CabsStatement loc attrs stmt_) =
             E.return (AilSdo d_s d_e loop_id)
       
       | CabsSfor (Just (FC_decl decl_loc ((Declaration_base attrs specifs idecltors)))) e2_opt e3_opt s ->
-          E.freshify (Symbol.Identifier loc "__cerb_continue") >>= fun cont_ident ->
+          E.freshify (Symbol.mk_identifier loc "__cerb_continue") >>= fun cont_ident ->
           E.register_label cont_ident >>
           E.resolve_label cont_ident >>= fun cont_sym ->
           let ctx' =
@@ -3957,7 +3959,7 @@ and desugar_statement_aux ctx (CabsStatement loc attrs stmt_) =
       
       | CabsSfor fc_opt e2_opt e3_opt s ->
           (* fc_opt is either Nothing, a static assertion, or a FC_expr *)
-          E.freshify (Symbol.Identifier loc "__cerb_continue") >>= fun cont_ident ->
+          E.freshify (Symbol.mk_identifier loc "__cerb_continue") >>= fun cont_ident ->
           E.register_label cont_ident >>
           E.resolve_label cont_ident >>= fun cont_sym ->
           let loop_id = Symbol.fresh_int () in

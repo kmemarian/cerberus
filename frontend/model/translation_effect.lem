@@ -67,7 +67,7 @@ let wrapped_fresh_symbol bTy =
 
 val wrapped_fresh_symbol_: Symbol.symbol_description -> C.core_base_type -> elabM (Symbol.sym * C.pattern * C.pexpr)
 let wrapped_fresh_symbol_ descr bTy =
-  let sym = Symbol.fresh_description descr in
+  let sym = Symbol.fresh_with_description descr in
   return (sym, Caux.mk_sym_pat sym bTy, Caux.mk_sym_pe sym)
 
 val cheri_const_alias_map: elabM (map Symbol.sym Symbol.sym)

@@ -1,4 +1,5 @@
 open Ctype
+open Cerb_symbol
 
 (*open Ocaml_implementation*)
 open Memory_model
@@ -16,9 +17,6 @@ module L = struct
   include List
   include Lem_list
 end
-
-let ident_equal x y =
-       Symbol.instance_Basic_classes_Eq_Symbol_identifier_dict.isEqual_method x y
 
 let ctype_mem_compatible ty1 ty2 =
   let rec unqualify_and_unatomic (Ctype (_, ty)) =
@@ -294,8 +292,8 @@ module Concrete : Memory = struct
      unsigned 64bits values *)
   type pointer_value_base =
     | PVnull of ctype
-    | PVfunction of Symbol.sym
-    | PVconcrete of Symbol.identifier option(* set if pointing to member of a union *) * Z.t
+    | PVfunction of Sym.t
+    | PVconcrete of Identifier.t option(* set if pointing to member of a union *) * Z.t
   
   type pointer_value =
     | PV of provenance * pointer_value_base
@@ -313,8 +311,8 @@ module Concrete : Memory = struct
     | MVfloating of floatingType * floating_value
     | MVpointer of ctype * pointer_value
     | MVarray of mem_value list
-    | MVstruct of Symbol.sym (*struct/union tag*) * (Symbol.identifier (*member*) * ctype * mem_value) list
-    | MVunion of Symbol.sym (*struct/union tag*) * Symbol.identifier (*member*) * mem_value
+    | MVstruct of Sym.t (*struct/union tag*) * (Identifier.t (*member*) * ctype * mem_value) list
+    | MVunion of Sym.t (*struct/union tag*) * Identifier.t (*member*) * mem_value
 
   
   type mem_iv_constraint = integer_value mem_constraint
@@ -408,7 +406,7 @@ module Concrete : Memory = struct
     is_readonly: readonly_status;
     taint: [ `Unexposed | `Exposed ]; (* NOTE: PNVI-ae, PNVI-ae-udi *)
     (* NON-semantics fields *)
-    prefix: Symbol.prefix;
+    prefix: prefix;
   }
   
   (* INTERNAL: Abstract bytes *)
@@ -491,7 +489,7 @@ module Concrete : Memory = struct
     next_varargs_id: Z.t;
     bytemap: AbsByte.t IntMap.t;
 
-    last_used_union_members: Symbol.identifier IntMap.t;
+    last_used_union_members: Identifier.t IntMap.t;
     
     dead_allocations: storage_instance_id list;
     dynamic_addrs: address list;
@@ -1009,7 +1007,7 @@ module Concrete : Memory = struct
                           (* FIXME: This is wrong. A function pointer with the same id in different files might exist. *)
                           begin match IntMap.find_opt n funptrmap with
                             | Some (file_dig, name) ->
-                                MVpointer (ref_ty, PV(prov, PVfunction (Symbol.Symbol (file_dig, Z.to_int n, SD_Id name))))
+                                MVpointer (ref_ty, PV(prov, PVfunction Sym.(mk file_dig (Z.to_int n) (SD_Id name))))
                             | None ->
                                 failwith ("unknown function pointer: " ^ Z.to_string n)
                           end
@@ -1082,7 +1080,7 @@ module Concrete : Memory = struct
                     | None ->
                         first_membr_def
                     | Some membr ->
-                        match List.find_opt (fun z -> Symbol.instance_Basic_classes_Eq_Symbol_identifier_dict.isEqual_method (fst z) membr) membrs with
+                        match List.find_opt (fun z -> Identifier.equal (fst z) membr) membrs with
                           | None ->
                               assert false
                           | Some membr_def ->
@@ -1165,10 +1163,10 @@ module Concrete : Memory = struct
             | PVnull _ ->
                 Cerb_debug.print_debug 1 [] (fun () -> "NOTE: we fix the representation of all NULL pointers to be 0x0");
                 ret @@ List.init ptr_size (fun _ -> AbsByte.v Prov_none (Some '\000'))
-            | PVfunction (Symbol.Symbol (file_dig, n, opt_name)) ->
+            | PVfunction sym ->
                 (* TODO: *)
-                (begin match opt_name with
-                  | SD_Id name -> IntMap.add (Z.of_int n) (file_dig, name) funptrmap
+                (begin match sym.Sym.desc with
+                  | SD_Id name -> IntMap.add (Z.of_int sym.Sym.id) (sym.Sym.tunit, name) funptrmap
                   | SD_unnamed_tag _
                   | SD_CN_Id _
                   | SD_ObjectAddress _
@@ -1181,7 +1179,7 @@ module Concrete : Memory = struct
                 end, List.map (AbsByte.v prov) begin
                   bytes_of_int
                       false
-                      ptr_size (Z.of_int n)
+                      ptr_size (Z.of_int sym.Sym.id)
                   end)
             | PVconcrete (_, addr) ->
                 ret @@ List.mapi (fun i -> AbsByte.v prov ~copy_offset:(Some i)) begin
@@ -1324,9 +1322,9 @@ module Concrete : Memory = struct
       | Some mval ->
           let readonly_status =
             match pref with
-              | Symbol.PrefStringLiteral _ ->
+              | PrefStringLiteral _ ->
                   IsReadOnly ReadonlyStringLiteral
-              | Symbol.PrefTemporaryLifetime _ ->
+              | PrefTemporaryLifetime _ ->
                   IsReadOnly ReadonlyTemporaryLifetime
               | _ ->
                   IsReadOnly ReadonlyConstQualified in
@@ -1381,9 +1379,9 @@ module Concrete : Memory = struct
           let rec find = function
             | [] ->
               None
-            | (Symbol.Identifier (_, memb), _, off) :: offs ->
+            | (memb, _, off) :: offs ->
               if Z.equal offset off then
-                Some (string_of_prefix alloc.prefix ^ "." ^ memb)
+                Some (string_of_prefix alloc.prefix ^ "." ^ memb.Identifier.str)
               else
                 find offs
           in find offs
@@ -1426,7 +1424,7 @@ module Concrete : Memory = struct
       ", addr= " ^ Z.to_string addr
     );
     (* TODO: why aren't we using the argument pref? *)
-    let alloc = {prefix= Symbol.PrefMalloc; base= addr; size= size_n; ty= None; is_readonly= IsWritable; taint= `Unexposed} in
+    let alloc = {prefix= PrefMalloc; base= addr; size= size_n; ty= None; is_readonly= IsWritable; taint= `Unexposed} in
     update (fun st ->
       { st with
           allocations= IntMap.add alloc_id alloc st.allocations;
@@ -1702,9 +1700,9 @@ module Concrete : Memory = struct
         print_bytemap ("AFTER STORE => " ^ Cerb_location.location_to_string loc) >>= fun () ->
         return (FP (`W, addr, (sizeof ty))) in
       let select_ro_kind = function
-        | Symbol.PrefTemporaryLifetime _ ->
+        | PrefTemporaryLifetime _ ->
             ReadonlyTemporaryLifetime
-        | Symbol.PrefStringLiteral _ ->
+        | PrefStringLiteral _ ->
             ReadonlyStringLiteral
         | _ ->
             ReadonlyConstQualified in
@@ -1820,7 +1818,7 @@ module Concrete : Memory = struct
       (* FIXME: This is wrong. A function pointer with the same id in different files might exist. *)
       begin match IntMap.find_opt addr st.funptrmap with
         | Some (file_dig, name) ->
-            Some (Symbol.Symbol (file_dig, Z.to_int addr, SD_Id name))
+            Some (Sym.mk file_dig (Z.to_int addr) (SD_Id name))
         | None ->
             None
       end
@@ -1835,13 +1833,13 @@ module Concrete : Memory = struct
       | (_, PVnull _) ->
           return false
       | (PVfunction sym1, PVfunction sym2) ->
-          return (Symbol.instance_Basic_classes_Eq_Symbol_sym_dict.Lem_pervasives.isEqual_method sym1 sym2)
-      | (PVfunction (Symbol.Symbol (_, _, SD_Id funname)), PVconcrete (_, addr))
-      | (PVconcrete (_, addr), PVfunction (Symbol.Symbol (_, _, SD_Id funname))) ->
+          return (Sym.equal sym1 sym2)
+      | (PVfunction Sym.{ desc= SD_Id funname; _ }, PVconcrete (_, addr))
+      | (PVconcrete (_, addr), PVfunction Sym.{ desc= SD_Id funname; _ }) ->
           get >>= fun st ->
           begin match IntMap.find_opt addr st.funptrmap with
             | Some (_, funname') ->
-                return (funname = funname')
+                return (String.equal funname funname')
             | None ->
                 return false
           end
@@ -2193,7 +2191,7 @@ module Concrete : Memory = struct
   let offsetof_ival tagDefs tag_sym memb_ident =
     let (xs, _) = offsetsof tagDefs tag_sym in
     let pred (ident, _, _) =
-      ident_equal ident memb_ident in
+      Identifier.equal ident memb_ident in
     match List.find_opt pred xs with
       | Some (_, _, offset) ->
           IV (Prov_none, offset)
@@ -2437,8 +2435,8 @@ let eff_member_shift_ptrval _ tag_sym membr_ident ptrval =
     match ptrval_ with
       | PVnull _ ->
           return (mk_ival prov Z.zero)
-      | PVfunction (Symbol.Symbol (_, n, _)) ->
-          return (mk_ival prov (Z.of_int n))
+      | PVfunction sym ->
+          return (mk_ival prov (Z.of_int sym.Sym.id))
       | PVconcrete (_, addr) ->
           begin if Switches.(has_switch (SW_PNVI `AE) || has_switch (SW_PNVI `AE_UDI)) then
             (* PNVI-ae, PNVI-ae-udi *)
@@ -2598,14 +2596,14 @@ let eff_member_shift_ptrval _ tag_sym membr_ident ptrval =
 
 Concrete: type pointer_value_base =
     | PVnull of ctype
-    | PVfunction of Symbol.sym
-    | PVconcrete of Symbol.identifier option(* set if pointing to member of a union *) * Z.t
+    | PVfunction of Sym.t
+    | PVconcrete of Identifier.t option(* set if pointing to member of a union *) * Z.t
 
 
 VIP:type pointer_value =
   | PVnull
   | PVloc of location
-  | PVfunptr of Symbol.sym
+  | PVfunptr of Sym.t
 
   *)
   let pp_pointer_value_for_coq pp_symbol (PV (_,pvb)) = 
@@ -2660,7 +2658,7 @@ VIP:type pointer_value =
   let realloc loc tid align ptr size : pointer_value memM =
     match ptr with
     | PV (Prov_none, PVnull _) ->
-      allocate_region tid (Symbol.PrefOther "realloc") align size
+      allocate_region tid (PrefOther "realloc") align size
     | PV (Prov_none, _) ->
       fail ~loc (MerrWIP "realloc no provenance")
     | PV (Prov_some alloc_id, PVconcrete (_, addr)) ->
@@ -2674,7 +2672,7 @@ VIP:type pointer_value =
             | false ->
                 get_allocation ~loc:(Cerb_location.other "Concrete.realloc") alloc_id >>= fun alloc ->
                 if alloc.base = addr then
-                  allocate_region tid (Symbol.PrefOther "realloc") align size >>= fun new_ptr ->
+                  allocate_region tid (PrefOther "realloc") align size >>= fun new_ptr ->
                   let size_to_copy =
                     let IV (_, size_n) = size in
                     IV (Prov_none, Z.min alloc.size size_n) in
@@ -2788,7 +2786,7 @@ VIP:type pointer_value =
   type ui_alloc =
     { id: int;
       base: string;
-      prefix: Symbol.prefix;
+      prefix: prefix;
       dyn: bool; (* dynamic memory *)
       typ: ctype;
       size: int;
@@ -2850,19 +2848,19 @@ VIP:type pointer_value =
       (* TODO: the Z.to_int on the sizeof() will raise Overflow on huge structs *)
       let (bs1, bs2) = L.split_at (to_int (sizeof ty)) bs in
           let (rev_rowss, _, bs') = List.fold_left begin
-          fun (acc_rowss, previous_offset, acc_bs) (Symbol.Identifier (_, memb), memb_ty, memb_offset) ->
+          fun (acc_rowss, previous_offset, acc_bs) (memb, memb_ty, memb_offset) ->
             let pad = to_int (sub memb_offset previous_offset) in
             let acc_bs' = L.drop pad acc_bs in
             let (_, mval, acc_bs'') = abst (find_overlaping st) ~addr:Z.zero(*TODO!!!!*) st.last_used_union_members st.funptrmap memb_ty acc_bs' in
             let rows = mk_ui_values acc_bs' memb_ty mval in
-            let rows' = List.map (add_path memb) rows in
+            let rows' = List.map (add_path memb.Identifier.str) rows in
             (* TODO: set padding value here *)
             let rows'' = if pad = 0 then rows' else mk_pad pad "" :: rows' in
             (rows''::acc_rowss, Z.add memb_offset (sizeof memb_ty), acc_bs'')
         end ([], Z.zero, bs1) (fst (offsetsof (Tags.tagDefs ()) tag_sym))
       in List.concat (List.rev rev_rowss)
-    | MVunion (tag_sym, Symbol.Identifier (_, memb), mval) ->
-      List.map (add_path memb) (mk_ui_values bs ty mval) (* FIXME: THE TYPE IS WRONG *)
+    | MVunion (tag_sym, memb, mval) ->
+      List.map (add_path memb.Identifier.str) (mk_ui_values bs ty mval) (* FIXME: THE TYPE IS WRONG *)
 
   let mk_ui_alloc st id alloc : ui_alloc =
     let ty = match alloc.ty with Some ty -> ty | None -> Ctype ([], Array (Ctype ([], Basic (Integer Char)), Some alloc.size)) in
@@ -2880,47 +2878,47 @@ VIP:type pointer_value =
     }
 
   let serialise_prefix = function
-    | Symbol.PrefOther s ->
+    | PrefOther s ->
       (* TODO: this should not be possible anymore *)
       `Assoc [("kind", `String "other"); ("name", `String s)]
-    | Symbol.PrefMalloc ->
+    | PrefMalloc ->
       `Assoc [("kind", `String "malloc");
               ("scope", `Null);
               ("name", `String "malloc'd");
               ("loc", `Null)]
-    | Symbol.PrefStringLiteral (loc, _) ->
+    | PrefStringLiteral (loc, _) ->
       `Assoc [("kind", `String "string literal");
               ("scope", `Null);
               ("name", `String "literal");
               ("loc", Cerb_location.to_json loc)]
-    | Symbol.PrefTemporaryLifetime (loc, _) ->
+    | PrefTemporaryLifetime (loc, _) ->
       `Assoc [("kind", `String "rvalue temporary");
               ("scope", `Null);
               ("name", `String "temporary");
               ("loc", Cerb_location.to_json loc)]
-    | Symbol.PrefCompoundLiteral (loc, _) ->
+    | PrefCompoundLiteral (loc, _) ->
       `Assoc [("kind", `String "compound literal");
               ("scope", `Null);
               ("name", `String "literal");
               ("loc", Cerb_location.to_json loc)]
-    | Symbol.PrefFunArg (loc, _, n) ->
+    | PrefFunArg (loc, _, n) ->
       `Assoc [("kind", `String "arg");
               ("scope", `Null);
               ("name", `String ("arg" ^ string_of_int n));
               ("loc", Cerb_location.to_json loc)]
-    | Symbol.PrefSource (_, []) ->
+    | PrefSource (_, []) ->
       failwith "serialise_prefix: PrefSource with an empty list"
-    | Symbol.PrefSource (loc, [name]) ->
+    | PrefSource (loc, [name]) ->
         `Assoc [("kind", `String "source");
                 ("name", `String (Pp_symbol.to_string_pretty name));
                 ("scope", `Null);
                 ("loc", Cerb_location.to_json loc);]
-    | Symbol.PrefSource (loc, [scope; name]) ->
+    | PrefSource (loc, [scope; name]) ->
         `Assoc [("kind", `String "source");
                 ("name", `String (Pp_symbol.to_string_pretty name));
                 ("scope", `String (Pp_symbol.to_string_pretty scope));
                 ("loc", Cerb_location.to_json loc);]
-    | Symbol.PrefSource (_, _) ->
+    | PrefSource (_, _) ->
       failwith "serialise_prefix: PrefSource with more than one scope"
 
   let serialise_prov st = function
@@ -2978,11 +2976,11 @@ VIP:type pointer_value =
   let serialise_mem_state dig (st: mem_state) : Cerb_json.json =
     let allocs = IntMap.filter (fun _ (alloc : allocation) ->
         match alloc.prefix with
-        | Symbol.PrefSource (_, syms) -> List.exists (fun (Symbol.Symbol (hash, _, _)) -> hash = dig) syms
-        | Symbol.PrefStringLiteral (_, hash) -> hash = dig
-        | Symbol.PrefCompoundLiteral (_, hash) -> hash = dig
-        | Symbol.PrefFunArg (_, hash, _) -> hash = dig
-        | Symbol.PrefMalloc -> true
+        | PrefSource (_, syms) -> List.exists (fun sym -> Digest.equal sym.Sym.tunit dig) syms
+        | PrefStringLiteral (_, hash) -> hash = dig
+        | PrefCompoundLiteral (_, hash) -> hash = dig
+        | PrefFunArg (_, hash, _) -> hash = dig
+        | PrefMalloc -> true
         | _ -> false
       ) st.allocations in
     `Assoc [("map", serialise_map (fun id alloc -> serialise_ui_alloc st @@ mk_ui_alloc st id alloc) allocs);

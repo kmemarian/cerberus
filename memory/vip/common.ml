@@ -2,9 +2,6 @@
    we might want to put in a common module *)
 open Ctype
 
-let ident_equal x y =
-  Symbol.instance_Basic_classes_Eq_Symbol_identifier_dict.isEqual_method x y
-
 let rec offsetsof ?(ignore_flexible=false) tagDefs tag_sym =
   match Pmap.find tag_sym tagDefs with
     | _, StructDef (membrs_, flexible_opt) ->

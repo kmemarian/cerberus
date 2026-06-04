@@ -1,5 +1,6 @@
 open Cerb_frontend
 open Cerb_global
+open Cerb_symbol
 
 (* Pipeline *)
 
@@ -420,22 +421,15 @@ let interp_backend io core_file ~args ~batch ~fs ~driver_conf =
  * marshaling can only be read back in processes that run exactly the same
  * program, with exactly the same compiled code. *)
 type 'a core_dump =
-  { dump_main: Symbol.sym option;
+  { dump_main: Sym.t option;
     dump_calling_convention: Core.calling_convention;
-    dump_tagDefs: (Symbol.sym * (Cerb_location.t * Ctype.tag_definition)) list;
-    dump_globs: (Symbol.sym * 'a Core.generic_globs) list;
-    dump_funs: (Symbol.sym * 'a Core.generic_fun_map_decl) list;
-    dump_extern: (Symbol.identifier * (Symbol.sym list * Core.linking_kind)) list;
-    dump_funinfo: (Symbol.sym * (Cerb_location.t * Annot.attributes * Ctype.ctype * (Symbol.sym option * Ctype.ctype) list * bool * bool)) list;
+    dump_tagDefs: (Sym.t * (Cerb_location.t * Ctype.tag_definition)) list;
+    dump_globs: (Sym.t * 'a Core.generic_globs) list;
+    dump_funs: (Sym.t * 'a Core.generic_fun_map_decl) list;
+    dump_extern: (Identifier.t * (Sym.t list * Core.linking_kind)) list;
+    dump_funinfo: (Sym.t * (Cerb_location.t * Annot.attributes * Ctype.ctype * (Sym.t option * Ctype.ctype) list * bool * bool)) list;
     (* dump_loop_attributes: (int * Annot.attributes) list; *)
   }
-
-let sym_compare (Symbol.Symbol (d1, n1, _)) (Symbol.Symbol (d2, n2, _)) =
-  if d1 = d2 then compare n1 n2
-  else Digest.compare d1 d2
-
-let cabsid_compare (Symbol.Identifier (_, s1)) (Symbol.Identifier (_, s2)) =
-  String.compare s1 s2
 
 let map_from_assoc compare =
   List.fold_left (fun acc (k, v) -> Pmap.add k v acc) (Pmap.empty compare)
@@ -457,13 +451,13 @@ let read_core_object (conf, io) ?(is_lib=false) (core_stdlib, core_impl) filenam
   close_in ic;
   let core_file = { main=    dump.dump_main;
     calling_convention= dump.dump_calling_convention;
-    tagDefs= map_from_assoc sym_compare dump.dump_tagDefs;
+    tagDefs= map_from_assoc Sym.compare dump.dump_tagDefs;
     stdlib=  snd core_stdlib;
     impl=    core_impl;
     globs=   dump.dump_globs;
-    funs=    map_from_assoc sym_compare dump.dump_funs;
-    extern=  map_from_assoc cabsid_compare dump.dump_extern;
-    funinfo= map_from_assoc sym_compare dump.dump_funinfo;
+    funs=    map_from_assoc Sym.compare dump.dump_funs;
+    extern=  map_from_assoc Identifier.compare dump.dump_extern;
+    funinfo= map_from_assoc Sym.compare dump.dump_funinfo;
     loop_attributes0= Pmap.empty compare(* map_from_assoc compare dump.dump_loop_attributes *);
     visible_objects_env= Pmap.empty compare
   } in
