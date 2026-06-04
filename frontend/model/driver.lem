@@ -71,16 +71,6 @@ type driver_state = <|
   dr_step_counter: nat;
 |>
 
-let driver_state_eq dr_st1 dr_st2 =
-     dr_st1.core_state = dr_st2.core_state
-  && dr_st1.layout_state = dr_st2.layout_state
-(*  && dr_st1.concurrency_state = dr_st2.concurrency_state *) (* TODO *)
-
-instance (Eq driver_state)
-  let (=) = driver_state_eq
-  let (<>) = fun x y -> not (driver_state_eq x y)
-end
-
 (* NOTE: Used by the UI to distinguish runtime step kinds *)
 type step_kind =
   | SK_action_request of string
@@ -1353,6 +1343,11 @@ let process_core_step2 with_concurrency driver2 = function
 end
 
 
+let is_blocked = function
+  | Core_reduction.Step_blocked2 -> true
+  | _ -> false
+end
+
 val     driver2: bool -> driverM unit
 let rec driver2 with_concurrency =
   let () = Debug.print_debug 2 [] (fun () -> "ENTERING Driver.driver2") in
@@ -1361,7 +1356,7 @@ let rec driver2 with_concurrency =
   
   (* TODO: hackish *)
   let _non_blocked_th_sts = List.filter (fun (tid, th_info) ->
-    List.any (fun step -> step <> Core_reduction.Step_blocked2) $
+    List.any (fun step -> not (is_blocked step)) $
       Core_reduction.step_ctx post_core_dr_st.layout_state post_core_dr_st.core_file post_core_dr_st.core_extern tid th_info
   ) post_core_dr_st.core_state.Core_run.thread_states in
   
@@ -1395,7 +1390,10 @@ let rec driver2 with_concurrency =
    else begin
     let non_blocked =
       List.filter (fun (tid, step_opt) ->
-        step_opt <> Just Core_reduction.Step_blocked2
+        match step_opt with
+          | Just Core_reduction.Step_blocked2 -> false
+          | _ -> true
+        end
       ) tid_steps in
     begin
       if List.length non_blocked = 0 then

@@ -1200,71 +1200,71 @@ let step_ctx mem_st file core_extern current_tid (parent_tid_opt, th_st) =
                 wrap_expr expr'
               end
           
-          | Eaction (Paction p (Action loc _ (SeqRMW with_forward pe1 pe2 sym pe3))) ->
-              if p = Neg then
-                error "TODO(better typing) negative SeqRMW should be forbidden by the typecheck"
-              else
-                Step_action_request2 "SeqRMW" loc current_tid (is_unseq_with_ccall ctx) begin
-                  full_eval_pexpr' pe1 >>= fun cval1 ->
-                  full_eval_pexpr' pe2 >>= fun cval2 ->
-                  match (cval1, cval2) with
-                    | (Bctype ty, Bobject (OVpointer ptrval)) ->
-                        E.fresh_excluded_id >>= fun n ->
-                        E.return begin
-                          SeqRMWRequest2 ty ptrval (fun mval ->
-                            let th_st_tmp =
-                              <| th_st with env=
-                                match th_st.env with
-                                  | [] ->
-                                      error "Core_reduction.step_ctx, SeqRMW ==> env is empty"
-                                  | x :: xs ->
-                                      Map.insert sym (snd (Caux.valueFromMemValue mval)) x :: xs
-                                end |> in
-                            full_eval_pexpr th_st_tmp core_extern mem_st file pe3 >>= fun cval3 ->
-                            match memValueFromValue (Ctype.Ctype [] (Ctype.unatomic_ ty)) cval3 with
-                              | Just mval' ->
-                                  E.return mval'
-                              | Nothing ->
-                                  error "TODO(use the error the monad) didn't match the lvalue type in SeqRMW"
-                            end)
-                            (fun aid fp mval mval' ->
-                              let cval_e =
-                                Caux.mk_value_e (snd (Caux.valueFromMemValue (if with_forward then mval' else mval))) in
-                              let mk_annot_e z = Expr [] (Eannot [DA_neg n [] fp] z) in
-                              (* TODO: try to factorize this with the code for negative actions *)
-                              match break_at_bound_and_sseq ctx with
-                                | NO_BOUND ->
-                                    error "TODO: NO_BOUND (SeqRMW)"
-                                | BOUND_NO_SSEQ ctx_bound ctxA ->
-                                    let ctxA' = add_exclusion n ctxA in
-                                    let sym = Symbol.fresh () in
-                                    let expr' =
-                                      Caux.mk_wseq_e (Caux.mk_tuple_pat [ Caux.mk_empty_pat BTy_unit(*TODO:HACKHACK*)
-                                                                        ; Caux.mk_sym_pat sym BTy_unit(*TODO:HACKHACK*) ])
-                                                     (Caux.mk_unseq_e [ mk_annot_e (Caux.mk_value_e Bunit)
-                                                                      ; apply_ctx ctxA' cval_e ])
-                                                     (Caux.mk_pure_e (Caux.mk_sym_pe sym)) in
-                                    <| th_st with arena= apply_ctx ctx_bound expr' |>
-                                | BOUND_WITH_SSEQ ctx_bound ctxA sseq_pat CTX sseq_e2 ->
-                                    (* TODO: check *)
-                                    (* Empty inner context, so no need to pull and annotate for exclusion *)
-                                    <| th_st with arena= apply_ctx ctx_bound (apply_ctx ctxA (Caux.mk_sseq_e sseq_pat (mk_annot_e cval_e ) sseq_e2)) |>
-                                | BOUND_WITH_SSEQ ctx_bound ctxA sseq_pat ctxB sseq_e2 ->
-                                    let ctxB' = add_exclusion n ctxB in
-                                    let expr' =
-                                      Caux.mk_sseq_e (Caux.mk_tuple_pat [ Caux.mk_empty_pat BTy_unit(*TODO:HACKHACK*)
-                                                                        ; sseq_pat ])
-                                                     (Caux.mk_unseq_e [ mk_annot_e (Caux.mk_value_e Bunit)
-                                                                      ; apply_ctx ctxB' cval_e ])
-                                                     sseq_e2 in
-                                    <| th_st with arena= apply_ctx ctx_bound (apply_ctx ctxA expr') |>
-                              end
-                            )
-                        end
-                    | _ ->
-                        error "TODO(use the error the monad) illtyped SeqRMW"
-                  end
+          | Eaction (Paction Neg (Action _ _ (SeqRMW _ _ _ _ _))) ->
+              error "TODO(better typing) negative SeqRMW should be forbidden by the typecheck"
+
+          | Eaction (Paction Pos (Action loc _ (SeqRMW with_forward pe1 pe2 sym pe3))) ->
+              Step_action_request2 "SeqRMW" loc current_tid (is_unseq_with_ccall ctx) begin
+                full_eval_pexpr' pe1 >>= fun cval1 ->
+                full_eval_pexpr' pe2 >>= fun cval2 ->
+                match (cval1, cval2) with
+                  | (Bctype ty, Bobject (OVpointer ptrval)) ->
+                      E.fresh_excluded_id >>= fun n ->
+                      E.return begin
+                        SeqRMWRequest2 ty ptrval (fun mval ->
+                          let th_st_tmp =
+                            <| th_st with env=
+                              match th_st.env with
+                                | [] ->
+                                    error "Core_reduction.step_ctx, SeqRMW ==> env is empty"
+                                | x :: xs ->
+                                    Map.insert sym (snd (Caux.valueFromMemValue mval)) x :: xs
+                              end |> in
+                          full_eval_pexpr th_st_tmp core_extern mem_st file pe3 >>= fun cval3 ->
+                          match memValueFromValue (Ctype.Ctype [] (Ctype.unatomic_ ty)) cval3 with
+                            | Just mval' ->
+                                E.return mval'
+                            | Nothing ->
+                                error "TODO(use the error the monad) didn't match the lvalue type in SeqRMW"
+                          end)
+                          (fun aid fp mval mval' ->
+                            let cval_e =
+                              Caux.mk_value_e (snd (Caux.valueFromMemValue (if with_forward then mval' else mval))) in
+                            let mk_annot_e z = Expr [] (Eannot [DA_neg n [] fp] z) in
+                            (* TODO: try to factorize this with the code for negative actions *)
+                            match break_at_bound_and_sseq ctx with
+                              | NO_BOUND ->
+                                  error "TODO: NO_BOUND (SeqRMW)"
+                              | BOUND_NO_SSEQ ctx_bound ctxA ->
+                                  let ctxA' = add_exclusion n ctxA in
+                                  let sym = Symbol.fresh () in
+                                  let expr' =
+                                    Caux.mk_wseq_e (Caux.mk_tuple_pat [ Caux.mk_empty_pat BTy_unit(*TODO:HACKHACK*)
+                                                                      ; Caux.mk_sym_pat sym BTy_unit(*TODO:HACKHACK*) ])
+                                                    (Caux.mk_unseq_e [ mk_annot_e (Caux.mk_value_e Bunit)
+                                                                    ; apply_ctx ctxA' cval_e ])
+                                                    (Caux.mk_pure_e (Caux.mk_sym_pe sym)) in
+                                  <| th_st with arena= apply_ctx ctx_bound expr' |>
+                              | BOUND_WITH_SSEQ ctx_bound ctxA sseq_pat CTX sseq_e2 ->
+                                  (* TODO: check *)
+                                  (* Empty inner context, so no need to pull and annotate for exclusion *)
+                                  <| th_st with arena= apply_ctx ctx_bound (apply_ctx ctxA (Caux.mk_sseq_e sseq_pat (mk_annot_e cval_e ) sseq_e2)) |>
+                              | BOUND_WITH_SSEQ ctx_bound ctxA sseq_pat ctxB sseq_e2 ->
+                                  let ctxB' = add_exclusion n ctxB in
+                                  let expr' =
+                                    Caux.mk_sseq_e (Caux.mk_tuple_pat [ Caux.mk_empty_pat BTy_unit(*TODO:HACKHACK*)
+                                                                      ; sseq_pat ])
+                                                    (Caux.mk_unseq_e [ mk_annot_e (Caux.mk_value_e Bunit)
+                                                                    ; apply_ctx ctxB' cval_e ])
+                                                    sseq_e2 in
+                                  <| th_st with arena= apply_ctx ctx_bound (apply_ctx ctxA expr') |>
+                            end
+                          )
+                      end
+                  | _ ->
+                      error "TODO(use the error the monad) illtyped SeqRMW"
                 end
+              end
               
           | Eaction (Paction p act) ->
               let Action loc _ _ = act in (* DEBUG *)

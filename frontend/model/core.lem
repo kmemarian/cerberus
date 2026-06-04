@@ -448,6 +448,13 @@ type file 'a         = generic_file 'a
 declare {coq} rename type impl = impl_ (* workaround for Lem issue #74 *)
 
 (* basic class instanciations *)
+let compare_polarity x y =
+  let ord = function
+    | Pos -> (0 : nat)
+    | Neg -> 1
+  end in
+  compare (ord x) (ord y)
+
 instance (SetType polarity)
-  let setElemCompare = defaultCompare
+  let setElemCompare = compare_polarity
 end

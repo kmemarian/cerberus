@@ -2427,7 +2427,7 @@ let annotate_program (startup_opt, sigm) =
                     E.undef (Loc.with_cursor_from (Loc.locOf aty1) loc) Undefined.UB004b_incorrect_main_argument1
               end >>
               (* TODO: check arguments *)
-              if ret_qs = no_qualifiers && proj_ctype_ ret_ty = Basic (Integer (Signed Int_)) then
+              if ret_qs = no_qualifiers && ret_ty = Cty.signed_int then
                 annotate_sigma sigm >>= fun sigm' ->
                 E.return (startup_opt, sigm')
               else

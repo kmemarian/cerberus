@@ -19,6 +19,7 @@ type tag_kind =
   | Kind_struct
   | Kind_union
   | Kind_enum
+(* TODO: eq, ord *)
 
 (* STD §6.2.1#1, sentence 1 *)
 type ordinary_kind = (* the ones that can have a linkage *)
@@ -29,12 +30,14 @@ type ordinary_kind = (* the ones that can have a linkage *)
   | OK_function
   | OK_enum_constant
   | OK_typedef
+(* TODO: eq, ord *)
 
 type identifier_kind =
   | Kind_ordinary of ordinary_kind
   | Kind_tag of tag_kind
   | Kind_label
   | Kind_member of tag_kind
+(* TODO: eq, ord *)
 (*
   | Kind_macro_name
   | Kind_macro_parameter
@@ -102,23 +105,35 @@ type scope =
   | Scope_block of scope_id
   | Scope_prototype of scope_id
 
-let scopeEqual sc1 sc2 =
-  match (sc1, sc2) with
-    | (Scope_function, Scope_function) ->
-        true
-    | (Scope_file, Scope_file) ->
-        true
-    | (Scope_block id1, Scope_block id2) ->
-        id1 = id2
-    | (Scope_prototype id1, Scope_prototype id2) ->
-        id1 = id2
-    | _ ->
-        false
-  end
+let (equal_scope, compare_scope) =
+  let ord = function
+    | Scope_function -> (0 : nat)
+    | Scope_file -> 1
+    | Scope_block _ -> 2
+    | Scope_prototype _ -> 3
+  end in
+  ( (fun sc1 sc2 ->
+      match (sc1, sc2) with
+        | (Scope_function, Scope_function) ->
+            true
+        | (Scope_file, Scope_file) ->
+            true
+        | (Scope_block id1, Scope_block id2) ->
+            id1 = id2
+        | (Scope_prototype id1, Scope_prototype id2) ->
+            id1 = id2
+        | _ ->
+            ord sc1 = ord sc2
+      end)
+    , (fun sc1 sc2 -> compare (ord sc1) (ord sc2)) )
 
 instance (Eq scope)
-  let (=)  = scopeEqual
-  let (<>) = fun x y -> not (scopeEqual x y)
+  let (=)  = equal_scope
+  let (<>) = fun x y -> not (equal_scope x y)
+end
+
+instance (SetType scope)
+  let setElemCompare = compare_scope
 end
 
 
@@ -202,6 +217,7 @@ type function_declaration =
 type registration =
   | Internal of A.ail_identifier * identifier_kind * maybe linkage
   | External
+(* TODO: ord *)
 
 type global_definition =
   | Tentative of Loc.t * Ctype.ctype
@@ -608,7 +624,7 @@ let initial_state core_eval_stuff cn_eval_stuff = <|
 val record_marker: unit -> desugM nat
 let record_marker () =
   let id = Symbol.fresh_int () in
-  begin if Global.backend_name () = "Cn" then
+  begin if Global.is_backend "Cn" then
     get_inner >>= fun inner ->
     State_exception.update (fun old_state -> <| old_state with markers_env= Map.insert id inner old_state.markers_env |>)
   else
@@ -2585,7 +2601,7 @@ let extract_program startup_str =
       | Just Linkage_internal ->
           if    List.elem sym st.used_identifier
              && (kind = Kind_ordinary (OK_object false) || kind = Kind_ordinary OK_function)
-             && List.lookup sym object_defs = Nothing
+             && Maybe.isNothing (List.lookup sym object_defs)
              && not (Map.member sym st.function_definitions) then
             (* STD §6.9#3, sentence 2 *)
             constraint_violation (Loc.locOf ident) (Constraint.ExternalRedefinition sym)

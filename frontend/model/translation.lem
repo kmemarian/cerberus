@@ -401,7 +401,7 @@ end
                           (Caux.mk_op_pe C.OpDiv conv1_wrp.E.sym_pe conv2_wrp.E.sym_pe) result_ty)
                           begin
                             Caux.mk_specified_pe (Caux.mk_std_pe "§6.5.5#5, sentence 1" begin
-  if Global.backend_name () = "Cn" then
+  if Global.is_backend "Cn" then
                               match Cty.match_integer_ctype result_ty with
                                 | Cty.MatchedItySigned ity ->
                                     Caux.mk_wrapI_pe ity iop conv1_wrp.E.sym_pe conv2_wrp.E.sym_pe
@@ -1721,7 +1721,7 @@ if is_unsigned_shift then
                                   [obj1_wrp.E.sym_pe; obj2_wrp.E.sym_pe]
                               ; core_shl ]
                           end
-      else if Global.backend_name () = "Cn" then
+      else if Global.is_backend "Cn" then
                           Caux.mk_specified_pe (Caux.mk_wrapI_pe result_ity C.IOpShl promoted1_wrp.E.sym_pe promoted2_wrp.E.sym_pe)
       else
                           Caux.mk_specified_pe core_shl
@@ -1730,7 +1730,7 @@ else
                         Caux.mk_std_pe "§6.5.7#4, sentence 3"
                           (Caux.mk_if_pe (Caux.mk_op_pe C.OpLt promoted1_wrp.E.sym_pe (Caux.mk_integer_pe 0))
                             (Caux.mk_std_undef_pe loc "§6.5.7#3, sentence 3" Undefined.UB052a_negative_left_shift)
-  begin if Global.backend_name () = "Cn" then
+  begin if Global.is_backend "Cn" then
                           Caux.mk_specified_pe (Caux.mk_catch_exceptional_condition_pe result_ity C.IOpShl promoted1_wrp.E.sym_pe promoted2_wrp.E.sym_pe)
   else
                           (Caux.mk_let_pe res_wrp.E.sym_pat
@@ -1811,7 +1811,7 @@ let result_ity = match result_ty with
 end in
 if AilTypesAux.is_unsigned_integer_type result_ty then
                               Caux.mk_std_pe "6.5.7#5, sentence 2"
-  begin if Global.backend_name () = "Cn" then
+  begin if Global.is_backend "Cn" then
                                 Caux.mk_wrapI_pe result_ity C.IOpShr promoted1_wrp.E.sym_pe promoted2_wrp.E.sym_pe
   else
                                 expr
@@ -1819,7 +1819,7 @@ if AilTypesAux.is_unsigned_integer_type result_ty then
 else
                                Caux.mk_std_pe "6.5.7#5, sentence 3" begin
                                 Caux.mk_if_pe (Caux.mk_op_pe C.OpGe promoted1_wrp.E.sym_pe (Caux.mk_integer_pe 0))
-  begin if Global.backend_name () = "Cn" then
+  begin if Global.is_backend "Cn" then
                                   Caux.mk_catch_exceptional_condition_pe result_ity C.IOpShr promoted1_wrp.E.sym_pe promoted2_wrp.E.sym_pe
   else
                                   expr
@@ -3489,6 +3489,23 @@ type case_selector =
   | CaseSelectConstant of integer
   | CaseSelectRange of integer * integer
 
+let equal_case_selector x y =
+  let ord = function
+    | CaseSelectConstant _ -> (0 : nat)
+    | CaseSelectRange _ _ -> 1
+  end in
+  match (x, y) with
+    | (CaseSelectConstant n1, CaseSelectConstant n2) -> n1 = n2
+    | (CaseSelectRange n1 m1, CaseSelectRange n2 m2) ->
+        n1 = n2 && m1 = m2
+    |_ -> ord x = ord y
+  end
+
+instance (Eq case_selector)
+  let (=) = equal_case_selector
+  let (<>) = fun x y -> not (equal_case_selector x y)
+end
+
 type translate_stmt_env = <|
   return_ty: Ctype.ctype;
   is_Noreturn: bool;
@@ -4078,7 +4095,7 @@ let rec translate_stmt stdlib tagDefs f env stmt : E.elabM (C.expr unit) =
               loc (Caux.mk_ail_ctype_pe ty) ptr_sym_e in
           match e_opt with
             | Nothing ->
-                if Global.backend_name () = "Cn" then
+                if Global.is_backend "Cn" then
                   (* CN does not support unspecified values *)
                   E.return Caux.mk_skip_e
                 else
