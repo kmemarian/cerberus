@@ -2,6 +2,7 @@ open Bmc_globals
 open Bmc_utils
 
 open Cerb_frontend
+open Cerb_symbol
 open Core
 open Printf
 open Z3
@@ -19,14 +20,14 @@ type alloc = int
   (* We assume for now we always know the ctype of what we're allocating *)
 type allocation_metadata =
     (* size *) int * ctype option * (* alignment *) int * (* base address *) Expr.expr * permission_flag *
-    (* C prefix *) Sym.prefix
+    (* C prefix *) prefix
 
 let get_metadata_size (sz,_,_,_,_,_) : int = sz
 let get_metadata_base (_,_,_,base,_,_) : Expr.expr = base
 let get_metadata_ctype (_,ctype,_,_,_,_) : ctype option = ctype
 let get_metadata_align (_,_,align,_,_,_) : int = align
 let get_metadata_permission (_,_,_,_,perm,_) : permission_flag = perm
-let get_metadata_prefix (_,_,_,_,_,pref) : Sym.prefix = pref
+let get_metadata_prefix (_,_,_,_,_,pref) : prefix = pref
 
 
 
@@ -193,8 +194,8 @@ module CtypeSort = struct
         (* TODO: cty ignored b/c recursive types and tuples *)
         (* Sort of assumed it's always integer for now... *)
         Expr.mk_app g_ctx (List.nth fdecls 3) [big_num_to_z3 n]
-    | Struct (Symbol (_, n, _))->
-        Expr.mk_app g_ctx (List.nth fdecls 4) [int_to_z3 n]
+    | Struct sym ->
+        Expr.mk_app g_ctx (List.nth fdecls 4) [int_to_z3 sym.Sym.id]
     | Atomic ty ->
         Expr.mk_app g_ctx (List.nth fdecls 5) [mk_expr ty]
     | Union _ -> failwith "TODO: unions"
@@ -540,7 +541,7 @@ module type PointerSortAPI = sig
   val ptr_diff_raw : Expr.expr -> Expr.expr -> Expr.expr
 
   val type_size : ctype -> unit file -> int
-  val struct_member_index_list : sym_ty -> unit file ->
+  val struct_member_index_list : Sym.t -> unit file ->
     int * (int list * int list)
 
   val mk_nd_addr : int -> Expr.expr
@@ -1150,7 +1151,7 @@ module CtypeToZ3 = struct
         *)
     | Union _ ->
       failwith "Error: unions are not supported."
-  and struct_sym_to_z3_sort (struct_sym: sym_ty)
+  and struct_sym_to_z3_sort (struct_sym: Sym.t)
                             (file: unit file)
                             : Sort.sort =
     match Pmap.lookup struct_sym file.tagDefs with

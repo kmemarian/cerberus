@@ -1,4 +1,5 @@
 open Cerb_frontend
+open Cerb_symbol
 open Cerb_backend
 open Instance_api
 open Pipeline
@@ -346,7 +347,7 @@ let decode s = Marshal.from_string s 0
 
 let get_state_details st =
   let string_of_env env =
-    let f e = Pmap.fold (fun (s:Symbol.sym) (v:Core.value) acc ->
+    let f e = Pmap.fold (fun (s:Sym.t) (v:Core.value) acc ->
         Pp_symbol.to_string_pretty s ^ "= " ^ String_core.string_of_value v ^ "\n" ^ acc
       ) e "" in
     List.fold_left (fun acc e -> acc ^ f e) "" env
@@ -366,7 +367,7 @@ let get_state_details st =
 
 let get_file_hash core =
   match core.Core.main with
-  | Some (Symbol.Symbol (hash, _, _)) -> hash
+  | Some sym -> sym.Sym.tunit
   | None -> failwith "get_file_hash"
 
 (* NOTE: Web doesn't depend on Driver *)
@@ -640,7 +641,7 @@ let step ~conf ~filename (active_node_opt: Instance_api.active_node option) =
     let tagDefs  = encode @@ Tags.tagDefs () in
     return @@ Interactive (tagDefs, ranges, ([n], []))
   | Some n ->
-    let tagsMap : (Symbol.sym, Cerb_location.t * Ctype.tag_definition) Pmap.map = decode n.tagDefs in
+    let tagsMap : (Sym.t, Cerb_location.t * Ctype.tag_definition) Pmap.map = decode n.tagDefs in
     Tags.set_tagDefs tagsMap;
     hack ~conf Random;
     Switches.set conf.instance.switches;

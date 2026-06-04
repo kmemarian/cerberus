@@ -3,6 +3,7 @@ open Bmc_sorts
 open Bmc_utils
 
 open Cerb_frontend
+open Cerb_symbol
 open Ctype
 open Core
 open Printf
@@ -558,7 +559,7 @@ let is_ptr_pat (pat: pattern) : bool =
   | Pattern(_, (CaseBase(Some _, BTy_loaded OTy_pointer))) -> true
   | _ -> false
 
-let get_sym_from_base_pattern (pat: pattern) : sym_ty option =
+let get_sym_from_base_pattern (pat: pattern) : Sym.t option =
   match pat with
   | Pattern(_, (CaseBase(sym, _))) -> sym
   | _ -> assert false
@@ -578,8 +579,8 @@ let get_ptr_from_loaded_ptr_expr (expr: unit expr)
 
 
 type cfun_call_symbols = {
-  fn_ptr  : sym_ty;
-  fn_ptr_inner : sym_ty option;
+  fn_ptr  : Sym.t;
+  fn_ptr_inner : Sym.t option;
   ptr     : Impl_mem.pointer_value;
 }
 
@@ -624,7 +625,7 @@ let extract_cfun_if_cfun_call (pat: pattern)
       *   let strong (... : tuple) = pure (c_function(p)) in ...
       *)
       if (is_ptr_pat pat && is_loaded_ptr_expr e1 &&
-          sym_eq p (Option.get (get_sym_from_base_pattern pat)))
+          Sym.equal p (Option.get (get_sym_from_base_pattern pat)))
       then begin
         let tuple_syms  = List.map get_sym_from_base_pattern tuple in
         assert (List.length tuple_syms = 4);

@@ -1,13 +1,15 @@
 [@@@landmark "auto"]
 open Lem_pervasives
+
+open Cerb_colour
+open Cerb_pp_prelude
+open Cerb_symbol
+
 open Core
 open Annot
 
 open Either
 
-open Cerb_colour
-
-open Cerb_pp_prelude
 
 module type CONFIG =
 sig
@@ -25,19 +27,19 @@ sig
   val pp_core_base_type: core_base_type -> PPrint.document
   val pp_object_value: object_value -> PPrint.document
   val pp_value: value -> PPrint.document
-  val pp_params: (Symbol.sym * core_base_type) list -> PPrint.document
-  val pp_pattern : Symbol.sym Core.generic_pattern -> PPrint.document
+  val pp_params: (Sym.t * core_base_type) list -> PPrint.document
+  val pp_pattern : Sym.t Core.generic_pattern -> PPrint.document
   val pp_pexpr: pexpr -> PPrint.document
   val pp_expr: 'a expr -> PPrint.document
   val pp_file: 'a file -> PPrint.document
   val pp_ctor : ctor -> PPrint.document
   val pp_dtor : dtor -> PPrint.document
 
-  val pp_funinfo: (Symbol.sym, Cerb_location.t * Annot.attributes * Ctype.ctype * (Symbol.sym option * Ctype.ctype) list * bool * bool) Pmap.map -> PPrint.document
-  val pp_funinfo_with_attributes: (Symbol.sym, Cerb_location.t * Annot.attributes * Ctype.ctype * (Symbol.sym option * Ctype.ctype) list * bool * bool) Pmap.map -> PPrint.document
-  val pp_extern_symmap: (Symbol.sym, Symbol.sym) Pmap.map -> PPrint.document
+  val pp_funinfo: (Sym.t, Cerb_location.t * Annot.attributes * Ctype.ctype * (Sym.t option * Ctype.ctype) list * bool * bool) Pmap.map -> PPrint.document
+  val pp_funinfo_with_attributes: (Sym.t, Cerb_location.t * Annot.attributes * Ctype.ctype * (Sym.t option * Ctype.ctype) list * bool * bool) Pmap.map -> PPrint.document
+  val pp_extern_symmap: (Sym.t, Sym.t) Pmap.map -> PPrint.document
 
-  val pp_action: Symbol.sym Core.generic_action_ -> PPrint.document
+  val pp_action: Sym.t Core.generic_action_ -> PPrint.document
 (*  val pp_stack: 'a stack -> PPrint.document *)
 end
 
@@ -287,14 +289,14 @@ let rec pp_object_value = function
   | OVstruct (tag_sym, xs) ->
       P.parens (pp_datactor "struct" ^^^ pp_raw_symbol tag_sym) ^^
       P.braces (
-        comma_list (fun (Symbol.Identifier (_, ident), _, mval) ->
-          P.dot ^^ !^ ident ^^ P.equals ^^^ Impl_mem.pp_mem_value mval
+        comma_list (fun ({Identifier.str; _}, _, mval) ->
+          P.dot ^^ !^ str ^^ P.equals ^^^ Impl_mem.pp_mem_value mval
         ) xs
       )
-  | OVunion (tag_sym, Symbol.Identifier (_, ident), mval) ->
+  | OVunion (tag_sym, {Identifier.str; _}, mval) ->
       P.parens (pp_datactor "union" ^^^ pp_raw_symbol tag_sym) ^^
       P.braces (
-        P.dot ^^ !^ ident ^^ P.equals ^^^ Impl_mem.pp_mem_value mval
+        P.dot ^^ !^ str ^^ P.equals ^^^ Impl_mem.pp_mem_value mval
       )
 
 and pp_loaded_value = function
@@ -489,9 +491,9 @@ let pp_pexpr pe =
           pp_keyword "array_shift" ^^ P.parens (
             pp pe1 ^^ P.comma ^^^ pp_ctype ty ^^ P.comma ^^^ pp pe2
           )
-      | PEmember_shift (pe, tag_sym, (Symbol.Identifier (_, memb_ident))) ->
+      | PEmember_shift (pe, tag_sym, {Identifier.str; _}) ->
           pp_keyword "member_shift" ^^ P.parens (
-            pp pe ^^ P.comma ^^^ pp_raw_symbol tag_sym ^^ P.comma ^^^ P.dot ^^ !^ memb_ident
+            pp pe ^^ P.comma ^^^ pp_raw_symbol tag_sym ^^ P.comma ^^^ P.dot ^^ !^ str
           )
       | PEmemop (pure_memop, pes) ->
           pp_keyword "memop" ^^ P.parens (Pp_mem.pp_pure_memop pure_memop ^^ P.comma ^^^ comma_list pp pes)
@@ -506,14 +508,14 @@ let pp_pexpr pe =
       | PEstruct (tag_sym, xs) ->
           P.parens (pp_datactor "struct" ^^^ pp_raw_symbol tag_sym) ^^
           P.braces (
-            comma_list (fun (Symbol.Identifier (_, ident), pe) ->
-              P.dot ^^ !^ ident ^^ P.equals ^^^ pp pe
+            comma_list (fun ({Identifier.str; _}, pe) ->
+              P.dot ^^ !^ str ^^ P.equals ^^^ pp pe
             ) xs
           )
-      | PEunion (tag_sym, Symbol.Identifier (_, ident), pe) ->
+      | PEunion (tag_sym, {Identifier.str; _}, pe) ->
           P.parens (pp_datactor "union" ^^^ pp_raw_symbol tag_sym) ^^
           P.braces (
-            P.dot ^^ !^ ident ^^ P.equals ^^^ pp pe
+            P.dot ^^ !^ str ^^ P.equals ^^^ pp pe
           )
       | PEmemberof (tag_sym, memb_ident, pe) ->
           pp_keyword "memberof" ^^ P.parens (
@@ -761,8 +763,8 @@ let pp_tagDefinitions tagDefs =
           ("struct", membrs)
       | Ctype.UnionDef membrs -> ("union", membrs)
     in
-    let pp_tag (Symbol.Identifier (_, name), (_, align_opt(*TODO*), _, ty)) =
-      !^name ^^ P.colon ^^^ pp_ctype ty
+    let pp_tag ({Identifier.str; _}, (_, align_opt(*TODO*), _, ty)) =
+      !^ str ^^ P.colon ^^^ pp_ctype ty
     in
     pp_cond loc @@
     pp_keyword "def" ^^^ pp_keyword ty ^^^ pp_raw_symbol sym ^^^ P.colon ^^ P.equals

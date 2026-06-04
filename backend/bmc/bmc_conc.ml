@@ -6,6 +6,7 @@ open Bmc_types
 open Bmc_utils
 
 open Cerb_frontend
+open Cerb_symbol
 open Printf
 open Z3
 open Z3.Arithmetic
@@ -1202,7 +1203,7 @@ module MemoryModelCommon = struct
 
   let get_address_ranges (data: (int * allocation_metadata) list)
                          (interp: Expr.expr -> Expr.expr option)
-                         : (int * (int * int) option * Sym.prefix) list =
+                         : (int * (int * int) option * prefix) list =
     List.map (fun (alloc,metadata) ->
       let addr_base = get_metadata_base metadata in
       let addr_size = get_metadata_size metadata in
@@ -1219,7 +1220,7 @@ module MemoryModelCommon = struct
     ) data
 
   let loc_to_string (loc: Expr.expr)
-                    (ranges: (int * ((int * int) option) * Sym.prefix) list)
+                    (ranges: (int * ((int * int) option) * prefix) list)
                     : string =
     match Expr.get_args loc with
     | [a1] ->

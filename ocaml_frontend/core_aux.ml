@@ -3,6 +3,7 @@ open Utils
 open Core
 open Ctype
 open Annot
+open Cerb_symbol
 
 
 let rec core_object_type_of_ctype (Ctype (_, ty)) =
@@ -128,8 +129,8 @@ let rec memValueFromValue ty cval =
   | Struct tag_sym1, Bloaded (LVspecified (OVstruct (tag_sym2, xs))) ->
       let () =
         Cerb_debug.print_debug 2 [] (fun () ->
-            "Comparing struct tag symbols: " ^ Symbol.show_raw tag_sym1 ^ " = "
-            ^ Symbol.show_raw tag_sym2)
+            "Comparing struct tag symbols: " ^ Sym.show_raw tag_sym1 ^ " = "
+            ^ Sym.show_raw tag_sym2)
       in
       if
         Ctype_aux.are_compatible0
@@ -139,7 +140,7 @@ let rec memValueFromValue ty cval =
       else None
   | Union tag_sym1, Bloaded (LVspecified (OVunion (tag_sym2, ident, mem_val)))
     ->
-      if Symbol.symbolEquality tag_sym1 tag_sym2
+      if Sym.equal tag_sym1 tag_sym2
       then Some (Impl_mem.union_mval tag_sym1 ident mem_val)
       else None
   | _ ->
@@ -448,14 +449,14 @@ let seq_rmw loc with_forward ty oTy x sym upd =
 let rec in_pattern sym (Pattern (_, pat)) =
   match pat with
   | CaseBase (sym_opt, _) ->
-      Option.fold ~none:false ~some:(Symbol.symbolEquality sym) sym_opt
+      Option.fold ~none:false ~some:(Sym.equal sym) sym_opt
   | CaseDtor (_, pats') -> List.exists (in_pattern sym) pats'
 
 let rec subst_sym_pexpr sym cval =
   let self x = subst_sym_pexpr sym cval x [@@inline] in
   Pexpr.map (function
   | PEsym sym' as pexpr_ ->
-      if Symbol.symbolEquality sym sym' then PEbase cval else pexpr_
+      if Sym.equal sym sym' then PEbase cval else pexpr_
   | (PEimpl _ | PEbase _ | PEundef _) as pexpr_ -> pexpr_
   | PEerror (str, pe) -> PEerror (str, self pe)
   | PEctor (ctor, pes) ->
@@ -580,7 +581,7 @@ let rec subst_sym_expr sym cval =
       in
       if
         List.exists
-          (fun (z, _) -> Symbol.symbolEquality sym z)
+          (fun (z, _) -> Sym.equal sym z)
           sym_bTy_pes
       then
         let () =
@@ -624,7 +625,7 @@ and subst_sym_action_ sym cval = function
           subst_sym_pexpr sym cval pe1,
           subst_sym_pexpr sym cval pe2,
           sym',
-          if Symbol.symbolEquality sym sym'
+          if Sym.equal sym sym'
           then pe3
           else subst_sym_pexpr sym cval pe3 )
   | RMW (pe1, pe2, pe3, pe4, mo1, mo2) ->
@@ -718,7 +719,7 @@ let rec subst_pattern_val (Pattern (_, pat)) cval expr1 =
 
 (* substitute in an expression a symbolic name with a (pure) expression *)
 (* NOTE: this is usually unsound to use if pe' doesn't evaluate to a defined value or generates memory constraints *)
-(*val     unsafe_subst_sym_pexpr: Symbol.sym -> pexpr -> pexpr -> pexpr*)
+(*val     unsafe_subst_sym_pexpr: Sym.t -> pexpr -> pexpr -> pexpr*)
 let rec unsafe_subst_sym_pexpr sym (Pexpr (annot, bty, pe_') as pe')
     (Pexpr (_, _, pe_)) =
   Pexpr
@@ -726,7 +727,7 @@ let rec unsafe_subst_sym_pexpr sym (Pexpr (annot, bty, pe_') as pe')
       bty,
       match pe_ with
       | PEsym sym' ->
-          if Symbol.symbolEquality sym sym'
+          if Sym.equal sym sym'
           then pe_'
           else pe_
       | PEimpl _ -> pe_
@@ -809,7 +810,7 @@ let rec unsafe_subst_sym_pexpr sym (Pexpr (annot, bty, pe_') as pe')
               unsafe_subst_sym_pexpr sym pe' pe2 ) )
 
 (* NOTE: this is usually unsound to use if pe' doesn't evaluate to a defined value or generates memory constraints *)
-(*val     unsafe_subst_sym_expr: forall 'a. Symbol.sym -> pexpr -> expr 'a -> expr 'a*)
+(*val     unsafe_subst_sym_expr: forall 'a. Sym.t -> pexpr -> expr 'a -> expr 'a*)
 let rec unsafe_subst_sym_expr sym pe' =
   let unsafe_subst_pexpr x = unsafe_subst_sym_pexpr sym pe' x [@@inline] in
   let self x = unsafe_subst_sym_expr sym pe' x [@@inline] in
@@ -868,7 +869,7 @@ let rec unsafe_subst_sym_expr sym pe' =
       in
       if
         List.exists
-          (fun (z, _) -> Symbol.symbolEquality sym z)
+          (fun (z, _) -> Sym.equal sym z)
           sym_bTy_pes
       then
         let () =
@@ -917,7 +918,7 @@ and unsafe_subst_sym_action_ a pe' = function
           unsafe_subst_sym_pexpr a pe' pe1,
           unsafe_subst_sym_pexpr a pe' pe2,
           sym',
-          if Symbol.symbolEquality a sym'
+          if Sym.equal a sym'
           then pe3
           else unsafe_subst_sym_pexpr a pe' pe3 )
   | RMW (pe1, pe2, pe3, pe4, mo1, mo2) ->
@@ -1247,7 +1248,7 @@ let rec find_labeled_continuation sym1 (Expr (annot1, expr_)) =
       (* NOTE: Typing forbids labeled continuation bindings in inside nd() *)
       None
   | Esave ((sym', _), sym_bTys, e) ->
-      if Symbol.symbolEquality sym1 sym' then Some (Lem_list.map fst sym_bTys, e)
+      if Sym.equal sym1 sym' then Some (Lem_list.map fst sym_bTys, e)
       else find_labeled_continuation sym1 e
   | Erun (annot1, sym1, pes) -> None
   | Epar es ->
@@ -1321,7 +1322,7 @@ let rec has_sseqs expr =
   end
 *)
 
-(*val     match_pattern: pattern -> value -> maybe (list (Symbol.sym * value))*)
+(*val     match_pattern: pattern -> value -> maybe (list (Sym.t * value))*)
 let rec match_pattern (Pattern (_, pat)) cval =
   match (pat, cval) with
   | CaseBase (None, _), _ -> Some []
@@ -1353,7 +1354,7 @@ let rec match_pattern (Pattern (_, pat)) cval =
             (fun xs -> Some (List.rev_append (List.rev x) xs)))
   | _ -> None
 
-(*val     select_case: forall 'a. (Symbol.sym -> value -> 'a -> 'a) -> value -> list (pattern * 'a) -> maybe 'a*)
+(*val     select_case: forall 'a. (Sym.t -> value -> 'a -> 'a) -> value -> list (pattern * 'a) -> maybe 'a*)
 let rec select_case subst_sym cval =
  (function
  | [] -> None
@@ -1408,24 +1409,16 @@ let add_annots annots1 (Expr (annots2, expr_)) =
 
 type 'a collect_saves_state = {
   tmp_acc :
-    (Symbol.sym, (Symbol.sym * core_base_type) list * 'a Core.expr) Pmap.map;
+    (Sym.t, (Sym.t * core_base_type) list * 'a Core.expr) Pmap.map;
       (*Core.labeled_continuations 'a; *)
   closed_acc :
-    (Symbol.sym, (Symbol.sym * core_base_type) list * 'a Core.expr) Pmap.map;
+    (Sym.t, (Sym.t * core_base_type) list * 'a Core.expr) Pmap.map;
       (*Core.labeled_continuations 'a; *)
 }
 
 let empty_saves =
-  {
-    tmp_acc =
-      Pmap.empty (fun sym1 sym2 ->
-          ordCompare Symbol.instance_Basic_classes_Eq_Symbol_sym_dict
-            Symbol.instance_Basic_classes_Ord_Symbol_sym_dict sym1 sym2);
-    closed_acc =
-      Pmap.empty (fun sym1 sym2 ->
-          ordCompare Symbol.instance_Basic_classes_Eq_Symbol_sym_dict
-            Symbol.instance_Basic_classes_Ord_Symbol_sym_dict sym1 sym2);
-  }
+  { tmp_acc= Sym.empty_pmap
+  ; closed_acc = Sym.empty_pmap }
 
 let union_saves st1 st2 =
   {
@@ -1505,21 +1498,12 @@ let rec collect_saves_aux st (Expr (annots1, expr_)) =
       (* typing forbids "saves" inside a "excluded()" *)
       st
 
-(*val collect_saves: forall 'a. expr 'a -> map Symbol.sym (list (Symbol.sym * core_base_type) * expr 'a)*)
+(*val collect_saves: forall 'a. expr 'a -> map Sym.t (list (Sym.t * core_base_type) * expr 'a)*)
 (*Core.labeled_continuations 'a *)
 let collect_saves expr1 =
   let st =
     collect_saves_aux
-      {
-        tmp_acc =
-          Pmap.empty (fun sym1 sym2 ->
-              ordCompare Symbol.instance_Basic_classes_Eq_Symbol_sym_dict
-                Symbol.instance_Basic_classes_Ord_Symbol_sym_dict sym1 sym2);
-        closed_acc =
-          Pmap.empty (fun sym1 sym2 ->
-              ordCompare Symbol.instance_Basic_classes_Eq_Symbol_sym_dict
-                Symbol.instance_Basic_classes_Ord_Symbol_sym_dict sym1 sym2);
-      }
+      { tmp_acc=Sym.empty_pmap; closed_acc= Sym.empty_pmap }
       expr1
   in
   Pmap.union st.tmp_acc st.closed_acc
@@ -1530,7 +1514,7 @@ let collect_saves expr1 =
 
 type 'a m_labeled_continuation =
   core_base_type
-  * (Symbol.sym
+  * (Sym.t
     * ((core_base_type * (Ctype.ctype * pass_by_value_or_pointer) option)
       * pexpr))
     list
@@ -1538,7 +1522,7 @@ type 'a m_labeled_continuation =
   * Annot.annot list
 
 type 'a m_labeled_continuations =
-  (Symbol.sym, 'a m_labeled_continuation) Pmap.map
+  (Sym.t, 'a m_labeled_continuation) Pmap.map
 
 type 'a m_collect_saves_state = {
   m_tmp_acc : 'a m_labeled_continuations;
@@ -1546,16 +1530,7 @@ type 'a m_collect_saves_state = {
 }
 
 let m_empty_saves =
-  {
-    m_tmp_acc =
-      Pmap.empty (fun sym1 sym2 ->
-          ordCompare Symbol.instance_Basic_classes_Eq_Symbol_sym_dict
-            Symbol.instance_Basic_classes_Ord_Symbol_sym_dict sym1 sym2);
-    m_closed_acc =
-      Pmap.empty (fun sym1 sym2 ->
-          ordCompare Symbol.instance_Basic_classes_Eq_Symbol_sym_dict
-            Symbol.instance_Basic_classes_Ord_Symbol_sym_dict sym1 sym2);
-  }
+  { m_tmp_acc= Sym.empty_pmap; m_closed_acc= Sym.empty_pmap }
 
 let m_union_saves st1 st2 =
   {
@@ -1618,7 +1593,7 @@ let rec m_collect_saves_aux st (Expr (annots1, expr_)) =
         | Some _ -> ()
         | _ ->
             Cerb_debug.print_debug 0 [] (fun () ->
-                "label " ^ Symbol.show_symbol sym1 ^ "missing label location")
+                "label " ^ Sym.show sym1 ^ "missing label location")
       in
       m_collect_saves_aux
         {
@@ -1642,23 +1617,14 @@ let rec m_collect_saves_aux st (Expr (annots1, expr_)) =
 let m_collect_saves expr1 =
   let st =
     m_collect_saves_aux
-      {
-        m_tmp_acc =
-          Pmap.empty (fun sym1 sym2 ->
-              ordCompare Symbol.instance_Basic_classes_Eq_Symbol_sym_dict
-                Symbol.instance_Basic_classes_Ord_Symbol_sym_dict sym1 sym2);
-        m_closed_acc =
-          Pmap.empty (fun sym1 sym2 ->
-              ordCompare Symbol.instance_Basic_classes_Eq_Symbol_sym_dict
-                Symbol.instance_Basic_classes_Ord_Symbol_sym_dict sym1 sym2);
-      }
+      { m_tmp_acc=Sym.empty_pmap; m_closed_acc= Sym.empty_pmap }
       expr1
   in
   Pmap.union st.m_tmp_acc st.m_closed_acc
 
 (*import Map_extra*)
 
-(*val collect_labeled_continuations_NEW: forall 'a. file 'a -> map Symbol.sym (map Symbol.sym (list (Symbol.sym * core_base_type) * expr 'a) (*Core.labeled_continuations 'a *))*)
+(*val collect_labeled_continuations_NEW: forall 'a. file 'a -> map Sym.t (map Sym.t (list (Sym.t * core_base_type) * expr 'a) (*Core.labeled_continuations 'a *))*)
 let collect_labeled_continuations_NEW file1 =
   (*  let xs =  *)
   Pmap.fold
@@ -1669,9 +1635,7 @@ let collect_labeled_continuations_NEW file1 =
       | BuiltinDecl (_, _, _) -> acc
       | Proc (_, _, _, _, e) -> Pmap.add fun_sym (collect_saves e) acc)
     (Pmap.union file1.stdlib file1.funs)
-    (Pmap.empty (fun sym1 sym2 ->
-         ordCompare Symbol.instance_Basic_classes_Eq_Symbol_sym_dict
-           Symbol.instance_Basic_classes_Ord_Symbol_sym_dict sym1 sym2))
+    Sym.empty_pmap
 
 (*
 in
@@ -1684,8 +1648,8 @@ in
   xs
 *)
 
-(*val     update_env: pattern -> value -> list (map Symbol.sym value) -> list (map Symbol.sym value)*)
-let rec update_env_aux dict_Map_MapKeyType_a (Pattern (_, pat)) cval env1 =
+(*val     update_env: pattern -> value -> list (map Sym.t value) -> list (map Sym.t value)*)
+let rec update_env_aux (Pattern (_, pat)) cval env1 =
   (* TODO (maybe), Carray, Civmax, Civmin, Civsizeof, Civalignof *)
   match (pat, cval) with
   | CaseBase (None, _), _ ->
@@ -1699,20 +1663,20 @@ let rec update_env_aux dict_Map_MapKeyType_a (Pattern (_, pat)) cval env1 =
       env1
   | CaseDtor (Dcons, [ pat1; pat2 ]), Blist (bTy_elem, cval1 :: cvals) ->
       (* populated list (value) *)
-      update_env_aux dict_Map_MapKeyType_a pat1 cval1
-        (update_env_aux dict_Map_MapKeyType_a pat2
+      update_env_aux pat1 cval1
+        (update_env_aux pat2
            (Blist (bTy_elem, cvals))
            env1)
   | CaseDtor (Dtuple, pats'), Btuple cvals ->
       List.fold_right
         (fun (pat', cval') acc ->
-          update_env_aux dict_Map_MapKeyType_a pat' cval' acc)
+          update_env_aux pat' cval' acc)
         (List.combine pats' cvals)
         env1
   | CaseDtor (Dspecified, [ pat' ]), Bloaded (LVspecified oval) ->
-      update_env_aux dict_Map_MapKeyType_a pat' (Bobject oval) env1
+      update_env_aux pat' (Bobject oval) env1
   | CaseDtor (Dunspecified, [ pat' ]), Bloaded (LVunspecified ty1) ->
-      update_env_aux dict_Map_MapKeyType_a pat' (Bctype ty1) env1
+      update_env_aux pat' (Bctype ty1) env1
   | CaseDtor (dtor1, pats), _ ->
       let str_dtor =
         match dtor1 with
@@ -1733,8 +1697,6 @@ let update_env pat cval =
  | [] -> Cerb_debug.error "Core_aux.update_env: found empty env"
  | env1 :: xs ->
      update_env_aux
-       (instance_Map_MapKeyType_var_dict
-          Symbol.instance_Basic_classes_SetType_Symbol_sym_dict)
        pat cval env1
      :: xs)
 

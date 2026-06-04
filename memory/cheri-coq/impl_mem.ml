@@ -1,5 +1,6 @@
 [@@@warning "+8-37"]
 open Ctype
+open Cerb_symbol
 
 (*open Ocaml_implementation*)
 open Memory_model
@@ -70,7 +71,7 @@ module CerbTagDefs = struct
 
 
 
-  let toCoq_Symbol_description: Symbol.symbol_description -> CoqSymbol.symbol_description = function
+  let toCoq_Symbol_description: Sym.description -> CoqSymbol.symbol_description = function
     | SD_None -> SD_None
     | SD_unnamed_tag l -> SD_unnamed_tag (toCoq_location l)
     | SD_Id s -> SD_Id s
@@ -80,10 +81,10 @@ module CerbTagDefs = struct
     | SD_FunArgValue s -> SD_FunArgValue s
     | SD_FunArg (l,v) -> SD_FunArg (toCoq_location l, Z.of_int v)
 
-  let toCoq_Symbol_sym: Symbol.sym -> CoqSymbol.sym = function
-    | Symbol (d,v,desc) -> Symbol (d, Z.of_int v, toCoq_Symbol_description desc)
+  let toCoq_Symbol_sym: Sym.t -> CoqSymbol.sym = function
+    | Sym.{ tunit; id; desc } -> Symbol (tunit, Z.of_int id, toCoq_Symbol_description desc)
 
-  let toCoq_Symbol_prefix: Symbol.prefix -> CoqSymbol.prefix = function
+  let toCoq_Symbol_prefix: prefix -> CoqSymbol.prefix = function
     | PrefSource (loc, sl) -> PrefSource (toCoq_location loc, List.map toCoq_Symbol_sym sl)
     | PrefFunArg (l, d, v) -> PrefFunArg (toCoq_location l, d, Z.of_int v)
     | PrefStringLiteral (l,d) -> PrefStringLiteral (toCoq_location l, d)
@@ -92,8 +93,8 @@ module CerbTagDefs = struct
     | PrefMalloc -> PrefMalloc
     | PrefOther s -> PrefOther s
 
-  let toCoq_Symbol_identifier: Symbol.identifier -> CoqSymbol.identifier = function
-    | Identifier (l,s) -> Identifier (toCoq_location l, s)
+  let toCoq_Symbol_identifier: Identifier.t -> CoqSymbol.identifier = function
+    | Identifier.{ loc; str } -> Identifier (toCoq_location loc, str)
 
 
   let toCoq_annot: Annot.bmc_annot -> CoqAnnot.bmc_annot  = function
@@ -237,7 +238,7 @@ module CerbTagDefs = struct
             ) l)
 
   (* very inefficient! *)
-  let toCoq_SymMap (m:(Symbol.sym, Cerb_location.t * Ctype.tag_definition) Pmap.map) : CoqCtype.tag_definition CoqSymbol.SymMap.t =
+  let toCoq_SymMap (m:(Sym.t, Cerb_location.t * Ctype.tag_definition) Pmap.map) : CoqCtype.tag_definition CoqSymbol.SymMap.t =
     let l = Pmap.bindings_list m in
     let (e:CoqCtype.tag_definition CoqSymbol.SymMap.t) = CoqSymbol.SymMap.empty in
     List.fold_left (fun m (s,(_, d)) -> CoqSymbol.SymMap.add (toCoq_Symbol_sym s) (toCoq_tag_definition d) m) e l
@@ -660,7 +661,7 @@ module CHERIMorello : Memory = struct
     | UB_CHERI_UndefinedTag                                -> UB_CHERI_UndefinedTag
     | UB_CHERI_ZeroLength                                  -> UB_CHERI_ZeroLength
 
-  let fromCoq_Symbol_description: CoqSymbol.symbol_description -> Symbol.symbol_description = function
+  let fromCoq_Symbol_description: CoqSymbol.symbol_description -> Sym.description = function
     | SD_None -> SD_None
     | SD_unnamed_tag l -> SD_unnamed_tag (fromCoq_location l)
     | SD_Id s -> SD_Id s
@@ -670,10 +671,10 @@ module CHERIMorello : Memory = struct
     | SD_FunArgValue s -> SD_FunArgValue s
     | SD_FunArg (l,v) -> SD_FunArg (fromCoq_location l, Z.to_int v)
 
-  let fromCoq_Symbol_sym: CoqSymbol.sym -> Symbol.sym = function
-    | Symbol (d,v,desc) -> Symbol (d,Z.to_int v, fromCoq_Symbol_description desc)
+  let fromCoq_Symbol_sym: CoqSymbol.sym -> Sym.t = function
+    | Symbol (d,v,desc) -> Sym.mk d (Z.to_int v) (fromCoq_Symbol_description desc)
 
-  let fromCoq_Symbol_prefix: CoqSymbol.prefix -> Symbol.prefix = function
+  let fromCoq_Symbol_prefix: CoqSymbol.prefix -> prefix = function
     | PrefSource (loc, sl) -> PrefSource (fromCoq_location loc, List.map fromCoq_Symbol_sym sl)
     | PrefFunArg (l, d, v) -> PrefFunArg (fromCoq_location l, d, Z.to_int v)
     | PrefStringLiteral (l,d) -> PrefStringLiteral (fromCoq_location l, d)
@@ -682,8 +683,8 @@ module CHERIMorello : Memory = struct
     | PrefMalloc -> PrefMalloc
     | PrefOther s -> PrefOther s
 
-  let fromCoq_Symbol_identifier: CoqSymbol.identifier -> Symbol.identifier = function
-    | Identifier (l,s) -> Identifier (fromCoq_location l, s)
+  let fromCoq_Symbol_identifier: CoqSymbol.identifier -> Identifier.t = function
+    | Identifier (l,s) -> Identifier.mk (fromCoq_location l) s
 
   let fromCoq_integerBaseType: CoqIntegerType.integerBaseType -> integerBaseType = function
     | Ichar           -> Ichar
@@ -1023,7 +1024,7 @@ module CHERIMorello : Memory = struct
   (* Memory actions *)
   let allocate_object
         (tid: Mem_common.thread_id)
-        (pref: Symbol.prefix)
+        (pref: prefix)
         (int_val: integer_value)
         (ty: Ctype.ctype)
         (_: Z.t option)
@@ -1044,7 +1045,7 @@ module CHERIMorello : Memory = struct
 
   let allocate_region
         (tid:Mem_common.thread_id)
-        (pref:Symbol.prefix)
+        (pref:prefix)
         (align_int:integer_value)
         (size_int: integer_value): pointer_value memM
     =
@@ -1100,7 +1101,7 @@ module CHERIMorello : Memory = struct
   let null_ptrval (ty:Ctype.ctype) : pointer_value
     = MM.null_ptrval (toCoq_ctype ty)
 
-  let fun_ptrval (s:Symbol.sym) : pointer_value
+  let fun_ptrval (s:Sym.t) : pointer_value
     =
     lift_coq_serr (MM.fun_ptrval (toCoq_Symbol_sym s))
 
@@ -1123,7 +1124,7 @@ module CHERIMorello : Memory = struct
        then fconc None (C.cap_get_value c)
        else ffun None
 
-  let case_funsym_opt (st:MM.mem_state) (pv:pointer_value): Symbol.sym option
+  let case_funsym_opt (st:MM.mem_state) (pv:pointer_value): Sym.t option
     = Option.map fromCoq_Symbol_sym (MM.case_funsym_opt st pv)
 
   (* Operations on pointer values *)
@@ -1182,9 +1183,9 @@ module CHERIMorello : Memory = struct
          let rec find = function
            | [] ->
               None
-           | (Symbol.Identifier (_, memb), _, off) :: offs ->
+           | (memb, _, off) :: offs ->
               if offset = off
-              then Some (string_of_prefix (fromCoq_Symbol_prefix alloc.prefix) ^ "." ^ memb)
+              then Some (string_of_prefix (fromCoq_Symbol_prefix alloc.prefix) ^ "." ^ memb.Identifier.str)
               else find offs
          in find offs
       | Some (Ctype (_, Array (ty, _))) ->
@@ -1373,13 +1374,13 @@ module CHERIMorello : Memory = struct
   let case_mem_value
         (mval:mem_value)
         (f_unspec:ctype -> 'a)
-        (_:Ctype.integerType -> Symbol.sym -> 'a)
+        (_:Ctype.integerType -> Sym.t -> 'a)
         (f_ival:integerType -> integer_value -> 'a)
         (f_fval:floatingType -> floating_value -> 'a)
         (f_ptr:ctype -> pointer_value -> 'a)
         (f_array:mem_value list -> 'a)
-        (f_struct: Symbol.sym -> (Symbol.identifier * Ctype.ctype * mem_value) list -> 'a)
-        (f_union:Symbol.sym -> Symbol.identifier -> mem_value -> 'a): 'a
+        (f_struct: Sym.t -> (Identifier.t * Ctype.ctype * mem_value) list -> 'a)
+        (f_union:Sym.t -> Identifier.t -> mem_value -> 'a): 'a
     =
     match mval with
     | MVunspecified ty ->

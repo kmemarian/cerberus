@@ -7,6 +7,7 @@ open Bmc_utils
 open Z3
 
 open Cerb_frontend
+open Cerb_symbol
 open Core
 open Printf
 
@@ -15,14 +16,14 @@ open Bmc_incremental
 module BmcM = struct
   type state_ty = {
     file        : unit file;
-    fn_to_check : sym_ty;
+    fn_to_check : Sym.t;
     ail_opt     : GenTypes.genTypeCategory AilSyntax.ail_program option;
 
     inline_pexpr_map : (int, pexpr) Pmap.map option;
     inline_expr_map  : (int, unit expr) Pmap.map option;
-    fn_call_map      : (int, sym_ty) Pmap.map option;
+    fn_call_map      : (int, Sym.t) Pmap.map option;
 
-    sym_expr_table   : (sym_ty, Expr.expr) Pmap.map option;
+    sym_expr_table   : (Sym.t, Expr.expr) Pmap.map option;
 
     expr_map         : (int, Expr.expr) Pmap.map option;
     case_guard_map   : (int, Expr.expr list) Pmap.map option;
@@ -282,7 +283,7 @@ let initialise_solver (solver: Solver.solver) =
   Solver.set_parameters solver params
 
 let bmc_file (file              : unit file)
-             (fn_to_check       : sym_ty)
+             (fn_to_check       : Sym.t)
              (ail_opt: GenTypes.genTypeCategory AilSyntax.ail_program option) =
   let initial_state : BmcM.state =
     BmcM.mk_initial_state file fn_to_check ail_opt in
@@ -504,9 +505,9 @@ let bmc_file (file              : unit file)
 let find_function (f_name: string)
                   (fun_map: unit fun_map) =
   let is_f_name = (fun (sym, decl) ->
-      match sym with
-      | Sym.Symbol(_, i, SD_Id s) -> String.equal s f_name
-      | _ -> false
+      match Sym.match_id sym with
+      | Some str -> String.equal str f_name
+      | None -> false
     ) in
   match (List.find_opt is_f_name (Pmap.bindings_list fun_map)) with
   | Some (sym, _) -> sym

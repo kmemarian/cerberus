@@ -125,10 +125,10 @@ ui:
 	make -C public
 
 #### LEM sources for the frontend
-LEM_RENAMED = global.lem loc.lem debug.lem decode.lem core_aux.lem errors.lem
+LEM_RENAMED = global.lem loc.lem debug.lem decode.lem core_aux.lem errors.lem symbol.lem
 
 LEM_PRELUDE       = utils.lem annot.lem bimap.lem \
-                    dlist.lem enum.lem state.lem symbol.lem \
+                    dlist.lem enum.lem state.lem \
                     exception.lem product.lem float.lem any.lem
 LEM_CABS          = cabs.lem undefined.lem constraint.lem integerType.lem ctype.lem
 LEM_AIL           = typingError.lem errorMonad.lem ailSyntax.lem genTypes.lem
