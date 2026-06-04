@@ -1,5 +1,5 @@
 open import Pervasives Utils Core Ctype
-import Mem Mem_common Cmm_csem Linux Symbol Annot
+import Mem Mem_common Atomics Linux Symbol Annot
 
 declare {ocaml} rename module = lem_core_aux
 
@@ -197,12 +197,12 @@ declare ocaml target_rep function concat_sseq = `Core_aux.concat_sseq`
 val pcreate: Loc.t -> pexpr -> pexpr -> Symbol.prefix -> expr unit
 val pcreate_readonly: Loc.t -> pexpr -> pexpr -> pexpr -> Symbol.prefix -> expr unit
 val pkill: Loc.t -> kill_kind -> pexpr -> expr unit
-val pstore: Loc.t -> pexpr -> pexpr -> pexpr -> Cmm_csem.memory_order -> expr unit
-val pstore_lock: Loc.t -> pexpr -> pexpr -> pexpr -> Cmm_csem.memory_order -> expr unit
-val pload: Loc.t -> pexpr -> pexpr -> Cmm_csem.memory_order -> expr unit
+val pstore: Loc.t -> pexpr -> pexpr -> pexpr -> Atomics.memory_order -> expr unit
+val pstore_lock: Loc.t -> pexpr -> pexpr -> pexpr -> Atomics.memory_order -> expr unit
+val pload: Loc.t -> pexpr -> pexpr -> Atomics.memory_order -> expr unit
 (* val prmw: forall 'a. Loc.t ->  ty x n1 n2 mo1 mo2 = *)
-val pcompare_exchange_strong: Loc.t -> pexpr -> pexpr -> pexpr -> pexpr -> Cmm_csem.memory_order -> Cmm_csem.memory_order -> expr unit
-val pcompare_exchange_weak: Loc.t -> pexpr -> pexpr -> pexpr -> pexpr -> Cmm_csem.memory_order -> Cmm_csem.memory_order -> expr unit
+val pcompare_exchange_strong: Loc.t -> pexpr -> pexpr -> pexpr -> pexpr -> Atomics.memory_order -> Atomics.memory_order -> expr unit
+val pcompare_exchange_weak: Loc.t -> pexpr -> pexpr -> pexpr -> pexpr -> Atomics.memory_order -> Atomics.memory_order -> expr unit
 val plinux_load: Loc.t -> pexpr -> pexpr -> Linux.linux_memory_order -> expr unit
 val plinux_store: Loc.t -> pexpr -> pexpr -> pexpr -> Linux.linux_memory_order -> expr unit
 val plinux_rmw: Loc.t -> pexpr -> pexpr -> pexpr -> Linux.linux_memory_order -> expr unit

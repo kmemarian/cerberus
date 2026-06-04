@@ -57,7 +57,7 @@ type z3_value    = Expr.expr
 type guard       = Expr.expr
 
 type memory_order =
-  | C_mem_order of Cmm_csem.memory_order
+  | C_mem_order of Atomics.memory_order
   | Linux_mem_order of Linux.linux_memory_order
 
 type memop_action =
@@ -199,7 +199,7 @@ let is_ptr_array_shift (a: action) = match a with
 (* ======== PPRINTERS. TODO: MOVE THIS ========= *)
 let pp_memory_order = function
   | C_mem_order mo ->
-      Cmm_csem.(function
+      Atomics.(function
       | NA -> "na"
       | Seq_cst -> "sc"
       | Relaxed -> "rlx"

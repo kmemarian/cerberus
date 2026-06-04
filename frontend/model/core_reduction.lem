@@ -4,6 +4,7 @@ open import Core Core_aux Core_run_aux
 
 import Core_eval Cmm_aux Cmm_csem
 
+import Atomics
 import Cerb_attributes
 
 (* TODO *)
@@ -73,14 +74,14 @@ type action_request2 'a =
                    *  maybe Mem.mem_value (* optional initialisation value *)
                    *  (Cmm.aid -> Mem.pointer_value -> 'a)
   
-  | StoreRequest2 of Cmm.memory_order (* C11 memory order *)
+  | StoreRequest2 of Atomics.memory_order (* C11 memory order *)
                   *  Ctype.ctype (* C type of lvalue *)
                   *  bool (* whether the store locks the allocation *)
                   *  Mem.pointer_value
                   *  Mem.mem_value 
                   *  (Cmm.aid -> Mem.footprint -> 'a)
   
-  | LoadRequest2 of Cmm.memory_order (* C11 memory order *)
+  | LoadRequest2 of Atomics.memory_order (* C11 memory order *)
                  *  Ctype.ctype (* C type of lvalue *)
                  *  Mem.pointer_value
               (* *  Symbol.sym  (* the request provide a fresh symbolic name to be used by the concurrency if needed *)

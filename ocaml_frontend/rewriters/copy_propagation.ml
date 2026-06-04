@@ -338,20 +338,20 @@ let propagate_action env (Paction (pol, Action (loc, a, act_))) =
         Create (pp pe1, pp pe2, prefix)
     | CreateReadOnly (pe1, pe2, pe3, prefix) ->
         CreateReadOnly (pp pe1, pp pe2, pp pe3, prefix)
-    | Alloc0 (pe1, pe2, prefix) ->
-        Alloc0 (pp pe1, pp pe2, prefix)
+    | Alloc (pe1, pe2, prefix) ->
+        Alloc (pp pe1, pp pe2, prefix)
     | Kill (kind, pe1) ->
         Kill (kind, pp pe1)
-    | Store0 (lk, pe1, pe2, pe3, mo) ->
-        Store0 (lk, pp pe1, pp pe2, pp pe3, mo)
-    | Load0 (pe1, pe2, mo) ->
-        Load0 (pp pe1, pp pe2, mo)
+    | Store (lk, pe1, pe2, pe3, mo) ->
+        Store (lk, pp pe1, pp pe2, pp pe3, mo)
+    | Load (pe1, pe2, mo) ->
+        Load (pp pe1, pp pe2, mo)
     | SeqRMW (lk, pe1, pe2, sym, pe3) ->
         SeqRMW (lk, pp pe1, pp pe2, sym, pp pe3)
-    | RMW0 (pe1, pe2, pe3, pe4, mo1, mo2) ->
-        RMW0 (pp pe1, pp pe2, pp pe3, pp pe4, mo1, mo2)
-    | Fence0 mo ->
-        Fence0 mo
+    | RMW (pe1, pe2, pe3, pe4, mo1, mo2) ->
+        RMW (pp pe1, pp pe2, pp pe3, pp pe4, mo1, mo2)
+    | Fence mo ->
+        Fence mo
     | CompareExchangeStrong (pe1, pe2, pe3, pe4, mo1, mo2) ->
         CompareExchangeStrong (pp pe1, pp pe2, pp pe3, pp pe4, mo1, mo2)
     | CompareExchangeWeak (pe1, pe2, pe3, pe4, mo1, mo2) ->

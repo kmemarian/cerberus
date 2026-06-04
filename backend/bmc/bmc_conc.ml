@@ -6,7 +6,6 @@ open Bmc_types
 open Bmc_utils
 
 open Cerb_frontend
-open Core
 open Printf
 open Z3
 open Z3.Arithmetic
@@ -15,7 +14,7 @@ open Z3.Arithmetic
  * and can be "changed" by let strong.
  * We should track this elsewhere. *)
 type bmc_action =
-  | BmcAction of polarity * guard * action
+  | BmcAction of Core.polarity * guard * action
 
 type preexec = {
   actions         : bmc_action list;
@@ -71,10 +70,10 @@ let addr_of_bmcaction (bmcaction: bmc_action) =
 let ctype_of_bmcaction(bmcaction: bmc_action) : ctype =
   ctype_of_action (get_action bmcaction)
 
-let size_of_bmcaction(bmcaction: bmc_action) (file: unit file) : int =
+let size_of_bmcaction(bmcaction: bmc_action) (file: unit Core.file) : int =
   PointerSort.type_size (ctype_of_bmcaction bmcaction) file
 
-let max_addr_of_bmcaction (bmcaction: bmc_action) (file: unit file) =
+let max_addr_of_bmcaction (bmcaction: bmc_action) (file: unit Core.file) =
   let base_addr = addr_of_bmcaction bmcaction in
   let size = size_of_bmcaction bmcaction file in
   assert (size > 0);
@@ -333,13 +332,13 @@ let compute_crit (po : (bmc_action * bmc_action) list) =
 let string_of_memory_order = function
   | C_mem_order mo ->
       (match mo with
-       | Cmm_csem.NA      -> "NA"
-       | Cmm_csem.Seq_cst -> "seq_cst"
-       | Cmm_csem.Relaxed -> "relaxed"
-       | Cmm_csem.Release -> "release"
-       | Cmm_csem.Acquire -> "acquire"
-       | Cmm_csem.Consume -> assert false
-       | Cmm_csem.Acq_rel -> "acq_rel"
+       | Atomics.NA      -> "NA"
+       | Atomics.Seq_cst -> "seq_cst"
+       | Atomics.Relaxed -> "relaxed"
+       | Atomics.Release -> "release"
+       | Atomics.Acquire -> "acquire"
+       | Atomics.Consume -> assert false
+       | Atomics.Acq_rel -> "acq_rel"
       )
   | Linux_mem_order mo ->
       (match mo with
@@ -356,7 +355,7 @@ let string_of_memory_order = function
 
 
 let string_of_polarity = function
-  | Pos -> "+"
+  | Core.Pos -> "+"
   | Neg -> "-"
 
 let string_of_memop_action = function
@@ -430,7 +429,7 @@ module type MemoryModel = sig
   val get_assertions : z3_memory_model -> Expr.expr list
   val get_vcs        : z3_memory_model -> bmc_vc list
 
-  val compute_executions : preexec -> (unit file) -> z3_memory_model
+  val compute_executions : preexec -> (unit Core.file) -> z3_memory_model
   val extract_executions : Solver.solver -> z3_memory_model -> Expr.expr
                            -> (alloc, allocation_metadata) Pmap.map option
                            -> string * string list * bool
@@ -783,7 +782,7 @@ module MemoryModelCommon = struct
       @ common
     else common
 
-  let initialise (exec: preexec) (file: unit file) =
+  let initialise (exec: preexec) (file: unit Core.file) =
     let all_actions = exec.initial_actions @ exec.actions in
     let prod_actions = cartesian_product all_actions all_actions in
     bmc_debug_print 3 (sprintf "# actions: %d" (List.length all_actions));
@@ -1507,7 +1506,7 @@ module RC11MemoryModel : MemoryModel = struct
     ; sbrf_clk  = sbrf_clk
     }
 
-  let compute_executions (exec: preexec) (file: unit file) : z3_memory_model =
+  let compute_executions (exec: preexec) (file: unit Core.file) : z3_memory_model =
     let all_actions = exec.initial_actions @ exec.actions in
     let prod_actions = cartesian_product all_actions all_actions in
     let writes = List.filter has_wval all_actions in
@@ -2455,7 +2454,7 @@ module GenericModel (M: CatModel) : MemoryModel = struct
     ) (Pmap.empty compare, Pmap.empty compare)
       (List.map (fun (s,_,_) -> s) M.bindings)
 
-  let compute_executions (exec: preexec) (file: unit file) =
+  let compute_executions (exec: preexec) (file: unit Core.file) =
     let common        = initialise exec file in
     let (decls,fns)   = mk_decls_and_fnapps common.event_sort in
     let actions = exec.initial_actions @ exec.actions in

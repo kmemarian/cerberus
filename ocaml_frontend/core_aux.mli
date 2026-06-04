@@ -124,7 +124,7 @@ val pstore :
   pexpr ->
   pexpr ->
   pexpr ->
-  Cmm_csem.memory_order ->
+  Atomics.memory_order ->
   unit expr
 
 val pstore_lock :
@@ -132,11 +132,11 @@ val pstore_lock :
   pexpr ->
   pexpr ->
   pexpr ->
-  Cmm_csem.memory_order ->
+  Atomics.memory_order ->
   unit expr
 
 val pload :
-  Cerb_location.t -> pexpr -> pexpr -> Cmm_csem.memory_order -> unit expr
+  Cerb_location.t -> pexpr -> pexpr -> Atomics.memory_order -> unit expr
 
 val pcompare_exchange_strong :
   Cerb_location.t ->
@@ -144,8 +144,8 @@ val pcompare_exchange_strong :
   pexpr ->
   pexpr ->
   pexpr ->
-  Cmm_csem.memory_order ->
-  Cmm_csem.memory_order ->
+  Atomics.memory_order ->
+  Atomics.memory_order ->
   unit expr
 
 val pcompare_exchange_weak :
@@ -154,8 +154,8 @@ val pcompare_exchange_weak :
   pexpr ->
   pexpr ->
   pexpr ->
-  Cmm_csem.memory_order ->
-  Cmm_csem.memory_order ->
+  Atomics.memory_order ->
+  Atomics.memory_order ->
   unit expr
 
 val plinux_load :

@@ -149,7 +149,7 @@ LEM_CORE_DYNAMICS = core_run_aux.lem core_eval.lem core_run.lem core_reduction.l
 LEM_ELABORATION   = translation_effect.lem translation_aux.lem translation.lem 
 LEM_DEFACTO       = mem_common.lem mem.lem \
                     mem_aux.lem
-LEM_CONC_INTERF   = cmm_aux.lem
+LEM_CONC_INTERF   = cmm_aux.lem atomics.lem
 LEM_CONC          = cmm_csem.lem cmm_op.lem linux.lem
 
 LEM_CN            = cn.lem cn_desugaring.lem

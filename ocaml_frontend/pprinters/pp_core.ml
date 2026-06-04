@@ -686,7 +686,10 @@ let rec pp_expr expr =
 
 and pp_action act =
   let pp_args args mo =
-    P.parens (comma_list pp_pexpr args ^^ if mo = Atomics.NA then P.empty else P.comma ^^^ pp_memory_order mo) in
+    let is_na = match mo with
+      | Atomics.NA -> true
+      | _ -> false in
+    P.parens (comma_list pp_pexpr args ^^ if is_na then P.empty else P.comma ^^^ pp_memory_order mo) in
   match act with
     | Create (al, ty, _) ->
         pp_keyword "create" ^^ P.parens (pp_pexpr al ^^ P.comma ^^^ pp_pexpr ty)

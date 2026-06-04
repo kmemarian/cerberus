@@ -9,23 +9,20 @@ import Core Core_aux Core_typing Core_linking
 
 import Builtins Annot Decode
 
-import Cmm_csem Mem
-import Linux
-
+import Mem
+import Atomics Linux
 
 module A    = AilSyntax
 module Aaux = AilSyntaxAux
 
-
 module C    = Core
-module Cty  = struct 
+module Cty  = struct
   include import Ctype
   include import Ctype_aux
 end
 module Caux = Core_aux
 module U    = Undefined
 
-module Cmm = Cmm_csem
 
 
 module E = Translation_effect
@@ -150,7 +147,7 @@ let translate_integerConstant iCst =
   end
 
 
-val translate_memory_order: A.expression GenTypes.genTypeCategory -> Cmm.memory_order
+val translate_memory_order: A.expression GenTypes.genTypeCategory -> Atomics.memory_order
 let translate_memory_order (A.AnnotatedExpression _ _ _ expr as a_expr) =
   (* NOTE: we only support constant directly matching a memory order  *)
   match expr with
@@ -748,7 +745,7 @@ if Global.is_CHERI () then
         E.return begin
           Caux.add_stds ["§6.5.2.4"; std_sentence_n 1; std_sentence_n 3] begin
             Caux.mk_wseq_e lvalue_wrp.E.sym_pat core_e begin
-            Caux.mk_wseq_e load_wrp.E.sym_pat (Caux.pload loc core_ty_e lvalue_wrp.E.sym_pe Cmm.NA) begin
+            Caux.mk_wseq_e load_wrp.E.sym_pat (Caux.pload loc core_ty_e lvalue_wrp.E.sym_pe Atomics.NA) begin
               Caux.mk_case_e load_wrp.E.sym_pe
                 [ ( Caux.mk_specified_pat obj_wrp.E.sym_pat
                   , Caux.mk_wseq_e shift_wrp.E.sym_pat
@@ -757,7 +754,7 @@ if Global.is_CHERI () then
                         Caux.mk_wseq_e (Caux.mk_empty_pat C.BTy_unit)
                           begin
                             C.Expr [Annot.Astd (std_sentence_n 4)]
-                              (C.Eaction (C.Paction C.Neg (C.Action loc default (C.Store false(* not locking *) core_ty_e lvalue_wrp.E.sym_pe (Caux.mk_specified_pe shift_wrp.E.sym_pe) Cmm.NA))))
+                              (C.Eaction (C.Paction C.Neg (C.Action loc default (C.Store false(* not locking *) core_ty_e lvalue_wrp.E.sym_pe (Caux.mk_specified_pe shift_wrp.E.sym_pe) Atomics.NA))))
                           end
                           (Caux.mk_pure_e load_wrp.E.sym_pe)
                       end )
@@ -929,9 +926,9 @@ let translate_function_call loc annots is_used translate_expr stdlib e es =
             let mo =
               if AilTypesAux.is_atomic expect_param_ty then
                 (* STD §6.2.6.1#9 *)
-                Cmm.Seq_cst
+                Atomics.Seq_cst
               else
-                Cmm.NA in
+                Atomics.NA in
             Caux.add_std "§6.5.2.2#7, sentence 1" begin
               Caux.mk_wseq_e arg_ptr_wrp.E.sym_pat
                 (Caux.pcreate loc (Caux.mk_alignof_pe expect_param_ty_pe) expect_param_ty_pe (Symbol.PrefFunArg loc (Symbol.digest ()) (intFromInteger n)))
@@ -2468,9 +2465,9 @@ end
           let mo =
             if AilTypesAux.is_atomic ty1 then
               (* STD §6.2.6.1#9 *)
-              Cmm.Seq_cst
+              Atomics.Seq_cst
             else
-              Cmm.NA in
+              Atomics.NA in
           E.return begin
             Caux.add_std "§6.5.16#3, sentence 4" begin
               Caux.mk_wseq_e (Caux.mk_tuple_pat [ e1_wrp.E.sym_pat; e2_wrp.E.sym_pat ])
@@ -2856,7 +2853,7 @@ end
           E.return begin
             (* NOTE: the elaboration ensures [ty] and the type of [e] are the same *)
             Caux.mk_wseq_e e_wrp.E.sym_pat core_e begin
-            Caux.mk_wseq_e (Caux.mk_empty_pat C.BTy_unit) (Caux.pstore loc core_ty obj_wrp.E.sym_pe e_wrp.E.sym_pe Cmm.NA) begin
+            Caux.mk_wseq_e (Caux.mk_empty_pat C.BTy_unit) (Caux.pstore loc core_ty obj_wrp.E.sym_pe e_wrp.E.sym_pe Atomics.NA) begin
               (* STD §6.5.2.5#5, sentence 1 *)
               Caux.mk_pure_e obj_wrp.E.sym_pe
             end end
@@ -3079,7 +3076,7 @@ end
                     , (C.Expr [] (C.Ememop Mem_common.Va_arg [case_wrp.E.sym_pe; Caux.mk_ail_ctype_pe ty])) )
                   ; ( Caux.mk_unspecified_pat (Caux.mk_empty_pat C.BTy_ctype)
                     , Caux.mk_pure_e (Caux.mk_undef_exceptional_condition loc) ) ] )
-                (Caux.pload loc (Caux.mk_ail_ctype_pe ty) ptr_wrp.E.sym_pe Cmm.NA))
+                (Caux.pload loc (Caux.mk_ail_ctype_pe ty) ptr_wrp.E.sym_pe Atomics.NA))
           end
       
       | A.AilEva_end e ->
@@ -3146,9 +3143,9 @@ else (* is_pointer *)
           let mo =
             if AilTypesAux.is_atomic (ctype_of e) then
               (* STD §6.2.6.1#9 *)
-              Cmm.Seq_cst
+              Atomics.Seq_cst
             else
-              Cmm.NA in
+              Atomics.NA in
           self e >>= fun core_e ->
           E.wrapped_fresh_symbol (C.BTy_object C.OTy_pointer) >>= fun e_wrp ->
           E.return begin
@@ -3198,7 +3195,7 @@ else
                 E.return begin
                   Caux.mk_wseq_e e_wrp.E.sym_pat core_e (
                     Caux.mk_wseq_e (Caux.mk_empty_pat C.BTy_unit)
-                      (Caux.add_std "§6.2.4#8" (Caux.pstore_lock loc (Caux.mk_ail_ctype_pe (ctype_of e)) res_wrp.E.sym_pe e_wrp.E.sym_pe Cmm.NA))
+                      (Caux.add_std "§6.2.4#8" (Caux.pstore_lock loc (Caux.mk_ail_ctype_pe (ctype_of e)) res_wrp.E.sym_pe e_wrp.E.sym_pe Atomics.NA))
                       (Caux.mk_pure_e (Caux.mk_specified_pe res_wrp.E.sym_pe))
                   )
                 end
@@ -4087,7 +4084,7 @@ let rec translate_stmt stdlib tagDefs f env stmt : E.elabM (C.expr unit) =
                 else
                 E.return begin
                   Caux.add_std "§6.2.4#6"
-                    (mk_store (Caux.mk_unspecified_pe ty) Cmm.NA)
+                    (mk_store (Caux.mk_unspecified_pe ty) Atomics.NA)
                 end
             | Just e ->
                 let oTy = force_core_object_type_of_ctype (ctype_of e) in
@@ -4096,12 +4093,12 @@ let rec translate_stmt stdlib tagDefs f env stmt : E.elabM (C.expr unit) =
                   | Ctype.Pointer _ ref_ty ->
                       if Aaux.is_null_pointer_constant e then
                         E.return (
-                          mk_store (Caux.mk_specified_pe (Caux.mk_nullptr_pe ref_ty)) Cmm.NA
+                          mk_store (Caux.mk_specified_pe (Caux.mk_nullptr_pe ref_ty)) Atomics.NA
                         )
                         else
                           translate_expression true e >>= fun core_e ->
                           E.return (
-                            Caux.mk_sseq_e e_wrp.E.sym_pat core_e (mk_store e_wrp.E.sym_pe Cmm.NA)
+                            Caux.mk_sseq_e e_wrp.E.sym_pat core_e (mk_store e_wrp.E.sym_pe Atomics.NA)
                           )
                   | _ ->
                       translate_expression true e >>= fun core_e ->
@@ -4111,7 +4108,7 @@ let rec translate_stmt stdlib tagDefs f env stmt : E.elabM (C.expr unit) =
                         E.return begin
                           Caux.mk_sseq_e e_wrp.E.sym_pat core_e begin
                             Caux.mk_sseq_e conv_wrp.E.sym_pat (stdlib.mkproc_loaded_pointer_to_Bool e_wrp.E.sym_pe)
-                              (mk_store conv_wrp.E.sym_pe Cmm.NA)
+                              (mk_store conv_wrp.E.sym_pe Atomics.NA)
                           end
                         end
                       else
@@ -4128,7 +4125,7 @@ let rec translate_stmt stdlib tagDefs f env stmt : E.elabM (C.expr unit) =
                                       Caux.mk_memop_pe Mem_common.CapAssignValue
                                         [Caux.mk_nullcap_pe is_signed; conv_arith stdlib (ctype_of e) ty obj_wrp.E.sym_pe]
                                     end
-                                  end Cmm.NA )
+                                  end Atomics.NA )
                               ; ( Caux.mk_unspecified_pat (Caux.mk_empty_pat C.BTy_ctype)
                                 , Caux.mk_pure_e (Caux.mk_undef_pe loc (Undefined.DUMMY "AilSdeclaration")) ) ]
                           end
@@ -4141,7 +4138,7 @@ let rec translate_stmt stdlib tagDefs f env stmt : E.elabM (C.expr unit) =
                               [ ( Caux.mk_specified_pat obj_wrp.E.sym_pat
                                 , mk_store begin
                                     Caux.mk_specified_pe (conv_arith stdlib (ctype_of e) ty (Caux.mk_memop_pe Mem_common.Ptr_tIntValue [obj_wrp.E.sym_pe]))
-                                  end Cmm.NA )
+                                  end Atomics.NA )
                               ; ( Caux.mk_unspecified_pat (Caux.mk_empty_pat C.BTy_ctype)
                                 , Caux.mk_pure_e (Caux.mk_undef_pe loc (Undefined.DUMMY "[u]intptr_t to integer/floating AilSdeclaration")) ) ]
                           end
@@ -4150,7 +4147,7 @@ let rec translate_stmt stdlib tagDefs f env stmt : E.elabM (C.expr unit) =
                         E.return begin
                           Caux.mk_sseq_e e_wrp.E.sym_pat core_e
                             (mk_store
-                              (if AilTypesAux.is_arithmetic ty then conv_loaded_arith stdlib (ctype_of e) ty e_wrp.E.sym_pe else e_wrp.E.sym_pe) Cmm.NA)
+                              (if AilTypesAux.is_arithmetic ty then conv_loaded_arith stdlib (ctype_of e) ty e_wrp.E.sym_pe else e_wrp.E.sym_pe) Atomics.NA)
                         end
                 end
           end
@@ -4275,7 +4272,7 @@ let translate_program stdlib (startup_sym_opt, sigm) =
                       Caux.mk_sseq_e (Caux.mk_sym_pat e_sym e_bTy) core_e (
                        Caux.mk_sseq_e (Caux.mk_empty_pat C.BTy_unit)
                          (* TODO: proper memory order *)
-                         (mk_store loc core_ty (Caux.mk_sym_pe sym_global) core_init_e Cmm.NA)
+                         (mk_store loc core_ty (Caux.mk_sym_pe sym_global) core_init_e Atomics.NA)
                          (Caux.mk_pure_e (Caux.mk_sym_pe sym_global))
                       ))
                   end in
@@ -4391,7 +4388,7 @@ let translate_program stdlib (startup_sym_opt, sigm) =
                             [ ( Caux.mk_sym_pat ptr_sym (C.BTy_object C.OTy_pointer)
                               , Caux.pcreate loc (Caux.mk_alignof_pe ty_pe) ty_pe (Symbol.PrefFunArg loc (Symbol.digest ()) (intFromNat i)) )
                             ; ( Caux.mk_empty_pat C.BTy_unit
-                              , Caux.pstore loc ty_pe (Caux.mk_sym_pe ptr_sym) value_sym_pe Cmm.NA ) ]
+                              , Caux.pstore loc ty_pe (Caux.mk_sym_pe ptr_sym) value_sym_pe Atomics.NA ) ]
                           ) (List.zip params (List.zip param_syms arg_value_decls))
                         end
                       end
@@ -4477,7 +4474,7 @@ let translate_program stdlib (startup_sym_opt, sigm) =
             , Caux.pcreate loc (Caux.mk_alignof_pe ty_pe) ty_pe
                 (Symbol.PrefStringLiteral loc (Symbol.digest_of_sym sym)) )
           ; ( Caux.mk_empty_pat C.BTy_unit
-            , Caux.pstore_lock loc ty_pe ptr_wrp.E.sym_pe e_init Cmm.NA )
+            , Caux.pstore_lock loc ty_pe ptr_wrp.E.sym_pe e_init Atomics.NA )
           ] begin
             Caux.mk_sseq_e tmp_wrp.E.sym_pat (cheri_readonly_perms ptr_ty ptr_wrp.E.sym_pe)
               (Caux.mk_case_e tmp_wrp.E.sym_pe

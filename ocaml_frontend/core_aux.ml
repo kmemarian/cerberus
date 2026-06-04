@@ -382,14 +382,14 @@ let pkill loc1 kind1 x =
 
 let pstore loc ty x n mo =
   Expr.mk
-    (Eaction (Paction (Pos, Action (loc, (), Store0 (false, ty, x, n, mo)))))
+    (Eaction (Paction (Pos, Action (loc, (), Store (false, ty, x, n, mo)))))
 
 let pstore_lock loc ty x n mo =
   Expr.mk
-    (Eaction (Paction (Pos, Action (loc, (), Store0 (true, ty, x, n, mo)))))
+    (Eaction (Paction (Pos, Action (loc, (), Store (true, ty, x, n, mo)))))
 
 let pload loc ty x mo =
-  Expr.mk (Eaction (Paction (Pos, Action (loc, (), Load0 (ty, x, mo)))))
+  Expr.mk (Eaction (Paction (Pos, Action (loc, (), Load (ty, x, mo)))))
 
 let pcompare_exchange_strong loc ty x n1 n2 mo1 mo2 =
   Expr
@@ -430,12 +430,12 @@ let seq_rmw loc with_forward ty oTy x sym upd =
       Expr.mk
         ( Ewseq
             ( mk_sym_pat sym (*TODO*) (BTy_loaded oTy),
-              pload loc ty x Cmm_csem.NA,
+              pload loc ty x Atomics.NA,
               Expr
                 ( [],
                   Ewseq
                     ( mk_empty_pat BTy_unit,
-                      pstore loc ty x upd Cmm_csem.NA,
+                      pstore loc ty x upd Atomics.NA,
                       Expr.mk (Epure (mk_sym_pe sym)) ) ) ) )
   else
     Expr.mk
@@ -606,18 +606,18 @@ and subst_sym_action_ sym cval = function
           subst_sym_pexpr sym cval pe2,
           subst_sym_pexpr sym cval pe3,
           pref )
-  | Alloc0 (pe1, pe2, pref) ->
-      Alloc0 (subst_sym_pexpr sym cval pe1, subst_sym_pexpr sym cval pe2, pref)
+  | Alloc (pe1, pe2, pref) ->
+      Alloc (subst_sym_pexpr sym cval pe1, subst_sym_pexpr sym cval pe2, pref)
   | Kill (kind1, pe) -> Kill (kind1, subst_sym_pexpr sym cval pe)
-  | Store0 (b, pe1, pe2, pe3, mo) ->
-      Store0
+  | Store (b, pe1, pe2, pe3, mo) ->
+      Store
         ( b,
           subst_sym_pexpr sym cval pe1,
           subst_sym_pexpr sym cval pe2,
           subst_sym_pexpr sym cval pe3,
           mo )
-  | Load0 (pe1, pe2, mo) ->
-      Load0 (subst_sym_pexpr sym cval pe1, subst_sym_pexpr sym cval pe2, mo)
+  | Load (pe1, pe2, mo) ->
+      Load (subst_sym_pexpr sym cval pe1, subst_sym_pexpr sym cval pe2, mo)
   | SeqRMW (b, pe1, pe2, sym', pe3) ->
       SeqRMW
         ( b,
@@ -627,15 +627,15 @@ and subst_sym_action_ sym cval = function
           if Symbol.symbolEquality sym sym'
           then pe3
           else subst_sym_pexpr sym cval pe3 )
-  | RMW0 (pe1, pe2, pe3, pe4, mo1, mo2) ->
-      RMW0
+  | RMW (pe1, pe2, pe3, pe4, mo1, mo2) ->
+      RMW
         ( subst_sym_pexpr sym cval pe1,
           subst_sym_pexpr sym cval pe2,
           subst_sym_pexpr sym cval pe3,
           subst_sym_pexpr sym cval pe4,
           mo1,
           mo2 )
-  | Fence0 mo1 -> Fence0 mo1
+  | Fence mo1 -> Fence mo1
   | CompareExchangeStrong (pe1, pe2, pe3, pe4, mo1, mo2) ->
       CompareExchangeStrong
         ( subst_sym_pexpr sym cval pe1,
@@ -897,19 +897,19 @@ and unsafe_subst_sym_action_ a pe' = function
           unsafe_subst_sym_pexpr a pe' pe2,
           unsafe_subst_sym_pexpr a pe' pe3,
           pref )
-  | Alloc0 (pe1, pe2, pref) ->
-      Alloc0
+  | Alloc (pe1, pe2, pref) ->
+      Alloc
         (unsafe_subst_sym_pexpr a pe' pe1, unsafe_subst_sym_pexpr a pe' pe2, pref)
   | Kill (kind1, pe) -> Kill (kind1, unsafe_subst_sym_pexpr a pe' pe)
-  | Store0 (b, pe1, pe2, pe3, mo1) ->
-      Store0
+  | Store (b, pe1, pe2, pe3, mo1) ->
+      Store
         ( b,
           unsafe_subst_sym_pexpr a pe' pe1,
           unsafe_subst_sym_pexpr a pe' pe2,
           unsafe_subst_sym_pexpr a pe' pe3,
           mo1 )
-  | Load0 (pe1, pe2, mo1) ->
-      Load0
+  | Load (pe1, pe2, mo1) ->
+      Load
         (unsafe_subst_sym_pexpr a pe' pe1, unsafe_subst_sym_pexpr a pe' pe2, mo1)
   | SeqRMW (b, pe1, pe2, sym', pe3) ->
       SeqRMW
@@ -920,15 +920,15 @@ and unsafe_subst_sym_action_ a pe' = function
           if Symbol.symbolEquality a sym'
           then pe3
           else unsafe_subst_sym_pexpr a pe' pe3 )
-  | RMW0 (pe1, pe2, pe3, pe4, mo1, mo2) ->
-      RMW0
+  | RMW (pe1, pe2, pe3, pe4, mo1, mo2) ->
+      RMW
         ( unsafe_subst_sym_pexpr a pe' pe1,
           unsafe_subst_sym_pexpr a pe' pe2,
           unsafe_subst_sym_pexpr a pe' pe3,
           unsafe_subst_sym_pexpr a pe' pe4,
           mo1,
           mo2 )
-  | Fence0 mo1 -> Fence0 mo1
+  | Fence mo1 -> Fence mo1
   | CompareExchangeStrong (pe1, pe2, pe3, pe4, mo1, mo2) ->
       CompareExchangeStrong
         ( unsafe_subst_sym_pexpr a pe' pe1,

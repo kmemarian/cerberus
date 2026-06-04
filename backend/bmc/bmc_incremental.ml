@@ -352,30 +352,30 @@ module BmcInline = struct
         inline_pe pe2 >>= fun inlined_pe2 ->
         inline_pe pe3 >>= fun inlined_pe3 ->
         return (CreateReadOnly(inlined_pe1, inlined_pe2, inlined_pe3, pref))
-    | Alloc0 (pe1, pe2, pref) ->
+    | Alloc (pe1, pe2, pref) ->
         inline_pe pe1 >>= fun inlined_pe1 ->
         inline_pe pe2 >>= fun inlined_pe2 ->
-        return (Alloc0(inlined_pe1, inlined_pe2, pref))
+        return (Alloc(inlined_pe1, inlined_pe2, pref))
     | Kill (b, pe) ->
         inline_pe pe >>= fun inlined_pe ->
         return (Kill(b, inlined_pe))
-    | Store0 (b, pe1, pe2, pe3, memord) ->
+    | Store (b, pe1, pe2, pe3, memord) ->
         inline_pe pe1 >>= fun inlined_pe1 ->
         inline_pe pe2 >>= fun inlined_pe2 ->
         inline_pe pe3 >>= fun inlined_pe3 ->
-        return (Store0(b, inlined_pe1, inlined_pe2, inlined_pe3, memord))
-    | Load0 (pe1, pe2, memord) ->
+        return (Store(b, inlined_pe1, inlined_pe2, inlined_pe3, memord))
+    | Load (pe1, pe2, memord) ->
         inline_pe pe1 >>= fun inlined_pe1 ->
         inline_pe pe2 >>= fun inlined_pe2 ->
-        return (Load0(inlined_pe1, inlined_pe2, memord))
-    | RMW0 (pe1, pe2, pe3, pe4, mo1, mo2) ->
+        return (Load(inlined_pe1, inlined_pe2, memord))
+    | RMW (pe1, pe2, pe3, pe4, mo1, mo2) ->
         inline_pe pe1 >>= fun inlined_pe1 ->
         inline_pe pe2 >>= fun inlined_pe2 ->
         inline_pe pe3 >>= fun inlined_pe3 ->
         inline_pe pe4 >>= fun inlined_pe4 ->
-        return (RMW0(inlined_pe1, inlined_pe2, inlined_pe3, inlined_pe4, mo1, mo2))
-    | Fence0 mo ->
-        return (Fence0(mo))
+        return (RMW(inlined_pe1, inlined_pe2, inlined_pe3, inlined_pe4, mo1, mo2))
+    | Fence mo ->
+        return (Fence(mo))
     | CompareExchangeStrong(pe1, pe2, pe3, pe4, mo1, mo2) ->
         inline_pe pe1 >>= fun inlined_pe1 ->
         inline_pe pe2 >>= fun inlined_pe2 ->
@@ -905,30 +905,30 @@ module BmcSSA = struct
         ssa_pe pe2 >>= fun ssad_pe2 ->
         ssa_pe pe3 >>= fun ssad_pe3 ->
         return (CreateReadOnly(ssad_pe1, ssad_pe2, ssad_pe3, pref))
-    | Alloc0 (pe1, pe2, pref) ->
+    | Alloc (pe1, pe2, pref) ->
         ssa_pe pe1 >>= fun ssad_pe1 ->
         ssa_pe pe2 >>= fun ssad_pe2 ->
-        return (Alloc0(ssad_pe1, ssad_pe2, pref))
+        return (Alloc(ssad_pe1, ssad_pe2, pref))
     | Kill (b, pe) ->
         ssa_pe pe >>= fun ssad_pe ->
         return (Kill(b, ssad_pe))
-    | Store0 (b, pe1, pe2, pe3, memord) ->
+    | Store (b, pe1, pe2, pe3, memord) ->
         ssa_pe pe1 >>= fun ssad_pe1 ->
         ssa_pe pe2 >>= fun ssad_pe2 ->
         ssa_pe pe3 >>= fun ssad_pe3 ->
-        return (Store0(b, ssad_pe1, ssad_pe2, ssad_pe3, memord))
-    | Load0 (pe1, pe2, memord) ->
+        return (Store(b, ssad_pe1, ssad_pe2, ssad_pe3, memord))
+    | Load (pe1, pe2, memord) ->
         ssa_pe pe1 >>= fun ssad_pe1 ->
         ssa_pe pe2 >>= fun ssad_pe2 ->
-        return (Load0(ssad_pe1, ssad_pe2, memord))
-    | RMW0 (pe1, pe2, pe3, pe4, mo1, mo2) ->
+        return (Load(ssad_pe1, ssad_pe2, memord))
+    | RMW (pe1, pe2, pe3, pe4, mo1, mo2) ->
         ssa_pe pe1 >>= fun ssad_pe1 ->
         ssa_pe pe2 >>= fun ssad_pe2 ->
         ssa_pe pe3 >>= fun ssad_pe3 ->
         ssa_pe pe4 >>= fun ssad_pe4 ->
-        return (RMW0(ssad_pe1, ssad_pe2, ssad_pe3, ssad_pe4, mo1, mo2))
-    | Fence0 mo ->
-        return (Fence0(mo))
+        return (RMW(ssad_pe1, ssad_pe2, ssad_pe3, ssad_pe4, mo1, mo2))
+    | Fence mo ->
+        return (Fence(mo))
     | CompareExchangeStrong(pe1, pe2, pe3, pe4, mo1, mo2) ->
         ssa_pe pe1 >>= fun ssad_pe1 ->
         ssa_pe pe2 >>= fun ssad_pe2 ->
@@ -1097,19 +1097,19 @@ module BmcZ3 = struct
     | ICreate of aid list * ctype  (* align ty *) * ctype * ctype_sort list * alloc
     | ICreateReadOnly of aid list * ctype  (* align ty *) * ctype * ctype_sort list * alloc * Expr.expr (* initial_value *)
     | IKill of aid * Expr.expr (* ptr *) * bool (* is dynamic *)
-    | ILoad of aid * ctype * (* TODO: list *) ctype_sort list * (* ptr *) Expr.expr * (* rval *) Expr.expr * Cmm_csem.memory_order
-    | IStore of aid * ctype * ctype_sort list * (* ptr *) Expr.expr * (* wval *) Expr.expr * Cmm_csem.memory_order
+    | ILoad of aid * ctype * (* TODO: list *) ctype_sort list * (* ptr *) Expr.expr * (* rval *) Expr.expr * Atomics.memory_order
+    | IStore of aid * ctype * ctype_sort list * (* ptr *) Expr.expr * (* wval *) Expr.expr * Atomics.memory_order
     | ICompareExchangeStrong of
         (* Load expected value *) aid *
         (* If fail, do a load of obj then a store *) aid * aid *
         (* If succeed, do a rmw *) aid * ctype *
-        ctype_sort list * (* object *) Expr.expr * (*expected *) Expr.expr * (* desired *) Expr.expr * (* rval_expected *) Expr.expr * (* rval_object *) Expr.expr * Cmm_csem.memory_order * Cmm_csem.memory_order
+        ctype_sort list * (* object *) Expr.expr * (*expected *) Expr.expr * (* desired *) Expr.expr * (* rval_expected *) Expr.expr * (* rval_object *) Expr.expr * Atomics.memory_order * Atomics.memory_order
     | ICompareExchangeWeak of
         (* Loaded expected *) aid *
         (* If fail, do a load of obj and then a store *) aid * aid *
         (* If succeed, do a rmw *) aid * ctype *
-        ctype_sort list * (* object *) Expr.expr * (*expected *) Expr.expr * (* desired *) Expr.expr * (* rval_expected *) Expr.expr * (* rval_object *) Expr.expr * Cmm_csem.memory_order * Cmm_csem.memory_order
-    | IFence of aid * Cmm_csem.memory_order
+        ctype_sort list * (* object *) Expr.expr * (*expected *) Expr.expr * (* desired *) Expr.expr * (* rval_expected *) Expr.expr * (* rval_object *) Expr.expr * Atomics.memory_order * Atomics.memory_order
+    | IFence of aid * Atomics.memory_order
     | IMemop of aid * Mem_common.memop * Expr.expr list (* arguments *) * Expr.expr list (* values bound by Z3; only relevant for PtrValidForDeref *)
     | ILinuxLoad of aid * ctype * ctype_sort list * (* ptr *) Expr.expr * (* rval *) Expr.expr * Linux.linux_memory_order
     | ILinuxStore of aid * ctype * ctype_sort list * (* ptr *) Expr.expr * (* wval *) Expr.expr * Linux.linux_memory_order
@@ -1511,7 +1511,7 @@ module BmcZ3 = struct
               initial_value, prefix) ->
         z3_pe initial_value >>= fun z3d_initial_value ->
         mk_create_read_only ctype align prefix z3d_initial_value
-    | Alloc0 _ ->
+    | Alloc _ ->
         failwith "TODO: dynamic allocation"
     | Kill (kind, pe) ->
         let is_dynamic =
@@ -1523,7 +1523,7 @@ module BmcZ3 = struct
         bmc_debug_print 7 "TODO: kill ignored";
         z3_pe pe >>= fun z3d_pe ->
         return (UnitSort.mk_unit, IKill (aid, z3d_pe, is_dynamic))
-    | Store0 (b, Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), wval, mo) ->
+    | Store (b, Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), wval, mo) ->
         get_fresh_aid  >>= fun aid ->
         lookup_sym sym >>= fun sym_expr ->
         z3_pe wval     >>= fun z3d_wval ->
@@ -1532,9 +1532,9 @@ module BmcZ3 = struct
 
         return (UnitSort.mk_unit,
                 IStore (aid, ty, flat_sortlist, sym_expr, z3d_wval, mo))
-    | Store0 _ ->
+    | Store _ ->
         assert false
-    | Load0 (Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), mo) ->
+    | Load (Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), mo) ->
         get_fresh_aid  >>= fun aid ->
         get_file >>= fun file ->
         let flat_sortlist = flatten_bmcz3sort (ctype_to_bmcz3sort ty file) in
@@ -1544,9 +1544,9 @@ module BmcZ3 = struct
         lookup_sym sym >>= fun sym_expr ->
         let rval_expr = mk_fresh_const ("load_" ^ (symbol_to_string sym)) sort in
         return (rval_expr, ILoad (aid, ty, flat_sortlist, sym_expr, rval_expr, mo))
-    | Load0 _ ->
+    | Load _ ->
         assert false
-    | RMW0 (pe1, pe2, pe3, pe4, mo1, mo2) ->
+    | RMW (pe1, pe2, pe3, pe4, mo1, mo2) ->
         assert false
     | CompareExchangeStrong(Pexpr(_,_,PEbase (Bctype ty)),
                             Pexpr(_,_,PEsym obj),
@@ -1610,7 +1610,7 @@ module BmcZ3 = struct
         assert false
     | CompareExchangeWeak _ ->
         assert false
-    | Fence0 mo ->
+    | Fence mo ->
         get_fresh_aid  >>= fun aid ->
         return (UnitSort.mk_unit, IFence (aid, mo))
     | LinuxFence mo ->
@@ -2394,24 +2394,24 @@ module BmcBind = struct
         bind_create_helper uid
     | CreateReadOnly _ ->
         bind_create_helper uid
-    | Alloc0 _ -> assert false
+    | Alloc _ -> assert false
     | Kill (_, pe) ->
         bind_pe pe
-    | Store0 (b, Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), wval, mo) ->
+    | Store (b, Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), wval, mo) ->
         bind_pe wval
-    | Store0 _ ->
+    | Store _ ->
         assert false
-    | Load0 (Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), mo) ->
+    | Load (Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), mo) ->
         return []
-    | Load0 _ ->
+    | Load _ ->
         assert false
-    | RMW0 (pe1, pe2, pe3, pe4, mo1, mo2) ->
+    | RMW (pe1, pe2, pe3, pe4, mo1, mo2) ->
         bind_pe pe1 >>= fun bound_pe1 ->
         bind_pe pe2 >>= fun bound_pe2 ->
         bind_pe pe3 >>= fun bound_pe3 ->
         bind_pe pe4 >>= fun bound_pe4 ->
         return (bound_pe1 @ bound_pe2 @ bound_pe3 @ bound_pe4)
-    | Fence0 mo ->
+    | Fence mo ->
         return []
     | CompareExchangeStrong(pe1, pe2, pe3, pe4, mo1, mo2) ->
         bind_pe pe1 >>= fun bound_pe1 ->
@@ -2739,10 +2739,10 @@ module BmcVC = struct
         vcs_pe initial_value >>= fun vcs_initial_value ->
         return vcs_initial_value
     | CreateReadOnly _  -> assert false
-    | Alloc0 _          -> assert false
+    | Alloc _          -> assert false
     | Kill (_, pe) ->
         vcs_pe pe
-    | Store0 (_, Pexpr(_,_,PEbase (Bctype ty)),
+    | Store (_, Pexpr(_,_,PEbase (Bctype ty)),
                  (Pexpr(_,_,PEsym sym)), wval, memorder) ->
         (* TODO: Where should we check whether the ptr is valid? *)
         let valid_memorder =
@@ -2755,8 +2755,8 @@ module BmcVC = struct
                 ::(PointerSort.ptr_in_range ptr_z3,
                    VcDebugStr ("out of bounds pointer at memory store"))
                 :: vcs_wval)
-    | Store0 _          -> assert false
-    | Load0 (Pexpr(_,_,PEbase (Bctype ty)),
+    | Store _          -> assert false
+    | Load (Pexpr(_,_,PEbase (Bctype ty)),
              (Pexpr(_,_,PEsym sym)), memorder) ->
         let valid_memorder =
               mk_bool (not (memorder = Release || memorder = Acq_rel)) in
@@ -2767,9 +2767,9 @@ module BmcVC = struct
                ;(PointerSort.ptr_in_range ptr_z3,
                    VcDebugStr ("out of bounds pointer at memory load"))
                ]
-    | Load0 _ -> assert false
-    | RMW0 _  -> assert false
-    | Fence0 _ -> return []
+    | Load _ -> assert false
+    | RMW _  -> assert false
+    | Fence _ -> return []
     | CompareExchangeStrong (Pexpr(_,_,PEbase (Bctype ty)),
                              Pexpr(_,_,PEsym obj),
                              Pexpr(_,_,PEsym expected),
@@ -4701,7 +4701,7 @@ module BmcConcActions = struct
     mapM add_assertion assumptions >>= fun _ ->
     mk_store_and_flatten_multid_arrays
               pol mk_true aid initial_tid
-              (C_mem_order Cmm_csem.NA) ptr_0 initial_value ctype
+              (C_mem_order Atomics.NA) ptr_0 initial_value ctype
               is_initial
         >>= fun store ->
     return [store]
@@ -4738,7 +4738,7 @@ module BmcConcActions = struct
             let ptr = PointerSort.mk_ptr (int_to_z3 alloc_id) target_addr in
             (mk_store_and_flatten_multid_arrays
                              pol mk_true aid initial_tid
-                             (C_mem_order Cmm_csem.NA) ptr initial_value ty)
+                             (C_mem_order Atomics.NA) ptr initial_value ty)
           ) indexed_sorts
           end
         end
@@ -5216,7 +5216,7 @@ module BmcConcActions = struct
         do_taint_pe pe2 >>= fun _ ->
         return (Pset.empty Stdlib.compare, empty_deps)
     | CreateReadOnly _ -> assert false
-    | Alloc0 _ -> assert false
+    | Alloc _ -> assert false
     | Kill(_, Pexpr(_,_,PEsym sym)) ->
         get_action uid >>= fun interm_action ->
         get_taint sym >>= fun taint_ptr ->
@@ -5232,7 +5232,7 @@ module BmcConcActions = struct
         end
     | Kill _ ->
         assert false
-    | Store0 (b, Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), wval, mo) ->
+    | Store (b, Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), wval, mo) ->
         get_action uid >>= fun interm_action ->
         do_taint_pe wval >>= fun taint_wval ->
         get_taint sym >>= fun taint_ptr ->
@@ -5245,9 +5245,9 @@ module BmcConcActions = struct
                  })
         | _ -> assert false
         end
-    | Store0 _ ->
+    | Store _ ->
         assert false
-    | Load0 (Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), mo) ->
+    | Load (Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), mo) ->
         get_action uid >>= fun interm_action ->
         get_taint sym >>= fun taint_ptr ->
         begin match interm_action with
@@ -5260,13 +5260,13 @@ module BmcConcActions = struct
         | _ -> assert false
         end
 
-    | Load0 _ ->
+    | Load _ ->
         assert false
-    | RMW0 (pe1, pe2, pe3, pe4, mo1, mo2) ->
-        bmc_debug_print 7 "TODO: Taint RMW0";
+    | RMW (pe1, pe2, pe3, pe4, mo1, mo2) ->
+        bmc_debug_print 7 "TODO: Taint RMW";
         (* TODO *)
         return (Pset.empty Stdlib.compare, empty_deps)
-    | Fence0 mo ->
+    | Fence mo ->
         return (Pset.empty Stdlib.compare, empty_deps)
     | CompareExchangeStrong(pe1, pe2, pe3, pe4, mo1, mo2) ->
         (* TODO: We only do taint analysis for linux at the moment;

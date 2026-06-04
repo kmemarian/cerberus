@@ -3,7 +3,6 @@ import Symbol
 import Cabs
 import AilSyntax Ctype GenTypes
 import Core
-import Cmm_op (* DEBUG *)
 
 val stringFromSymbol_prefix: Symbol.prefix -> string
 

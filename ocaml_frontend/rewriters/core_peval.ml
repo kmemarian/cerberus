@@ -388,14 +388,14 @@ and subst_sym_action_2 sym z = function
       Create (subst_sym_pexpr2 sym z pe1, subst_sym_pexpr2 sym z pe2, pref)
   | CreateReadOnly (pe1, pe2, pe3, pref) ->
       CreateReadOnly (subst_sym_pexpr2 sym z pe1, subst_sym_pexpr2 sym z pe2, subst_sym_pexpr2 sym z pe3, pref)
-  | Alloc0 (pe1, pe2, pref) ->
-      Alloc0 (subst_sym_pexpr2 sym z pe1, subst_sym_pexpr2 sym z pe2, pref)
+  | Alloc (pe1, pe2, pref) ->
+      Alloc (subst_sym_pexpr2 sym z pe1, subst_sym_pexpr2 sym z pe2, pref)
   | Kill (kind, pe) ->
       Kill (kind, subst_sym_pexpr2 sym z pe)
-  | Store0 (b, pe1, pe2, pe3, mo) ->
-      Store0 (b, subst_sym_pexpr2 sym z pe1, subst_sym_pexpr2 sym z pe2, subst_sym_pexpr2 sym z pe3, mo)
-  | Load0 (pe1, pe2, mo) ->
-      Load0 (subst_sym_pexpr2 sym z pe1, subst_sym_pexpr2 sym z pe2, mo)
+  | Store (b, pe1, pe2, pe3, mo) ->
+      Store (b, subst_sym_pexpr2 sym z pe1, subst_sym_pexpr2 sym z pe2, subst_sym_pexpr2 sym z pe3, mo)
+  | Load (pe1, pe2, mo) ->
+      Load (subst_sym_pexpr2 sym z pe1, subst_sym_pexpr2 sym z pe2, mo)
   | SeqRMW (b, pe1, pe2, rmw_sym, pe3) ->
       (* sym is bound in pe3 *)
       let pe3' =
@@ -404,11 +404,11 @@ and subst_sym_action_2 sym z = function
         else
           subst_sym_pexpr2 sym z pe3 in
       SeqRMW (b, subst_sym_pexpr2 sym z pe1, subst_sym_pexpr2 sym z pe2, rmw_sym, pe3')
-  | RMW0 (pe1, pe2, pe3, pe4, mo1, mo2) ->
-      RMW0 ( subst_sym_pexpr2 sym z pe1, subst_sym_pexpr2 sym z pe2
+  | RMW (pe1, pe2, pe3, pe4, mo1, mo2) ->
+      RMW ( subst_sym_pexpr2 sym z pe1, subst_sym_pexpr2 sym z pe2
            , subst_sym_pexpr2 sym z pe3, subst_sym_pexpr2 sym z pe4, mo1, mo2 )
-  | Fence0 mo ->
-      Fence0 mo
+  | Fence mo ->
+      Fence mo
   | CompareExchangeStrong (pe1, pe2, pe3, pe4, mo1, mo2) ->
       CompareExchangeStrong ( subst_sym_pexpr2 sym z pe1, subst_sym_pexpr2 sym z pe2
                             , subst_sym_pexpr2 sym z pe3, subst_sym_pexpr2 sym z pe4, mo1, mo2 )
