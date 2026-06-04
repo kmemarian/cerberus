@@ -423,7 +423,7 @@ let plinux_rmw loc ty x n mo =
 
 let seq_rmw loc with_forward ty oTy x sym upd =
   let backend = Cerb_global.backend_name () in
-  if backend = "Cn" || backend = "Bmc" then
+  if String.equal backend "Cn" || String.equal backend "Bmc" then
     (* TODO: compatibility mode for Cn, until SeqRMW is supported *)
     if with_forward then
       Cerb_debug.error "TODO: Core_aux.seq_rmw (comptability mode) with_forward"

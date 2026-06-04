@@ -1,5 +1,6 @@
 open import Maybe
 open import Pervasives Show_extra
+import Assert_extra
 import Loc
 import Symbol
 import IntegerType
@@ -23,6 +24,9 @@ end
 val no_attributes: attributes
 let no_attributes =
   Attrs []
+
+let is_no_attributes (Attrs xs) =
+  List.null xs
 
 val combine_attributes: attributes -> attributes -> attributes
 let combine_attributes (Attrs xs1) (Attrs xs2) =
@@ -305,7 +309,10 @@ let rec get_uid annots =
 
 val is_return: list annot -> bool
 let is_return annots =
-  get_label_annot annots = Just LAreturn
+  match get_label_annot annots with
+    | Just LAreturn -> true
+    | _ -> false
+  end
 
 val is_loop_break: list annot -> bool
 let is_loop_break annots =
