@@ -55,20 +55,25 @@ let floating_conversion_TODO to_ty from_ty z =
   z
 
 
-let with_wrapI_or_catch_exceptional_condition result_ty iop promoted1_pe promoted2_pe default_pe_opt =
-  match Cty.match_integer_ctype result_ty with
-    | Cty.MatchedItySigned ity ->
-        Caux.mk_catch_exceptional_condition_pe ity iop promoted1_pe promoted2_pe
-    | Cty.MatchedItyUnsigned ity ->
-        Caux.mk_wrapI_pe ity iop promoted1_pe promoted2_pe
-    | Cty.NotMatchedIty ->
-        match default_pe_opt with
-          | Just default_pe ->
-              default_pe
-          | Nothing ->
-              error "Translation.with_wrapI_or_catch_exceptional_condition: result_ty is not an integer type, but given no default_pe"
-        end
-  end
+let with_wrapI_or_catch_exceptional_condition stdlib result_ty iop promoted1_pe promoted2_pe default_pe =
+  if Global.is_backend "Cn" then
+    match Cty.match_integer_ctype result_ty with
+      | Cty.MatchedItySigned ity ->
+          Caux.mk_catch_exceptional_condition_pe ity iop promoted1_pe promoted2_pe
+      | Cty.MatchedItyUnsigned ity ->
+          Caux.mk_wrapI_pe ity iop promoted1_pe promoted2_pe
+      | Cty.NotMatchedIty ->
+          default_pe
+    end
+  else
+    match Cty.match_integer_ctype result_ty with
+      | Cty.MatchedItySigned ity ->
+          stdlib.mkcall_catch_exceptional_condition result_ty default_pe
+      | Cty.MatchedItyUnsigned ity ->
+          stdlib.mkcall_wrapI result_ty default_pe
+      | Cty.NotMatchedIty ->
+          default_pe
+    end
 
 
 (* STD §6.5.13#3, sentence 1 *)
@@ -303,8 +308,8 @@ else
                  core_mul *)
 else
                   Caux.mk_std_pe "§6.5.5#4" begin
-                    with_wrapI_or_catch_exceptional_condition result_ty C.IOpMul
-                      promoted1_pe promoted2_pe (Just core_mul)
+                    with_wrapI_or_catch_exceptional_condition stdlib result_ty C.IOpMul
+                      promoted1_pe promoted2_pe core_mul
                   end
                end )
             ; (Caux.mk_empty_pat (C.BTy_tuple [C.BTy_loaded oTy1; C.BTy_loaded oTy2]),
@@ -716,9 +721,9 @@ match Ctype.unatomic_ ty with
                       let promoted_e = stdlib.mkcall_conv_int promoted_ty obj_wrp.E.sym_pe in
                       stdlib.mkcall_conv_int result_ty begin
       mk_cheri begin
-        with_wrapI_or_catch_exceptional_condition promoted_ty int_op
+        with_wrapI_or_catch_exceptional_condition stdlib promoted_ty int_op
           promoted_e (Caux.maybe_annotate_integer_type_pexpr promoted_ty (Caux.mk_integer_pe 1))
-          (Just core_postfix)
+          core_postfix
       end
                       end
   | Ctype.Basic (Ctype.Floating (Ctype.RealFloating _)) ->
@@ -1410,7 +1415,7 @@ let rec translate_expression translate_block_opt is_used ctx variadic_env stdlib
     let (mk_conversion, promoted_type) = integer_promotion_and_type ty in
     mk_conversion e in
   (* STD §6.3.1.8 *)
-  let usual_arithmetic_conversion_aux is_TMP_new (ty1: Ctype.ctype) (ty2: Ctype.ctype) (e1: C.pexpr) (e2: C.pexpr) : C.pexpr * C.pexpr =
+  let usual_arithmetic_conversion (ty1: Ctype.ctype) (ty2: Ctype.ctype) (e1: C.pexpr) (e2: C.pexpr) : C.pexpr * C.pexpr =
     match (AilTypesAux.corresponding_real_type ty1, AilTypesAux.corresponding_real_type ty2) with
       (* TODO/NOTE: we convert (long double, double and float) to Ocaml float! This is not the C11 behaviour! *)
       | (Just _, Just _) ->
@@ -1421,7 +1426,7 @@ let rec translate_expression translate_block_opt is_used ctx variadic_env stdlib
           (Caux.mk_fvfromint_pe e1, e2)
       | (Nothing, Nothing) ->
           let mk_conv_int ity pe =
-            if is_TMP_new then
+            if Global.is_backend "Cn" then
               Caux.mk_conv_int_pe ity pe
             else
               stdlib.mkcall_conv_int (Ctype.Ctype [] (Ctype.Basic (Ctype.Integer ity))) pe in
@@ -1474,8 +1479,6 @@ let rec translate_expression translate_block_opt is_used ctx variadic_env stdlib
                 error "Translation.usual_arithmetic_conversion: not (integer vs integer)"
           end
       end in
-  let usual_arithmetic_conversion = usual_arithmetic_conversion_aux false in
-  let usual_arithmetic_conversion_TMP_new = usual_arithmetic_conversion_aux true in
   let result_ty = ctype_of a_expr in
   if AilTypesAux.is_pointer result_ty && Aaux.is_null_pointer_constant a_expr then
     (* NOTE: this is a bit tasteless as it makes the case AilEconst, ConstantNull unreachable *)
@@ -1539,8 +1542,8 @@ let rec translate_expression translate_block_opt is_used ctx variadic_env stdlib
                       , let expr =
                           Caux.mk_op_pe C.OpSub zero_pe (mk_conversion obj_wrp.E.sym_pe) in
                         Caux.mk_specified_pe (
-                          with_wrapI_or_catch_exceptional_condition result_ty C.IOpSub
-                            zero_pe (mk_conversion obj_wrp.E.sym_pe) (Just expr)
+                          with_wrapI_or_catch_exceptional_condition stdlib result_ty C.IOpSub
+                            zero_pe (mk_conversion obj_wrp.E.sym_pe) expr
                         ) )
                     ; ( Caux.mk_unspecified_pat (Caux.mk_empty_pat C.BTy_ctype)
                       , Caux.mk_unspecified_pe result_ty ) ]
@@ -1562,8 +1565,8 @@ let rec translate_expression translate_block_opt is_used ctx variadic_env stdlib
               (* STD §6.5.3.3#4, sentence 3 *)
               let max_pe = Caux.mk_ivmax_pe (Caux.mk_ail_ctype_pe result_ty) in
               Caux.mk_std_pe "§6.5.3.3#4, sentence 3"
-                (with_wrapI_or_catch_exceptional_condition result_ty C.IOpSub
-                  max_pe promoted_e (Just (Caux.mk_op_pe C.OpSub max_pe promoted_e)))
+                (with_wrapI_or_catch_exceptional_condition stdlib result_ty C.IOpSub
+                  max_pe promoted_e (Caux.mk_op_pe C.OpSub max_pe promoted_e))
             end else
               Caux.bitwise_complement_pe (Caux.mk_ail_ctype_pe result_ty) promoted_e in
           let is_signed = AilTypesAux.is_signed_integer_type result_ty in
@@ -2032,7 +2035,7 @@ if AilTypesAux.is_arithmetic (ctype_of e1) && AilTypesAux.is_arithmetic (ctype_o
             self e2                                             >>= fun core_e2  ->
             let (promoted1_pe, promoted2_pe) =
               Caux.mk_std_pair_pe "§6.5.6#4"
-                (usual_arithmetic_conversion_TMP_new (ctype_of e1) (ctype_of e2) obj1_wrp.E.sym_pe obj2_wrp.E.sym_pe) in
+                (usual_arithmetic_conversion (ctype_of e1) (ctype_of e2) obj1_wrp.E.sym_pe obj2_wrp.E.sym_pe) in
             E.return begin
               Caux.add_std "§6.5.6" begin
                 Caux.mk_wseq_e (Caux.mk_tuple_pat [ e1_wrp.E.sym_pat; e2_wrp.E.sym_pat ]) (Caux.mk_unseq [core_e1; core_e2]) begin
@@ -2057,8 +2060,8 @@ if AilTypesAux.is_arithmetic (ctype_of e1) && AilTypesAux.is_arithmetic (ctype_o
                             core_add) ) *)
   else
                             Caux.mk_std_pe "§6.5.6#5" begin
-                              with_wrapI_or_catch_exceptional_condition result_ty C.IOpAdd
-                                promoted1_pe promoted2_pe (Just core_add)
+                              with_wrapI_or_catch_exceptional_condition stdlib result_ty C.IOpAdd
+                                promoted1_pe promoted2_pe core_add
                             end
                           ) )
                       
@@ -2156,8 +2159,8 @@ if AilTypesAux.is_arithmetic (ctype_of e1) && AilTypesAux.is_arithmetic (ctype_o
                           core_sub ) *)
 else
                           Caux.mk_std_pe "§6.5.5#6" begin
-                            with_wrapI_or_catch_exceptional_condition result_ty C.IOpSub
-                              promoted1_pe promoted2_pe (Just core_sub)
+                            with_wrapI_or_catch_exceptional_condition stdlib result_ty C.IOpSub
+                              promoted1_pe promoted2_pe core_sub
                           end )
                     ; ( Caux.mk_empty_pat (C.BTy_tuple [C.BTy_loaded oTy1; C.BTy_loaded oTy2])
                       , (* If either operand is unspecified, the result is also unspecified is the
