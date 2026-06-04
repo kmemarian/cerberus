@@ -467,7 +467,7 @@ module ImplFunctions = struct
       let expr = mk_fresh_const
                     (sprintf "%s(%S)" name (Expr.to_string ctype_expr))
                     sort in
-      Pmap.add ity expr acc) (Pmap.empty Stdlib.compare) itys
+      Pmap.add ity expr acc) (Pmap.empty IntegerType.setElemCompare_integerType) itys
   (* ---- Constants ---- *)
 
 

@@ -98,7 +98,7 @@ let is_fence_action (BmcAction(_,_,a): bmc_action) =
 
 
 let bmcaction_cmp (BmcAction(_, _, a1)) (BmcAction(_, _, a2)) =
-  compare (aid_of_action a1) (aid_of_action a2)
+  Int.compare (aid_of_action a1) (aid_of_action a2)
 
 (* ======= Provenance stuff ======= *)
 let provs_of_memop_action (memop: memop_action) : Expr.expr list =
@@ -321,7 +321,7 @@ let compute_crit (po : (bmc_action * bmc_action) list) =
   let tid_to_edge_list_map =
     Pmap.fold (fun key value tid_map ->
       add_to_pmap (tid_of_bmcaction key) (key, value) tid_map)
-      edge_lists (Pmap.empty Stdlib.compare) in
+      edge_lists (Pmap.empty Int.compare) in
   let top_sorted =
     List.map (fun (_, edge_list) -> top_sort edge_list)
              (Pmap.bindings_list tid_to_edge_list_map) in
@@ -795,7 +795,7 @@ module MemoryModelCommon = struct
     (* Map from aid to corresponding Z3 event *)
     let event_map = List.fold_left2 (fun acc action z3expr ->
       Pmap.add (aid_of_bmcaction action) z3expr acc)
-      (Pmap.empty Stdlib.compare) all_actions all_events in
+      (Pmap.empty Int.compare) all_actions all_events in
     let z3action (action: bmc_action) : Expr.expr =
       Pmap.find (aid_of_bmcaction action) event_map in
     let decls = mk_decls event_sort in
@@ -1905,7 +1905,7 @@ module RC11MemoryModel : MemoryModel = struct
     ; event_map  = event_map
     ; action_map = List.fold_left (fun acc a ->
                       Pmap.add (aid_of_bmcaction a) (get_action a) acc)
-                      (Pmap.empty Stdlib.compare) all_actions
+                      (Pmap.empty Int.compare) all_actions
 
     ; decls      = decls
     ; fns        = fns
@@ -2060,7 +2060,7 @@ module RC11MemoryModel : MemoryModel = struct
 
     let threads = Pset.elements (
         List.fold_left (fun acc a -> Pset.add (tid_of_action a) acc)
-                       (Pset.empty compare) noninitial_actions) in
+                       (Pset.empty Int.compare) noninitial_actions) in
 
     let sb = List.filter (get_relation fns.sb) prod in
     let asw = List.filter (get_relation fns.asw) prod in
@@ -2463,7 +2463,7 @@ module GenericModel (M: CatModel) : MemoryModel = struct
     let action_map =
       List.fold_left (fun acc a ->
         Pmap.add (aid_of_bmcaction a) (get_action a) acc)
-        (Pmap.empty Stdlib.compare) actions in
+        (Pmap.empty Int.compare) actions in
 
     let model : z3_memory_model =
       { event_sort    = common.event_sort
@@ -2612,7 +2612,7 @@ module GenericModel (M: CatModel) : MemoryModel = struct
     let prod = cartesian_product action_events action_events in
     let threads = Pset.elements (
         List.fold_left (fun acc a -> Pset.add (tid_of_action a) acc)
-                       (Pset.empty compare) noninitial_actions) in
+                       (Pset.empty Int.compare) noninitial_actions) in
     let po = List.filter (get_relation fns.po) prod in
     let asw = List.filter (get_relation fns.asw) prod in
 

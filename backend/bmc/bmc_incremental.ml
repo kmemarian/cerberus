@@ -63,13 +63,17 @@ module BmcInline = struct
 
   include EffMonad(struct type state = state_ty end)
 
+  let compare_name =
+    (Core.instance_Map_MapKeyType_Core_generic_name_dict
+      Lem_map.{mapKeyCompare_method= Sym.compare }).mapKeyCompare_method
+
   let mk_initial file : state =
     { id_gen           = 0
-    ; run_depth_table  = Pmap.empty Stdlib.compare
+    ; run_depth_table  = Pmap.empty compare_name
     ; file             = file
-    ; inline_pexpr_map = Pmap.empty Stdlib.compare
-    ; inline_expr_map  = Pmap.empty Stdlib.compare
-    ; fn_call_map      = Pmap.empty Stdlib.compare
+    ; inline_pexpr_map = Pmap.empty Int.compare
+    ; inline_expr_map  = Pmap.empty Int.compare
+    ; fn_call_map      = Pmap.empty Int.compare
     ; fn_type          = None
     ; proc_expr        = None
     ; fn_ptr_map       = Sym.empty_pmap
@@ -1172,11 +1176,11 @@ module BmcZ3 = struct
                  sym_table
                  fn_call_map
                  : z3_state = {
-    expr_map       = Pmap.empty Stdlib.compare;
-    case_guard_map = Pmap.empty Stdlib.compare;
-    action_map     = Pmap.empty Stdlib.compare;
+    expr_map       = Pmap.empty Int.compare;
+    case_guard_map = Pmap.empty Int.compare;
+    action_map     = Pmap.empty Int.compare;
     param_actions  = [];
-    alloc_meta_map = Pmap.empty Stdlib.compare;
+    alloc_meta_map = Pmap.empty Int.compare;
     prov_syms      = [];
 
     file = file;
@@ -1407,11 +1411,15 @@ module BmcZ3 = struct
         z3_pe pe1 >>= fun z3d_pe1 ->
         z3_pe pe2 >>= fun z3d_pe2 ->
         return (binop_to_z3 binop z3d_pe1 z3d_pe2)
-    | PEconv_int _
-    | PEwrapI _
+    | PEconv_int _ ->
+        (* FIXME: this is only used by CN *)
+        failwith "PEconv_int is not supported"
+    | PEwrapI _ -> 
+        (* FIXME: this is only used by CN *)
+        failwith "PEwrapI is not supported"
     | PEcatch_exceptional_condition _ ->
         (* FIXME: this is only used by CN *)
-        failwith "PEconv_int|PEwrapI|PEcatch_exceptional_condition is not supported"
+        failwith "PEcatch_exceptional_condition is not supported"
     | PEstruct (sym, pes) ->
         get_file >>= fun file ->
         let struct_sort = CtypeToZ3.struct_sym_to_z3_sort sym file in
@@ -1969,7 +1977,7 @@ module BmcDropCont = struct
   { inline_pexpr_map = inline_pexpr_map;
     inline_expr_map  = inline_expr_map;
     case_guard_map   = case_guard_map;
-    drop_cont_map    = Pmap.empty Stdlib.compare;
+    drop_cont_map    = Pmap.empty Int.compare;
   }
 
   let get_inline_pexpr (uid: int): pexpr eff =
@@ -4400,15 +4408,15 @@ module BmcConcActions = struct
     alloc_meta_map   = alloc_meta_map;
     prov_syms        = prov_syms;
 
-    bmc_actions      = Pmap.empty Stdlib.compare;
-    bmc_action_map   = Pmap.empty Stdlib.compare;
+    bmc_actions      = Pmap.empty Int.compare;
+    bmc_action_map   = Pmap.empty Int.compare;
     tid              = 0;
     tid_supply       = 1;
-    parent_tids      = Pmap.empty Stdlib.compare;
+    parent_tids      = Pmap.empty Int.compare;
     assertions       = [];
     read_only_allocs = [];
 
-    taint_table      = Pmap.empty Stdlib.compare;
+    taint_table      = Sym.empty_pmap;
     mem_module       = mk_memory_module file;
   }
 
@@ -5108,7 +5116,7 @@ module BmcConcActions = struct
 
   let union_taints (taints: (aid Pset.set) list) : aid Pset.set =
     List.fold_left (fun x y -> Pset.union x y)
-                   (Pset.empty Stdlib.compare)
+                   (Pset.empty Int.compare)
                    taints
 
   type deps = {
@@ -5143,11 +5151,11 @@ module BmcConcActions = struct
         get_inline_pexpr uid >>= fun inline_pe ->
         do_taint_pe inline_pe
     | PEbase cval ->
-        return (Pset.empty Stdlib.compare)
+        return (Pset.empty Int.compare)
     | PEundef _ ->
-        return (Pset.empty Stdlib.compare)
+        return (Pset.empty Int.compare)
     | PEerror _ ->
-        return (Pset.empty Stdlib.compare)
+        return (Pset.empty Int.compare)
     | PEctor (_, pes) ->
         mapM do_taint_pe pes >>= fun taint_pes ->
         return (union_taints taint_pes)
@@ -5218,7 +5226,7 @@ module BmcConcActions = struct
     | Create(pe1, pe2, pref) ->
         do_taint_pe pe1 >>= fun _ ->
         do_taint_pe pe2 >>= fun _ ->
-        return (Pset.empty Stdlib.compare, empty_deps)
+        return (Pset.empty Int.compare, empty_deps)
     | CreateReadOnly _ -> assert false
     | Alloc _ -> assert false
     | Kill(_, Pexpr(_,_,PEsym sym)) ->
@@ -5226,7 +5234,7 @@ module BmcConcActions = struct
         get_taint sym >>= fun taint_ptr ->
         begin match interm_action with
         | IKill(aid, _,_) ->
-          return (Pset.empty Stdlib.compare,
+          return (Pset.empty Int.compare,
                  { addr = cartesian_product (Pset.elements taint_ptr) [aid]
                  ; data = []
                  ; ctrl = []
@@ -5242,7 +5250,7 @@ module BmcConcActions = struct
         get_taint sym >>= fun taint_ptr ->
         begin match interm_action with
         | IStore(aid, _,_,_,_,_) ->
-          return (Pset.empty Stdlib.compare,
+          return (Pset.empty Int.compare,
                  { addr = cartesian_product (Pset.elements taint_ptr) [aid]
                  ; data = cartesian_product (Pset.elements taint_wval) [aid]
                  ; ctrl = []
@@ -5256,7 +5264,7 @@ module BmcConcActions = struct
         get_taint sym >>= fun taint_ptr ->
         begin match interm_action with
         | ILoad(aid, _,_,_,_,_) ->
-            return (Pset.add aid (Pset.empty Stdlib.compare),
+            return (Pset.add aid (Pset.empty Int.compare),
                     { addr = cartesian_product (Pset.elements taint_ptr) [aid]
                     ; data = []
                     ; ctrl = []
@@ -5269,26 +5277,26 @@ module BmcConcActions = struct
     | RMW (pe1, pe2, pe3, pe4, mo1, mo2) ->
         bmc_debug_print 7 "TODO: Taint RMW";
         (* TODO *)
-        return (Pset.empty Stdlib.compare, empty_deps)
+        return (Pset.empty Int.compare, empty_deps)
     | Fence mo ->
-        return (Pset.empty Stdlib.compare, empty_deps)
+        return (Pset.empty Int.compare, empty_deps)
     | CompareExchangeStrong(pe1, pe2, pe3, pe4, mo1, mo2) ->
         (* TODO: We only do taint analysis for linux at the moment;
          * CompareExchangeStrong for C only*)
         bmc_debug_print 7 "TODO: Taint CompareExchangeStrong";
-        return (Pset.empty Stdlib.compare, empty_deps)
+        return (Pset.empty Int.compare, empty_deps)
     | CompareExchangeWeak(pe1, pe2, pe3, pe4, mo1, mo2) ->
         bmc_debug_print 7 "TODO: Taint CompareExchangeWeak";
-        return (Pset.empty Stdlib.compare, empty_deps)
+        return (Pset.empty Int.compare, empty_deps)
     | LinuxFence mo ->
-        return (Pset.empty Stdlib.compare, empty_deps)
+        return (Pset.empty Int.compare, empty_deps)
 
     | LinuxLoad (Pexpr(_,_,PEbase (Bctype ty)), Pexpr(_,_,PEsym sym), mo) ->
         get_action uid >>= fun interm_action ->
         get_taint sym >>= fun taint_ptr ->
         begin match interm_action with
         | ILinuxLoad(aid, _,_,_,_,_) ->
-            return (Pset.add aid (Pset.empty Stdlib.compare),
+            return (Pset.add aid (Pset.empty Int.compare),
                     { addr = cartesian_product (Pset.elements taint_ptr) [aid]
                     ; data = []
                     ; ctrl = []
@@ -5302,7 +5310,7 @@ module BmcConcActions = struct
         get_taint sym >>= fun taint_ptr ->
         begin match interm_action with
         | ILinuxStore(aid, _,_,_,_,_) ->
-          return (Pset.empty Stdlib.compare,
+          return (Pset.empty Int.compare,
                  { addr = cartesian_product (Pset.elements taint_ptr) [aid]
                  ; data = cartesian_product (Pset.elements taint_wval) [aid]
                  ; ctrl = []
@@ -5316,7 +5324,7 @@ module BmcConcActions = struct
         (* TODO: Check if this is correct *)
         begin match interm_action with
         | ILinuxRmw(aid, _, _, _, _,_,_) ->
-            return (Pset.add aid (Pset.empty Stdlib.compare),
+            return (Pset.add aid (Pset.empty Int.compare),
                    { addr = cartesian_product (Pset.elements taint_ptr) [aid]
                    ; data = cartesian_product (Pset.elements taint_wval) [aid]
                    ; ctrl = []
@@ -5412,7 +5420,7 @@ module BmcConcActions = struct
 
   (* Just add empty taint *)
   let do_taint_globs (gname, glb) =
-    add_taint gname (Pset.empty Stdlib.compare)
+    add_taint gname (Pset.empty Int.compare)
 
   let mk_preexec (actions: bmc_action list)
                  (prod: aid_rel list)

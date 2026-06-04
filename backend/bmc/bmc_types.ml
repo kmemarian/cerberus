@@ -349,7 +349,7 @@ let layout_by_thread (do_relabel: bool) (preexec: preexec2) : layout =
     else if List.mem (a2,a1) preexec.sb then 1
     else 0 in
   let sorted_threads = List.sort
-      (fun tid1 tid2 -> compare tid1 tid2)
+      (fun tid1 tid2 -> Int.compare tid1 tid2)
       preexec.threads in
   let actions_of_thread tid = List.filter
       (fun a -> tid = tid_of_action a)
