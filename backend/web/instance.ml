@@ -627,7 +627,7 @@ let step ~conf ~filename (active_node_opt: Instance_api.active_node option) =
     end >>= fun core ->
     Tags.set_tagDefs core.tagDefs;
     let core'    = Core_run_aux.convert_file core in
-    let st0      = Driver.initial_driver_state core' Sibylfs.fs_initial_state (* TODO *) in
+    let st0      = Driver.initial_driver_state core' Cerb_sibylfs.Fs_state.initial_state (* TODO *) in
     let (m, st)  = (Driver.drive false core' [], st0) in
     last_node_id := 0;
     let node_info= `Init in

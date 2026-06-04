@@ -383,7 +383,7 @@ let core_passes (conf, io) ~filename core_file =
 let interp_backend io core_file ~args ~batch ~fs ~driver_conf =
   let module D = Driver_ocaml in
   let fs_state = match fs with
-    | None -> Sibylfs.fs_initial_state
+    | None -> Cerb_sibylfs.Fs_state.initial_state
     | Some fs -> Fs_ocaml.initialise fs
   in
   (* TODO: temporary hack for the command name *)
