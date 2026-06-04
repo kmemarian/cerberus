@@ -69,9 +69,6 @@ let rec fv_pe (Pexpr (_,_, e)) fvs =
     fv_pe pe1 fvs
     |> fv_pe pe2
     |> fv_pe pe3
-  | PEis_scalar pe
-  | PEis_integer pe
-  | PEis_signed pe
   | PEcfunction pe
   | PEis_unsigned pe -> fv_pe pe fvs
 

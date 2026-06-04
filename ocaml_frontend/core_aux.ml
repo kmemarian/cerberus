@@ -518,9 +518,6 @@ let rec subst_sym_pexpr sym cval =
         ( self pe1,
           self pe2,
           self pe3 )
-  | PEis_scalar pe -> PEis_scalar (self pe)
-  | PEis_integer pe -> PEis_integer (self pe)
-  | PEis_signed pe -> PEis_signed (self pe)
   | PEis_unsigned pe -> PEis_unsigned (self pe)
   | PEbmc_assume pe -> PEbmc_assume (self pe)
   | PEare_compatible (pe1, pe2) ->
@@ -799,9 +796,6 @@ let rec unsafe_subst_sym_pexpr sym (Pexpr (annot, bty, pe_') as pe')
             ( unsafe_subst_sym_pexpr sym pe' pe1,
               unsafe_subst_sym_pexpr sym pe' pe2,
               unsafe_subst_sym_pexpr sym pe' pe3 )
-      | PEis_scalar pe -> PEis_scalar (unsafe_subst_sym_pexpr sym pe' pe)
-      | PEis_integer pe -> PEis_integer (unsafe_subst_sym_pexpr sym pe' pe)
-      | PEis_signed pe -> PEis_signed (unsafe_subst_sym_pexpr sym pe' pe)
       | PEis_unsigned pe -> PEis_unsigned (unsafe_subst_sym_pexpr sym pe' pe)
       | PEbmc_assume pe -> PEbmc_assume (unsafe_subst_sym_pexpr sym pe' pe)
       | PEare_compatible (pe1, pe2) ->

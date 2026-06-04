@@ -157,9 +157,6 @@ let keywords =
       ("acq_rel", T.ACQ_REL );
       
       (* TODO: temporary *)
-      ("is_scalar",   T.IS_SCALAR  );
-      ("is_integer",  T.IS_INTEGER );
-      ("is_signed",   T.IS_SIGNED  );
       ("is_unsigned", T.IS_UNSIGNED);
       ("are_compatible", T.ARE_COMPATIBLE);
       

@@ -324,15 +324,6 @@ module BmcInline = struct
         inline_pe pe2 >>= fun inlined_pe2 ->
         inline_pe pe3 >>= fun inlined_pe3 ->
         return (PEif(inlined_pe1, inlined_pe2, inlined_pe3))
-    | PEis_scalar pe ->
-        inline_pe pe >>= fun inlined_pe ->
-        return (PEis_scalar(inlined_pe))
-    | PEis_integer pe ->
-        inline_pe pe >>= fun inlined_pe ->
-        return (PEis_integer(inlined_pe))
-    | PEis_signed pe ->
-        inline_pe pe >>= fun inlined_pe ->
-        return (PEis_signed(inlined_pe))
     | PEis_unsigned pe ->
         inline_pe pe >>= fun inlined_pe ->
         return (PEis_unsigned(inlined_pe))
@@ -879,15 +870,6 @@ module BmcSSA = struct
         ssa_pe pe3 >>= fun ssad_pe3 ->
         put_sym_table old_table >>
         return (PEif(ssad_pe1, ssad_pe2, ssad_pe3))
-    | PEis_scalar pe ->
-        ssa_pe pe >>= fun ssad_pe ->
-        return (PEis_scalar(ssad_pe))
-    | PEis_integer pe ->
-        ssa_pe pe >>= fun ssad_pe ->
-        return (PEis_integer(ssad_pe))
-    | PEis_signed pe ->
-        ssa_pe pe >>= fun ssad_pe ->
-        return (PEis_signed(ssad_pe))
     | PEis_unsigned pe ->
         ssa_pe pe >>= fun ssad_pe ->
         return (PEis_unsigned(ssad_pe))
@@ -1443,9 +1425,6 @@ module BmcZ3 = struct
         z3_pe pe1  >>= fun z3d_pe1 ->
         z3_pe pe2  >>= fun z3d_pe2 ->
         return (mk_ite z3d_cond z3d_pe1 z3d_pe2)
-    | PEis_scalar _  -> assert false
-    | PEis_integer _ -> assert false
-    | PEis_signed _  -> assert false
     | PEis_unsigned (Pexpr(_, Some BTy_ctype, PEbase (Bctype ty))) ->
         begin match strip_atomic ty with
           | Ctype (_, Basic (Integer ity)) as ty' ->
@@ -2350,11 +2329,6 @@ module BmcBind = struct
                 (* Guarded asserts is unnecessary *)
                 (List.map (guard_assert guard) bound_pe1) @
                 (List.map (guard_assert (mk_not guard)) bound_pe2))
-    | PEis_scalar _
-    | PEis_integer _ ->
-        assert false
-    | PEis_signed _ ->
-        assert false
     | PEis_unsigned (Pexpr (_, Some BTy_ctype, PEbase (Bctype ctype))) ->
         return []
     | PEis_unsigned _ ->
@@ -2729,9 +2703,6 @@ module BmcVC = struct
         vcs_pe pe2                            >>= fun vc2s ->
         return ((List.map (guard_vc guard_z3) vc1s) @
                 (List.map (guard_vc (mk_not guard_z3)) vc2s))
-    | PEis_scalar pe   -> vcs_pe pe
-    | PEis_integer pe  -> vcs_pe pe
-    | PEis_signed pe   -> vcs_pe pe
     | PEis_unsigned pe -> vcs_pe pe
     | PEare_compatible (pe1,pe2) ->
         vcs_pe pe1 >>= fun vc1s ->
@@ -5207,9 +5178,6 @@ module BmcConcActions = struct
         do_taint_pe pe2 >>= fun taint_pe2 ->
         return (union_taints [taint_cond; taint_pe1; taint_pe2])
           (*Pset.union taint_pe1 taint_pe2)*)
-    | PEis_scalar pe   (* fall through *)
-    | PEis_integer pe  (* fall through *)
-    | PEis_signed pe   (* fall through *)
     | PEis_unsigned pe ->
         do_taint_pe pe
     | PEare_compatible (pe1, pe2) ->

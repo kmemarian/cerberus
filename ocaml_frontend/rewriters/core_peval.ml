@@ -308,12 +308,6 @@ let rec subst_sym_pexpr2 sym z (Pexpr (annot, bTy, pexpr_)) =
         wrap (PElet (pat, subst_sym_pexpr2 sym z pe1, if Core_aux.in_pattern sym pat then pe2 else subst_sym_pexpr2 sym z pe2))
     | PEif (pe1, pe2, pe3) ->
         wrap (PEif (subst_sym_pexpr2 sym z pe1, subst_sym_pexpr2 sym z pe2, subst_sym_pexpr2 sym z pe3))
-    | PEis_scalar pe ->
-        wrap (PEis_scalar (subst_sym_pexpr2 sym z pe))
-    | PEis_integer pe ->
-        wrap (PEis_integer (subst_sym_pexpr2 sym z pe))
-    | PEis_signed pe ->
-        wrap (PEis_signed (subst_sym_pexpr2 sym z pe))
     | PEis_unsigned pe ->
         wrap (PEis_unsigned (subst_sym_pexpr2 sym z pe))
     | PEbmc_assume pe ->
@@ -926,9 +920,6 @@ let is_recursive_function file sym : bool =
                   | PEcfunction pe
                   | PEmemberof (_, _, pe) ->
                       aux pe
-                  | PEis_scalar pe
-                  | PEis_integer pe
-                  | PEis_signed pe
                   | PEis_unsigned pe
                   | PEbmc_assume pe ->
                       aux pe

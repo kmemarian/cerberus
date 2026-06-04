@@ -201,15 +201,6 @@ let dtree_of_pexpr pexpr =
       | PEif (pe1, pe2, pe3) ->
           Dnode ( pp_ctor "PEif"
                 , [ self pe1; self pe2; self pe3 ] )
-      | PEis_scalar pe ->
-          Dnode ( pp_ctor "PEis_scalar"
-                , [ self pe] )
-      | PEis_integer pe ->
-          Dnode ( pp_ctor "PEis_integer"
-                , [ self pe] )
-      | PEis_signed pe ->
-          Dnode ( pp_ctor "PEis_signed"
-                , [ self pe] )
       | PEis_unsigned pe ->
           Dnode ( pp_ctor "PEis_unsigned"
                 , [ self pe] )

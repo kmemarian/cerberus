@@ -217,15 +217,6 @@ module Rewriter = functor (Eff: Monad) -> struct
           aux pe2 >>= fun pe2' ->
           aux pe3 >>= fun pe3' ->
           return_wrap (PEif (pe1', pe2', pe3'))
-      | PEis_scalar pe ->
-          aux pe >>= fun pe' ->
-          return_wrap (PEis_scalar pe')
-      | PEis_integer pe ->
-          aux pe >>= fun pe' ->
-          return_wrap (PEis_integer pe')
-      | PEis_signed pe ->
-          aux pe >>= fun pe' ->
-          return_wrap (PEis_signed pe')
       | PEis_unsigned pe ->
           aux pe >>= fun pe' ->
           return_wrap (PEis_unsigned pe')

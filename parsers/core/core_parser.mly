@@ -561,15 +561,6 @@ let rec symbolify_pexpr (Pexpr (annot, _, _pexpr): parsed_pexpr) : pexpr Eff.t =
           <$> symbolify_pexpr _pe1
           <*> symbolify_pexpr _pe2
           <*> symbolify_pexpr _pe3
-    | PEis_scalar _pe ->
-        symbolify_pexpr _pe >>= fun pe ->
-        Eff.return (Pexpr (annot, None, PEis_scalar pe))
-    | PEis_integer _pe ->
-        symbolify_pexpr _pe >>= fun pe ->
-        Eff.return (Pexpr (annot, None, PEis_integer pe))
-    | PEis_signed _pe ->
-        symbolify_pexpr _pe >>= fun pe ->
-        Eff.return (Pexpr (annot, None, PEis_signed pe))
     | PEis_unsigned _pe ->
         symbolify_pexpr _pe >>= fun pe ->
         Eff.return (Pexpr ([], None, PEis_unsigned pe))
@@ -1131,7 +1122,7 @@ let mk_file decls =
 
 
 
-%token IS_INTEGER IS_SIGNED IS_UNSIGNED IS_SCALAR ARE_COMPATIBLE
+%token IS_UNSIGNED ARE_COMPATIBLE
 
 (* unary operators *)
 %token NOT
@@ -1618,12 +1609,6 @@ pexpr:
     { Pexpr ([Aloc (region ($startpos, $endpos) (pointCursor($startpos($1))))], None, PElet (_pat, _pe1, _pe2)) }
 | IF _pe1= pexpr THEN _pe2= pexpr ELSE _pe3= pexpr
     { Pexpr ([Aloc (region ($startpos, $endpos) (pointCursor($startpos($1))))], None, PEif (_pe1, _pe2, _pe3)) }
-| IS_SCALAR _pe= delimited(LPAREN, pexpr, RPAREN)
-    { Pexpr ([Aloc (region ($startpos, $endpos) NoCursor)], None, PEis_scalar _pe) }
-| IS_INTEGER _pe= delimited(LPAREN, pexpr, RPAREN)
-    { Pexpr ([Aloc (region ($startpos, $endpos) NoCursor)], None, PEis_integer _pe) }
-| IS_SIGNED _pe= delimited(LPAREN, pexpr, RPAREN)
-    { Pexpr ([Aloc (region ($startpos, $endpos) NoCursor)], None, PEis_signed _pe) }
 | IS_UNSIGNED _pe= delimited(LPAREN, pexpr, RPAREN)
     { Pexpr ([Aloc (region ($startpos, $endpos) NoCursor)], None, PEis_unsigned _pe) }
 | ARE_COMPATIBLE LPAREN _pe1= pexpr COMMA _pe2= pexpr RPAREN

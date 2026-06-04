@@ -604,9 +604,6 @@ let print_pure_expr globs pe =
         )
       | PElet (p, pe1, pe2) -> print_let_in (print_pattern p) (pp pe1) (pp pe2)
       | PEif (pe1, pe2, pe3) -> print_if (pp pe1) (pp pe2) (pp pe3)
-      | PEis_scalar pe -> print_is_expr "is_scalar" pp pe
-      | PEis_integer pe -> print_is_expr "is_scalar" pp pe
-      | PEis_signed pe -> print_is_expr "is_signed" pp pe
       | PEis_unsigned pe -> print_is_expr "is_unsigned" pp pe
       | PEcfunction pe ->
         !^"RT.cfunction" ^^^ P.parens (pp pe)
