@@ -74,33 +74,33 @@ let rec unsafe_substitute_pexpr (map: substitute_map)
     Pexpr(annot, ty, ret)
 
 let unsafe_substitute_action (map: substitute_map)
-                          (Action(loc, a, action_) : 'a action0) =
+                          (Action(loc, a, action_) : 'a action) =
   let ret = match action_ with
     | Create (pe1, pe2, sym) ->
         Create(unsafe_substitute_pexpr map pe1, unsafe_substitute_pexpr map pe2, sym)
     | CreateReadOnly _ -> assert false
-    | Alloc0 (pe1,pe2,sym) ->
-        Alloc0(unsafe_substitute_pexpr map pe1, unsafe_substitute_pexpr map pe2, sym)
+    | Alloc (pe1,pe2,sym) ->
+        Alloc(unsafe_substitute_pexpr map pe1, unsafe_substitute_pexpr map pe2, sym)
     | Kill (b, pe) ->
         Kill (b, unsafe_substitute_pexpr map pe)
-    | Store0 (is_locking, pe1, pe2, pe3, memorder) ->
-        Store0(is_locking,
+    | Store (is_locking, pe1, pe2, pe3, memorder) ->
+        Store(is_locking,
                unsafe_substitute_pexpr map pe1,
                unsafe_substitute_pexpr map pe2,
                unsafe_substitute_pexpr map pe3,
                memorder)
-    | Load0 (pe1, pe2, memorder) ->
-        Load0 (unsafe_substitute_pexpr map pe1,
+    | Load (pe1, pe2, memorder) ->
+        Load (unsafe_substitute_pexpr map pe1,
                unsafe_substitute_pexpr map pe2,
                memorder)
-    | RMW0 (pe1,pe2,pe3,pe4,mo1,mo2) ->
-        RMW0 (unsafe_substitute_pexpr map pe1,
+    | RMW (pe1,pe2,pe3,pe4,mo1,mo2) ->
+        RMW (unsafe_substitute_pexpr map pe1,
               unsafe_substitute_pexpr map pe2,
               unsafe_substitute_pexpr map pe3,
               unsafe_substitute_pexpr map pe4,
               mo1, mo2)
-    | Fence0 mo ->
-        Fence0 mo
+    | Fence mo ->
+        Fence mo
     | CompareExchangeStrong(pe1,pe2,pe3,pe4,mo1,mo2) ->
         CompareExchangeStrong(unsafe_substitute_pexpr map pe1,
                               unsafe_substitute_pexpr map pe2,

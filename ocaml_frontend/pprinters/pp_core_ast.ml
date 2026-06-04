@@ -230,21 +230,21 @@ let pp_action_ctor act =
         "create"
     | CreateReadOnly _ ->
         "create_readonly"
-    | Alloc0 _ ->
+    | Alloc _ ->
         "alloc"
     | Kill _ ->
         "kill"
-    | Store0 _ ->
+    | Store _ ->
         "store"
-    | Load0 _ ->
+    | Load _ ->
         "load"
     | SeqRMW (false, _, _, _, _) ->
         "seq_rmw"
     | SeqRMW (true, _, _, _, _) ->
         "seq_rmw_with_forward"
-    | RMW0 _ ->
+    | RMW _ ->
         "rmw"
-    | Fence0 _ ->
+    | Fence _ ->
         "fence"
     | CompareExchangeStrong _ ->
         "cmpxchg_strong"
@@ -269,16 +269,16 @@ let dtree_of_action act =
       | CreateReadOnly _ ->
           ( "create_readonly"
           , [] )
-      | Alloc0 _ ->
+      | Alloc _ ->
           ( "alloc"
           , [] )
       | Kill _ ->
           ( "kill"
           , [] )
-      | Store0 _ ->
+      | Store _ ->
           ( "store"
           , [] )
-      | Load0 (pe1, pe2, mo) ->
+      | Load (pe1, pe2, mo) ->
           ( "load"
           , [ dtree_of_pexpr pe1
             ; dtree_of_pexpr pe2 ] )
@@ -293,10 +293,10 @@ let dtree_of_action act =
             ; dtree_of_pexpr pe1
             ; Dleaf (pp_symbol sym)
             ; dtree_of_pexpr pe3 ] )
-      | RMW0 _ ->
+      | RMW _ ->
           ( "rmw"
           , [] )
-      | Fence0 _ ->
+      | Fence _ ->
           ( "fence"
           , [] )
       | CompareExchangeStrong _ ->

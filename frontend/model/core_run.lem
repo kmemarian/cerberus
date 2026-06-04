@@ -2,7 +2,7 @@ open import Pervasives String_extra Utils Core Ctype_aux Core_aux Show Show_extr
 import Set_extra
 import State Loc
 import Exception Errors Undefined Exception_undefined State_exception_undefined
-import Cmm_csem Mem Mem_common Mem_aux
+import Cmm_csem Atomics Mem Mem_common Mem_aux
 import AilSyntax Ctype AilTypesAux
 import Builtins
 
@@ -199,20 +199,20 @@ type action_request =
   
   | LoadRequest of Loc.t * set Cmm.aid * set Cmm.aid * set Cmm.aid * 
                    (* the request provide a fresh symbolic name to be used by the concurrency if needed *)
-                   Cmm.aid * Mem_common.thread_id * Cmm.memory_order * Ctype.ctype * Mem.pointer_value * Symbol.sym *
+                   Cmm.aid * Mem_common.thread_id * Atomics.memory_order * Ctype.ctype * Mem.pointer_value * Symbol.sym *
                    (* the argument of the callback is either a concrete value if the memory model
                       is able to give one right away, or is equal to the symbolic value provided by the
                       present LoadRequest *)
                    (Mem.mem_value -> thread_state)
   
   | StoreRequest of Loc.t * set Cmm.aid * set Cmm.aid * set Cmm.aid *
-                    Cmm.aid * Mem_common.thread_id * Cmm.memory_order * Ctype.ctype * (* is_locking *)bool * Mem.pointer_value * Mem.mem_value *
+                    Cmm.aid * Mem_common.thread_id * Atomics.memory_order * Ctype.ctype * (* is_locking *)bool * Mem.pointer_value * Mem.mem_value *
                     thread_state
   | RMWRequest of Loc.t * set Cmm.aid * set Cmm.aid * set Cmm.aid *
-                  Cmm.aid * Mem_common.thread_id * Cmm.memory_order * Cmm.memory_order * Ctype.ctype * Mem.pointer_value *
+                  Cmm.aid * Mem_common.thread_id * Atomics.memory_order * Atomics.memory_order * Ctype.ctype * Mem.pointer_value *
                   Mem.mem_value * Mem.mem_value * thread_state
   | FenceRequest of Loc.t * set Cmm.aid * set Cmm.aid * set Cmm.aid *
-                    Cmm.aid * Mem_common.thread_id * Cmm.memory_order *
+                    Cmm.aid * Mem_common.thread_id * Atomics.memory_order *
                     thread_state
   | KillRequest of Loc.t * set Cmm.aid * set Cmm.aid * set Cmm.aid *
                    Cmm.aid * Mem_common.thread_id * (* is_dynamic *) bool * Mem.pointer_value * thread_state
@@ -652,7 +652,7 @@ let core_action_step arena_annots core_extern mem_st file current_tid (parent_ti
 
 (*
   | FenceRequest of Loc.t * set action_id * set action_id * set action_id *
-                    action_id * Mem_common.thread_id * Cmm.memory_order * ctype *
+                    action_id * Mem_common.thread_id * Atomics.memory_order * ctype *
                     thread_state
 *)
   end

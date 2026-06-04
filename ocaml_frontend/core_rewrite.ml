@@ -816,20 +816,20 @@ and remove_conv_int_action_ act_ =
         Create( (remove_conv_int_pexpr pe1), (remove_conv_int_pexpr pe2), pref)
     | CreateReadOnly( pe1, pe2, pe3, pref) ->
         CreateReadOnly( (remove_conv_int_pexpr pe1), (remove_conv_int_pexpr pe2), (remove_conv_int_pexpr pe3), pref)
-    | Alloc0( pe1, pe2, pref) ->
-        Alloc0( (remove_conv_int_pexpr pe1), (remove_conv_int_pexpr pe2), pref)
+    | Alloc( pe1, pe2, pref) ->
+        Alloc( (remove_conv_int_pexpr pe1), (remove_conv_int_pexpr pe2), pref)
     | Kill( kind1, pe) ->
         Kill( kind1, (remove_conv_int_pexpr pe))
-    | Store0( b, pe1, pe2, pe3, mo1) ->
-        Store0( b, (remove_conv_int_pexpr pe1), (remove_conv_int_pexpr pe2), (remove_conv_int_pexpr pe3), mo1)
+    | Store( b, pe1, pe2, pe3, mo1) ->
+        Store( b, (remove_conv_int_pexpr pe1), (remove_conv_int_pexpr pe2), (remove_conv_int_pexpr pe3), mo1)
     | SeqRMW( b, pe1, pe2, sym1, pe3) ->
         SeqRMW( b, (remove_conv_int_pexpr pe1), (remove_conv_int_pexpr pe2), sym1, (remove_conv_int_pexpr pe3))
-    | Load0( pe1, pe2, mo1) ->
-        Load0( (remove_conv_int_pexpr pe1), (remove_conv_int_pexpr pe2), mo1)
-    | RMW0( pe1, pe2, pe3, pe4, mo1, mo2) ->
-        RMW0( (remove_conv_int_pexpr pe1), (remove_conv_int_pexpr pe2), (remove_conv_int_pexpr pe3), (remove_conv_int_pexpr pe4), mo1, mo2)
-    | Fence0 mo1 ->
-        Fence0 mo1
+    | Load( pe1, pe2, mo1) ->
+        Load( (remove_conv_int_pexpr pe1), (remove_conv_int_pexpr pe2), mo1)
+    | RMW( pe1, pe2, pe3, pe4, mo1, mo2) ->
+        RMW( (remove_conv_int_pexpr pe1), (remove_conv_int_pexpr pe2), (remove_conv_int_pexpr pe3), (remove_conv_int_pexpr pe4), mo1, mo2)
+    | Fence mo1 ->
+        Fence mo1
     | CompareExchangeStrong( pe1, pe2, pe3, pe4, mo1, mo2) ->
         CompareExchangeStrong( (remove_conv_int_pexpr pe1), (remove_conv_int_pexpr pe2), (remove_conv_int_pexpr pe3), (remove_conv_int_pexpr pe4), mo1, mo2)
     | CompareExchangeWeak( pe1, pe2, pe3, pe4, mo1, mo2) ->
