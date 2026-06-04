@@ -211,12 +211,11 @@ elab_pp:
 
 
 #### LEM sources for sibylfs
-SIBYLFS_LEM = dir_heap.lem fs_prelude.lem fs_spec.lem list_array.lem \
-              sibylfs.lem
+SIBYLFS_LEM = dir_heap.lem fs_prelude.lem fs_spec.lem list_array.lem
 SIBYLFS_ML  = abstract_string.ml fs_dict_wrappers.ml fs_interface.ml \
-              fs_dump.ml fs_printer.ml lem_support.ml
+              fs_dump.ml fs_printer.ml lem_support.ml cerb_sibylfs.ml
 SIBYLFS_MLI = abstract_string.mli fs_dict_wrappers.mli fs_interface.mli \
-              lem_support.mli
+              lem_support.mli cerb_sibylfs.mli
 
 SIBYLFS_LEM_ML  = $(addsuffix .ml, $(basename $(SIBYLFS_LEM)))
 

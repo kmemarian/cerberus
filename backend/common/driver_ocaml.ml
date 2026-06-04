@@ -269,7 +269,7 @@ else
           );
         if conf.fs_dump then begin
           print_endline "File System:";
-          print_endline @@ Sexplib.Sexp.to_string_hum @@ Sibylfs.sexp_of_fs_state st.Driver.fs_state
+          print_endline @@ Sexplib.Sexp.to_string_hum @@ Cerb_sibylfs.Fs_state.to_sexp st.Driver.fs_state
         end;
         if conf.trace then
           PPrint.ToChannel.pretty 1.0 80 stdout (Pp_trace.pp_trace @@ List.rev st.trace);
