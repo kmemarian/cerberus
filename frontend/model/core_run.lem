@@ -1,49 +1,29 @@
-open import Pervasives String_extra Utils Core Ctype_aux Core_aux Show Show_extra Annot Any
-import Set_extra
-import State Loc
-import Exception Errors Undefined Exception_undefined State_exception_undefined
-import Cmm_csem Atomics Mem Mem_common Mem_aux
-import AilSyntax Ctype AilTypesAux
-import Builtins
-
-open import Implementation Decode
-
-
-import Core_eval
-
-module EU  = Exception_undefined
-module SEU = State_exception_undefined
-
-
-module Caux = Core_aux
-module Cmm = struct
-  include Cmm_aux
-  include Cmm_csem
-end
+open import Pervasives
+import Utils
+import Core Core_aux
 
 import Core_run_aux
-include Core_run_aux
 
 
 (* fetching the body and symbol environment for a given Core procedure *)
 val call_proc:
   map Symbol.sym Symbol.sym ->
-  Core.file core_run_annotation -> Symbol.sym -> list Core.value ->
-  Exception.exceptM (map Symbol.sym Core.value * Core.expr core_run_annotation) Errors.core_run_cause
+  Core.file Core_run_aux.core_run_annotation -> Symbol.sym -> list Core.value ->
+  Exception.exceptM (map Symbol.sym Core.value * Core.expr Core_run_aux.core_run_annotation) Errors.core_run_cause
 let call_proc core_extern file psym cvals =
   let bTy_params_body_opt =
     (* NOTE: the order of lookups implies that user procedure cannot hide the
        ones from stdlib, do we really want that? *)
-    match Map.lookup psym file.stdlib with
-      | Just (Proc _ _ bTy params body) ->
+    match Map.lookup psym file.Core.stdlib with
+      | Just (Core.Proc _ _ bTy params body) ->
           Just (bTy, params, body)
       | _ ->
           let core_sym = match Map.lookup psym core_extern with
             | Just sym -> sym
             | Nothing -> psym
           end in
-          match Map.lookup core_sym file.funs with
-            | Just (Proc _ _ bTy params body) ->
+          match Map.lookup core_sym file.Core.funs with
+            | Just (Core.Proc _ _ bTy params body) ->
                 Just (bTy, params, body)
             | _ ->
                 Nothing
@@ -71,151 +51,43 @@ let call_proc core_extern file psym cvals =
 
 
 
-val update_thread_state: Mem_common.thread_id -> thread_state -> core_state -> core_state
+val update_thread_state: Mem_common.thread_id -> Core_run_aux.thread_state -> Core_run_aux.core_state -> Core_run_aux.core_state
 let update_thread_state tid th_st st =
   let f (parent_tid_opt, _) = (parent_tid_opt, th_st) in
-  <| st with thread_states= assoc_adjust f tid st.thread_states |>
+  <| st with Core_run_aux.thread_states= Utils.assoc_adjust f tid st.Core_run_aux.thread_states |>
 
 
-val spawn_thread: maybe Mem_common.thread_id -> thread_state -> core_state -> State.stateM (Mem_common.thread_id * core_state) core_run_state
+val spawn_thread: maybe Mem_common.thread_id -> Core_run_aux.thread_state -> Core_run_aux.core_state -> State.stateM (Mem_common.thread_id * Core_run_aux.core_state) Core_run_aux.core_run_state
 let spawn_thread parent_tid_opt th_st st =
   State.modify (fun run_st ->
-    let tid = run_st.tid_supply in
-    ((tid, <| st with thread_states= assoc_insert tid (parent_tid_opt, th_st) st.thread_states |>),
-     <| run_st with tid_supply= tid + 1 |>)
+    let tid = run_st.Core_run_aux.tid_supply in
+    ((tid, <| st with Core_run_aux.thread_states= Utils.assoc_insert tid (parent_tid_opt, th_st) st.Core_run_aux.thread_states |>),
+     <| run_st with Core_run_aux.tid_supply= tid + 1 |>)
   )
 
 
-val kill_thread: Mem_common.thread_id -> Mem_common.thread_id -> set Cmm.aid -> Core.value -> core_state -> core_state
+val kill_thread: Mem_common.thread_id -> Mem_common.thread_id -> set Cmm_csem.aid -> Core.value -> Core_run_aux.core_state -> Core_run_aux.core_state
 let kill_thread tid parent_tid aswBefores v st =
   let () = Debug.print_debug 5 [Debug.DB_core_dynamics] (fun () -> "KILLING Thread " ^ show tid ^ " (child of thread " ^ show parent_tid ^ ")") in
-  let _ = Set.map (fun aid ->
+  (* let _ = Set.map (fun aid ->
     Debug.print_debug 5 [Debug.DB_core_dynamics] (fun () -> "AID ==> " ^ show aid)
-  ) aswBefores in
+  ) aswBefores in *)
   <| st with
-       thread_states= assoc_adjust (fun (parent_tid_opt, th_st) ->
+       Core_run_aux.thread_states= Utils.assoc_adjust (fun (parent_tid_opt, th_st) ->
          (parent_tid_opt, <| th_st with
-            arena= subst_wait tid v th_st.arena;
-(*
-            arenas= List.map (subst_wait tid v) th_st.arenas; (* NOTE!!!! ==> in fact here arenas must be a singleton (since Epar is not allowed inside Eunseq) *)
-*)
-            stack= add_to_asw_stack aswBefores (subst_wait_stack tid v th_st.stack) |>)
-       ) parent_tid $ assoc_remove tid st.thread_states
+            Core_run_aux.arena= Core_aux.subst_wait tid v th_st.Core_run_aux.arena;
+            Core_run_aux.stack= (*Core_run_aux.add_to_asw_stack aswBefores*) (Core_run_aux.subst_wait_stack tid v th_st.Core_run_aux.stack) |>)
+       ) parent_tid (Utils.assoc_remove tid st.Core_run_aux.thread_states)
   |>
 
 
-val fresh_action_id': State.stateM Cmm.aid core_run_state
+val fresh_action_id': State.stateM Cmm_csem.aid Core_run_aux.core_run_state
 let fresh_action_id' =
   State.modify (fun run_st ->
-    let aid = run_st.aid_supply in
-    (aid, <| run_st with aid_supply= aid+1 |>)
+    let aid = run_st.Core_run_aux.aid_supply in
+    (aid, <| run_st with Core_run_aux.aid_supply= aid+1 |>)
   )
 
-
-
-
-(* Now using the State monad infix operators *)
-let inline (>>=) = State.bind
-let inline (>>) m f = State.bind m (fun _ -> f)
-
-
-
-
-
-
-
-
-
-
-
-
-module E = struct
-  let core_run_return =
-    SEU.return
-  let inline return = core_run_return
-  (* NOTE: the inline is important because Lem is buggy *)
-  let inline mk_current_call_loc_opt th_st =
-    match th_st.exec_loc with
-      | ELoc_globals ->
-          Nothing
-      | ELoc_normal [] ->
-          Nothing
-      | ELoc_normal ((_, loc) :: _) ->
-          Just loc
-    end
-
-  let step_eval_pexprs th_st core_extern mem_st file pes =
-    let () = Debug.print_debug 4 [] (fun () ->
-      "CALLING Core_run.step_eval_pexprs (Core_eval.step_eval_pexpr, hasConstrained= false)"
-    ) in
-    SEU.runEU (EU.mapM (Core_eval.step_eval_pexpr 0 th_st.current_loc (mk_current_call_loc_opt th_st) core_extern th_st.env (Just mem_st) file false) pes)
-
-  let core_run_step_eval_pexpr th_st core_extern mem_st file pe =
-    let () = Debug.print_debug 4 [] (fun () ->
-      "CALLING Core_run.step_eval_pexpr (Core_eval.step_eval_pexpr, hasConstrained= false)"
-    ) in
-    SEU.runEU (Core_eval.step_eval_pexpr 0 th_st.current_loc (mk_current_call_loc_opt th_st) core_extern th_st.env (Just mem_st) file false pe)
-  let inline step_eval_pexpr = core_run_step_eval_pexpr
-  
-  let core_run_eval_pexpr th_st core_extern mem_st file pe =
-    let () = Debug.print_debug 4 [] (fun () ->
-      "CALLING Core_run.eval_pexpr (Core_eval.eval_pexpr_aux_broken)"
-    ) in
-    SEU.runEU (Core_eval.eval_pexpr_aux_broken th_st.current_loc (mk_current_call_loc_opt th_st) core_extern th_st.env (Just mem_st) file pe)
-  let inline eval_pexpr = core_run_eval_pexpr
-  
-  let eval_pexpr2 th_st core_extern mem_st file pe =
-    let () = Debug.print_debug 4 [] (fun () -> "CALLING Core_run.eval_pexpr2" ) in
-    SEU.runEU (Core_eval.eval_pexpr_aux2 th_st.current_loc (mk_current_call_loc_opt th_st) core_extern th_st.env (Just mem_st) file pe)
-  
-  let wrapped_eval_pexpr2 th_st core_extern mem_st file pe =
-    let () = Debug.print_debug 4 [] (fun () -> "CALLING Core_run.wrapped_eval_pexpr2" ) in
-    (* TODO: it would be better to just call eval_pexpr2, but
-       Lem generates buggy OCaml ... *)
-    SEU.bind (SEU.runEU (Core_eval.eval_pexpr_aux2 th_st.current_loc (mk_current_call_loc_opt th_st) core_extern th_st.env (Just mem_st) file pe)) function
-      | Left pe' ->
-          SEU.return pe'
-      | Right cval ->
-          SEU.return (Core_aux.mk_value_pe cval)
-    end
-  
-  let fresh_action_id =
-    SEU.runS fresh_action_id'
-end
-open SEU.Operators
-
-
-type action_request =
-  (* RequestName  of location * sbBefore * ddBefore * aswBefore
-                     parameters of request *
-                     the new state or a callback *)
-  | AllocRequest of Loc.t * set Cmm.aid * set Cmm.aid * set Cmm.aid *
-                    Cmm.aid * Mem_common.thread_id * Symbol.prefix * Mem.integer_value * Mem.integer_value *
-                    (Mem.pointer_value -> thread_state)
-  
-  | CreateRequest of Loc.t * set Cmm.aid * set Cmm.aid * set Cmm.aid *
-                     Cmm.aid * Mem_common.thread_id * Symbol.prefix * Mem.integer_value * Ctype.ctype * maybe Mem.mem_value *
-                     (Mem.pointer_value -> thread_state)
-  
-  | LoadRequest of Loc.t * set Cmm.aid * set Cmm.aid * set Cmm.aid * 
-                   (* the request provide a fresh symbolic name to be used by the concurrency if needed *)
-                   Cmm.aid * Mem_common.thread_id * Atomics.memory_order * Ctype.ctype * Mem.pointer_value * Symbol.sym *
-                   (* the argument of the callback is either a concrete value if the memory model
-                      is able to give one right away, or is equal to the symbolic value provided by the
-                      present LoadRequest *)
-                   (Mem.mem_value -> thread_state)
-  
-  | StoreRequest of Loc.t * set Cmm.aid * set Cmm.aid * set Cmm.aid *
-                    Cmm.aid * Mem_common.thread_id * Atomics.memory_order * Ctype.ctype * (* is_locking *)bool * Mem.pointer_value * Mem.mem_value *
-                    thread_state
-  | RMWRequest of Loc.t * set Cmm.aid * set Cmm.aid * set Cmm.aid *
-                  Cmm.aid * Mem_common.thread_id * Atomics.memory_order * Atomics.memory_order * Ctype.ctype * Mem.pointer_value *
-                  Mem.mem_value * Mem.mem_value * thread_state
-  | FenceRequest of Loc.t * set Cmm.aid * set Cmm.aid * set Cmm.aid *
-                    Cmm.aid * Mem_common.thread_id * Atomics.memory_order *
-                    thread_state
-  | KillRequest of Loc.t * set Cmm.aid * set Cmm.aid * set Cmm.aid *
-                   Cmm.aid * Mem_common.thread_id * (* is_dynamic *) bool * Mem.pointer_value * thread_state
 
 type fs_oper =
   | FS_MKDIR of string * integer (* path * mode_t *)
@@ -251,408 +123,3 @@ type core_tau_step_kind =
   | TSK_Ccall of Symbol.sym * list Mem.mem_value
   | TSK_Return of Symbol.sym * maybe Mem.mem_value
   | TSK_Misc
-
-type core_step =
-  | Step_action_request of string * core_runM action_request
-  | Step_memop_request of Loc.t * Mem_common.memop * list Core.value * Mem_common.thread_id * (Core.value -> thread_state)
-  | Step_tau of string * core_tau_step_kind * core_runM thread_state
-  | Step_eval of string * core_runM thread_state
-  | Step_thread_done of Mem_common.thread_id * Core.value
-(*  | Step_nd of string * list core_step *)
-  | Step_blocked
-  | Step_error of string
-  | Step_constrained of string * list (Mem.mem_iv_constraint * core_runM thread_state)
-
-  | Step_done of Core.value
-  | Step_spawn_threads of (Core.expr core_run_annotation -> thread_state) * list thread_state (* initial states for the children *)
-  
-  | Step_fs of thread_state * fs_oper
-  
-  | Step_bound of core_runM thread_state
-
-
-val core_action_step:
-    list annot -> map Symbol.sym Symbol.sym -> Mem.mem_state -> Core.file core_run_annotation -> Mem_common.thread_id ->
-    (maybe Mem_common.thread_id * thread_state) -> Core.paction core_run_annotation -> core_step
-let core_action_step arena_annots core_extern mem_st file current_tid (parent_tid_opt, th_st) (Paction p (Action loc annots act)) =
-  let sb_before =
-    (* filter out actions from other threads *)
-    Set.map snd $ Set.filter (fun (tid, _) -> tid = current_tid) annots.sb_before in
-  let dd_before = {(* TODO *)} in
-  let asw_before_ =
-    if has_sbBefore_on_thread current_tid annots then
-      {}
-    else
-      Set.map snd $ Set.filter (fun (tid, _) ->
-        match parent_tid_opt with
-          | Just parent_tid ->
-              tid = parent_tid
-          | _ ->
-              false
-        end) annots.sb_before in
-  
-  let asw_before = annots.asw_before union asw_before_ in
-  match act with
-    | Create pe1 pe2 pref ->
-        match (valueFromPexpr pe1, valueFromPexpr pe2) with
-          | (Just (Bobject (OVinteger ival)), Just (Bctype ty)) ->
-              Step_action_request "CreateRequest" (
-                E.fresh_action_id >>= fun create_aid ->
-                E.return (
-                  CreateRequest loc sb_before dd_before asw_before
-                    create_aid current_tid pref ival ty Nothing
-                    (fun ptr_val -> <| th_st with
-                        arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEbase (Bobject (OVpointer ptr_val)))));
-                        stack= add_to_sb_stack {(p, (current_tid, create_aid))} (* TODO: remove for sequential !!! *) th_st.stack;
-                    |>)
-                    )
-                  )
-          | (Just _, Just _) ->
-              Step_error ("found a create() with ill-typed operands [" ^ Pp.stringFromSymbol_prefix pref ^ "]")
-          | (Nothing, _) ->
-              Step_eval "first operand of a Create" (
-                E.wrapped_eval_pexpr2 th_st core_extern mem_st file pe1 >>= fun pe1' ->
-                E.return <| th_st with
-                  arena= Expr arena_annots (Eaction (Paction p (Action loc annots (Create pe1' pe2 pref))))
-                |>
-              )
-          | (_, Nothing) ->
-              Step_eval "second operand of a Create" (
-                E.wrapped_eval_pexpr2 th_st core_extern mem_st file pe2 >>= fun pe2' ->
-                E.return <| th_st with arena=
-                  Expr arena_annots (Eaction (Paction p (Action loc annots (Create pe1 pe2' pref))))
-                |>
-              )
-        end
-    
-    | CreateReadOnly pe1 pe2 pe3 pref ->
-        match valueFromPexpr pe1 with
-          | Nothing ->
-              Step_eval "first operand of a CreateReadOnly" (
-                E.wrapped_eval_pexpr2 th_st core_extern mem_st file pe1 >>= fun pe1' ->
-                E.return <| th_st with
-                  arena= Expr arena_annots (Eaction (Paction p (Action loc annots (CreateReadOnly pe1' pe2 pe3 pref))))
-                |>
-              )
-          | Just cval1 ->
-              match valueFromPexpr pe2 with
-                | Nothing ->
-                    Step_eval "second operand of a CreateReadOnly" (
-                      E.wrapped_eval_pexpr2 th_st core_extern mem_st file pe2 >>= fun pe2' ->
-                      E.return <| th_st with arena=
-                        Expr arena_annots (Eaction (Paction p (Action loc annots (CreateReadOnly pe1 pe2' pe3 pref))))
-                      |>
-                    )
-                | Just cval2 ->
-                    match valueFromPexpr pe3 with
-                      | Nothing ->
-                          Step_eval "third operand of a CreateReadOnly" (
-                            E.wrapped_eval_pexpr2 th_st core_extern mem_st file pe3 >>= fun pe3' ->
-                            E.return <| th_st with arena=
-                              Expr arena_annots (Eaction (Paction p (Action loc annots (CreateReadOnly pe1 pe2 pe3' pref))))
-                            |>
-                          )
-                      | Just cval3 ->
-                          match (cval1, cval2) with
-                            | (Bobject (OVinteger ival), Bctype ty) ->
-                          match memValueFromValue (Ctype.Ctype [] (Ctype.unatomic_ ty)) cval3 with
-                            | Just mem_val ->
-                                Step_action_request "CreateRequest" (
-                                  E.fresh_action_id >>= fun create_aid ->
-                                  E.return (
-                                    CreateRequest loc sb_before dd_before asw_before
-                                      create_aid current_tid pref ival ty (Just mem_val)
-                                      (fun ptr_val -> <| th_st with
-                                          arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEbase (Bobject (OVpointer ptr_val)))));
-                                          stack= add_to_sb_stack {(p, (current_tid, create_aid))} (* TODO: remove for sequential !!! *) th_st.stack;
-                                      |>)
-                                  )
-                                )
-                            | Nothing ->
-                                Step_error ((Loc.stringFromLocation loc) ^ "the value of a create_readonly(" ^
-                                            Pp.stringFromCore_ctype (Ctype.Ctype [] (Ctype.unatomic_ ty)) ^
-                                            ") didn't match the lvalue type: " ^ Pp.stringFromCore_value cval3)
-                          end
-                            | _ ->
-                                Step_error ("found a create() with ill-typed operands [" ^ Pp.stringFromSymbol_prefix pref ^ "]")
-                          end
-                    end
-              end
-        end
-    | Alloc pe1 pe2 pref ->
-        match (valueFromPexpr pe1, valueFromPexpr pe2) with
-          | (Just (Bobject (OVinteger ival1)), Just (Bobject (OVinteger ival2))) ->
-              Step_action_request "AllocRequest" (
-                E.fresh_action_id >>= fun alloc_aid ->
-                E.return (
-                  AllocRequest loc sb_before dd_before asw_before
-                    alloc_aid current_tid pref ival1 ival2
-                    (fun ptr_val -> <| th_st with
-                        arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEbase (Bobject (OVpointer ptr_val)))));
-                        stack= add_to_sb_stack {(p, (current_tid, alloc_aid))} (* TODO: remove for sequential !!! *) th_st.stack;
-                    |>)
-                    )
-                  )
-          | (Just _, Just _) ->
-              Step_error "found a alloc() with ill-typed operands"
-          | (Nothing, _) ->
-              Step_eval "first operand of a Alloc" (
-                E.wrapped_eval_pexpr2 th_st core_extern mem_st file pe1 >>= fun pe1' ->
-                E.return <| th_st with arena=
-                  Expr arena_annots (Eaction (Paction p (Action loc annots (Alloc pe1' pe2 pref))))
-                |>
-              )
-          | (_, Nothing) ->
-              Step_eval "second operand of a Alloc" (
-                E.wrapped_eval_pexpr2 th_st core_extern mem_st file pe2 >>= fun pe2' ->
-                E.return <| th_st with arena=
-                  Expr arena_annots (Eaction (Paction p (Action loc annots (Alloc pe1 pe2' pref))))
-                |>
-              )
-        end
-    
-    | Kill kind pe ->
-        match valueFromPexpr pe with
-          | Just (Bobject (OVpointer ptr_val)) ->
-              Step_action_request "KillRequest" (
-                E.fresh_action_id >>= fun kill_aid ->
-                E.return (
-                  KillRequest (if Loc.is_library_location loc then th_st.current_loc else loc)
-                    sb_before dd_before asw_before
-                    kill_aid current_tid (is_dynamic kind) ptr_val
-                    <| th_st with
-                      arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEbase Bunit)));
-                      stack= add_to_sb_stack {(p, (current_tid, kill_aid))} (* TODO: remove for sequential !!! *) th_st.stack;
-                    |>
-                )
-              )
-          | Just _ ->
-              Step_error "found a kill() with an ill-typed operand"
-          | Nothing ->
-              Step_eval "operand of kill()" (
-                E.wrapped_eval_pexpr2 th_st core_extern mem_st file pe >>= fun pe' ->
-                E.return <| th_st with arena=
-                  Expr arena_annots (Eaction (Paction p (Action loc annots (Kill kind pe'))))
-                |>
-              )
-        end
-
-    | Store is_locking pe1 pe2 pe3 mo ->
-        match (valueFromPexpr pe1, valueFromPexpr pe2, valueFromPexpr pe3) with
-          | (Just (Bctype ty), Just (Bobject (OVpointer ptr_val)), Just cval) ->
-              match memValueFromValue (Ctype.Ctype [] (Ctype.unatomic_ ty)) cval with
-                | Just mem_val ->
-                    Step_action_request "StoreRequest" (
-                      E.fresh_action_id >>= fun store_aid ->
-                      E.return (
-                        StoreRequest loc sb_before dd_before asw_before
-                          store_aid current_tid mo ty is_locking ptr_val mem_val
-                          <| th_st with
-                            arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEbase Bunit))) (* Epure (PEbase (objectValueFromMemValue mem_val)) *);
-                            stack= add_to_sb_stack {(p, (current_tid, store_aid))} (* TODO: remove for sequential !!! *) th_st.stack;
-                          |>
-                      )
-                    )
-                | Nothing ->
-                    Step_error ((Loc.stringFromLocation loc) ^ "the value of a store(" ^ Pp.stringFromCore_ctype (Ctype.Ctype [] (Ctype.unatomic_ ty)) ^
-                                ") didn't match the lvalue type: " ^ Pp.stringFromCore_value cval)
-              end
-          | (Just cval1, Just cval2, Just cval3) ->
-              Step_error ("found a store() with ill-typed operands: " ^
-                           Pp.stringFromCore_value cval1 ^ " <-> " ^ Pp.stringFromCore_value cval2 ^ " <-> " ^ Pp.stringFromCore_value cval3)
-          | (Nothing, _, _) ->
-              Step_eval "first operand of a Store" (
-                E.wrapped_eval_pexpr2 th_st core_extern mem_st file pe1 >>= fun pe1' ->
-                E.return <| th_st with arena=
-                  Expr arena_annots (Eaction (Paction p (Action loc annots (Store is_locking pe1' pe2 pe3 mo))))
-                |>
-              )
-          | (_, Nothing, _) ->
-              Step_eval "second operand of a Store" (
-                E.wrapped_eval_pexpr2 th_st core_extern mem_st file pe2 >>= fun pe2' ->
-                E.return <| th_st with arena=
-                  Expr arena_annots (Eaction (Paction p (Action loc annots (Store is_locking pe1 pe2' pe3 mo))))
-                |>
-              )
-          | (_, _, Nothing) ->
-              Step_eval "third operand of a Store" (
-                E.wrapped_eval_pexpr2 th_st core_extern mem_st file pe3 >>= fun pe3' ->
-                E.return <| th_st with
-                  arena= Expr arena_annots (Eaction (Paction p (Action loc annots (Store is_locking pe1 pe2 pe3' mo))))
-                |>
-              )
-        end
-
-    | Load pe1 pe2 mo ->
-        match (valueFromPexpr pe1, valueFromPexpr pe2) with
-          | (Just (Bctype ty), Just (Bobject (OVpointer ptr_val))) ->
-              Step_action_request "LoadRequest" (
-                E.fresh_action_id >>= fun load_aid ->
-                let val_sym = Symbol.fresh () in
-                E.return (
-                  LoadRequest loc sb_before dd_before asw_before
-                    load_aid current_tid mo ty ptr_val val_sym
-                    (fun mem_val -> <| th_st with
-                        (* NOTE: the parenthesis are needed because of a Lem's bug... *)
-                        arena= (let (oTy, cval) = valueFromMemValue mem_val in
-                                Expr arena_annots (Epure (Pexpr [] Nothing (PEbase cval))));
-                        stack= add_to_sb_stack {(p, (current_tid, load_aid))} (* TODO: remove for sequential !!! *) th_st.stack
-                    |>)
-                )
-              )
-          | (Just _, Just _) ->
-              Step_error "found a load with ill-typed operands"
-          | (Nothing, _) ->
-              Step_eval "first operand of a Load" (
-                E.wrapped_eval_pexpr2 th_st core_extern mem_st file pe1 >>= fun pe1' ->
-                E.return <| th_st with arena=
-                  Expr arena_annots (Eaction (Paction p (Action loc annots (Load pe1' pe2 mo))))
-                |>
-              )
-          | (_, Nothing) ->
-              Step_eval "second operand of a Load" (
-                E.wrapped_eval_pexpr2 th_st core_extern mem_st file pe2 >>= fun pe2' ->
-                E.return <| th_st with arena=
-                  Expr arena_annots (Eaction (Paction p (Action loc annots (Load pe1 pe2' mo))))
-                |>
-              )
-        end
-    | SeqRMW _ _ _ _ _ ->
-        error "Core_run ==> SeqRMW"
-    | RMW pe1 pe2 pe3 pe4 mo1 mo2 ->
-        match (valueFromPexpr pe1, valueFromPexpr pe2, valueFromPexpr pe3, valueFromPexpr pe4) with
-          | (Just (Bctype ty), Just (Bobject (OVpointer ptr_val)), Just cval_expected, Just cval_desired) ->
-              match (memValueFromValue ty cval_expected, memValueFromValue ty cval_desired) with
-                | (Just mval_expected, Just mval_desired) ->
-                    Step_action_request "RMWRequest" (
-                      E.fresh_action_id >>= fun rmw_aid ->
-                      E.return (
-                        RMWRequest loc sb_before dd_before asw_before
-                          rmw_aid current_tid mo1 mo2 ty ptr_val mval_expected mval_desired
-                          <| th_st with
-                            arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEbase Btrue))); (* TODO *)
-                            stack= add_to_sb_stack {(p, (current_tid, rmw_aid))} (* TODO: remove for sequential !!! *) th_st.stack;
-                          |>
-                      )
-                    )
-(*
-  | RMW of aid * tid * memory_order * location * cvalue * cvalue  (* first val = value read; second val = value written *)
-*)
-
-(*
-                    Step_action_request (
-                      E.fresh_action_id >>= fun rmw_aid ->
-                      E.fresh_symbol    >>= fun val_sym ->
-                      E.return (
-                        StoreRequest loc sb_before dd_before asw_before
-                          store_aid current_tid mo ty ptr_val mem_val
-                          <| th_st with
-                            arena= Eskip (* Epure (PEbase (objectValueFromMemValue mem_val)) *);
-                            stack= (* add_to_sb_stack {(p, (current_tid, store_aid))} *) (* TODO: bring back for concurrency !!! *) th_st.stack;
-                          |>
-                      )
-                    )
-*)
-                | _ ->
-                    Step_error ("one of the values of a rmw() didn't match the lvalue type: " (* ^
-                      Pp.pp_ail_ctype (Core_aux.unproj_ctype ty) ^ " <-> " ^
-                                Pp.stringFromCore_expr ((Epure (PEbase cval_expected)) : Core.expr unit) ^ " <-> " ^
-                                Pp.stringFromCore_expr ((Epure (PEbase cval_desired)) : Core.expr unit) *))
-              end
-          | (Just _, Just _, Just _, Just _) ->
-              Step_error "found a rmw with ill-typed operands"
-          | (Nothing, _, _, _) ->
-              Step_eval "first operand of a RMW" (
-                E.wrapped_eval_pexpr2 th_st core_extern mem_st file pe1 >>= fun pe1' ->
-                E.return <| th_st with arena=
-                  Expr arena_annots (Eaction (Paction p (Action loc annots (RMW pe1' pe2 pe3 pe4 mo1 mo2))))
-                |>
-              )
-          | (_, Nothing, _, _) ->
-              Step_eval "second operand of a RMW" (
-                E.wrapped_eval_pexpr2 th_st core_extern mem_st file pe2 >>= fun pe2' ->
-                E.return <| th_st with arena=
-                  Expr arena_annots (Eaction (Paction p (Action loc annots (RMW pe1 pe2' pe3 pe4 mo1 mo2))))
-                |>
-              )
-          | (_, _, Nothing, _) ->
-              Step_eval "third operand of a RMW" (
-                E.wrapped_eval_pexpr2 th_st core_extern mem_st file pe3 >>= fun pe3' ->
-                E.return <| th_st with arena=
-                  Expr arena_annots (Eaction (Paction p (Action loc annots (RMW pe1 pe2 pe3' pe4 mo1 mo2))))
-                |>
-              )
-          | (_, _, _, Nothing) ->
-              Step_eval "fourth operand of a RMW" (
-                E.wrapped_eval_pexpr2 th_st core_extern mem_st file pe4 >>= fun pe4' ->
-                E.return <| th_st with arena=
-                  Expr arena_annots (Eaction (Paction p (Action loc annots (RMW pe1 pe2 pe3 pe4' mo1 mo2))))
-                |>
-              )
-        end
-
-(*
-        match (valueFromPexpr pe1, valueFromPexpr pe2) with
-          | (Just (Bctype ty), Just (Vpointer ptr_val)) ->
-              Step_action_request (
-                E.fresh_action_id >>= fun load_aid ->
-                E.fresh_symbol    >>= fun val_sym  ->
-                E.return (
-                  LoadRequest loc sb_before dd_before asw_before
-                    load_aid current_tid mo ty ptr_val val_sym
-                    (fun mem_val -> <| th_st with
-                        arena= Epure (PEbase (objectValueFromMemValue mem_val));
-                        stack= (* add_to_sb_stack {(p, (current_tid, load_aid))} *) th_st.stack
-                    |>)
-                )
-              )
-          | (Just _, Just _) ->
-              Step_error "found a load with ill-typed operands"
-          | (Nothing, _) ->
-              Step_eval "first operand of a Load" (
-                E.step_eval_pexpr file concur_sym_map false pe1 >>= fun pe1' ->
-                E.return <| th_st with arena=
-                  Eaction (Paction p (Action loc annots (Load pe1' pe2 mo)))
-                |>
-              )
-          | (_, Nothing) ->
-              Step_eval "second operand of a Load" (
-                E.step_eval_pexpr file concur_sym_map false pe2 >>= fun pe2' ->
-                E.return <| th_st with arena=
-                  Eaction (Paction p (Action loc annots (Load pe1 pe2' mo)))
-                |>
-              )
-        end
-*)
-    | Fence mo ->
-        Step_action_request "FenceRequest" (
-          E.fresh_action_id >>= fun fence_aid ->
-          E.return (
-            FenceRequest loc sb_before dd_before asw_before
-              fence_aid current_tid mo
-              <| th_st with
-                arena= Expr arena_annots (Epure (Pexpr [] Nothing (PEbase Bunit)));
-                stack= add_to_sb_stack {(p, (current_tid, fence_aid))} (* TODO: remove for sequential !!! *) th_st.stack;
-              |>
-          )
-        )
-    (* TODO: CompareExchangeStrong *)
-    | CompareExchangeStrong pe1 pe2 pe3 pe4 mo1 mo2 ->
-        error "WIP: CompareExchangeStrong"
-    | CompareExchangeWeak pe1 pe2 pe3 pe4 mo1 mo2 ->
-        error "WIP: CompareExchangeWeak"
-    | LinuxFence mo ->
-        error "WIP: LinuxFence"
-    | LinuxStore pe1 pe2 pe3 mo ->
-        error "WIP: LinuxStore"
-    | LinuxLoad pe1 pe2 mo ->
-        error "WIP: LinuxLoad"
-    | LinuxRMW pe1 pe2 pe3 mo ->
-        error "WIP: LinuxRMW"
-
-(*
-  | FenceRequest of Loc.t * set action_id * set action_id * set action_id *
-                    action_id * Mem_common.thread_id * Atomics.memory_order * ctype *
-                    thread_state
-*)
-  end

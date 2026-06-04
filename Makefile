@@ -200,6 +200,22 @@ $(OCAML_SRC)&: $(LEM_SRC)
 	$(Q)$(SEDI) -e "1 s/.*/&[@@@warning \"-8\"]/" $(PRELUDE_SRC_DIR)/cmm_csem.ml
 	$(Q)$(SEDI) -e "1 s/.*/&[@@@warning \"-8\"]/" $(PRELUDE_SRC_DIR)/cmm_op.ml
 
+lean: $(LEM_SRC)
+	$(Q)../lem-lean/lem -wl ign -wl_rename warn -wl_pat_red err -wl_pat_exh warn -outdir LEAN -cerberus_pp -lean \
+	frontend/model/exception.lem \
+	frontend/model/cabs.lem \
+	frontend/model/annot.lem \
+	frontend/model/constraint.lem \
+	frontend/model/undefined.lem \
+	frontend/concurrency/cmm_csem.lem \
+	frontend/concurrency/linux.lem \
+	frontend/model/implementation.lem \
+	frontend/model/ail/integerImpl.lem \
+	frontend/model/ail/ailSyntax.lem \
+	frontend/model/ail/ailTypesAux.lem \
+	frontend/model/ail/genTypes.lem \
+	frontend/model/core_eval.lem
+
 # Elaboration PP stuff
 elab_pp:
 	@echo "[MKDIR] $(PRELUDE_SRC_DIR)"

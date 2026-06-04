@@ -608,8 +608,7 @@ let rec infer_pexpr tagDefs env ((Pexpr annot _ pexpr_ as pexpr) : pexpr) =
     | PEis_unsigned pe ->
         Pexpr annot (Just BTy_boolean) <$> (PEis_unsigned <$> typecheck_pexpr tagDefs env BTy_ctype pe)
     | PEbmc_assume pe ->
-        Pexpr annot (Just BTy_unit) <$> (PEbmc_assume <$> typecheck_pexpr 
-tagDefs env BTy_boolean pe)
+        Pexpr annot (Just BTy_unit) <$> (PEbmc_assume <$> typecheck_pexpr tagDefs env BTy_boolean pe)
     | PEare_compatible pe1 pe2 ->
         Pexpr annot (Just BTy_boolean) <$> (PEare_compatible <$> typecheck_pexpr tagDefs env BTy_ctype pe1 <*> typecheck_pexpr tagDefs env BTy_ctype pe2)
   end

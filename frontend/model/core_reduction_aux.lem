@@ -1,6 +1,7 @@
 open import Pervasives
 open import Utils
 open import Core Core_aux Core_run_aux
+import Mem_aux
 
 import Decode Core_run
 
