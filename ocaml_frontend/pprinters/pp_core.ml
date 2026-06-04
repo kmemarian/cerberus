@@ -91,9 +91,6 @@ let precedence_pexpr = function
   | PElet _
   | PEif _
   | PEcfunction _
-  | PEis_scalar _
-  | PEis_integer _
-  | PEis_signed _
   | PEis_unsigned _
   | PEbmc_assume _
   | PEare_compatible _ ->
@@ -531,12 +528,6 @@ let pp_pexpr pe =
           pp_let ~ctor:"let" pp pp pat pe1 pe2
       | PEif (pe1, pe2, pe3) ->
           pp_if pp pp pe1 pe2 pe3
-      | PEis_scalar pe ->
-          pp_keyword "is_scalar" ^^^ P.parens (pp pe)
-      | PEis_integer pe ->
-          pp_keyword "is_integer" ^^^ P.parens (pp pe)
-      | PEis_signed pe ->
-          pp_keyword "is_signed" ^^^ P.parens (pp pe)
       | PEis_unsigned pe ->
           pp_keyword "is_unsigned" ^^^ P.parens (pp pe)
       | PEbmc_assume pe ->

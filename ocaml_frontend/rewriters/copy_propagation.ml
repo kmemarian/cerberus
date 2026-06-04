@@ -43,8 +43,7 @@ let rec can_prop_and_rm binders (Pexpr (_, _, pe_)) =
   | PEmemberof (_, _, pe1)
   | PEmember_shift (pe1, _, _)
   | PEconv_int (_, pe1)
-  | PEis_scalar pe1 | PEis_integer pe1
-  | PEis_signed pe1 | PEis_unsigned pe1
+  | PEis_unsigned pe1
   | PEbmc_assume pe1
   | PEunion (_, _, pe1) ->
       can_prop_and_rm binders pe1
@@ -316,12 +315,6 @@ let rec propagate_pexpr env (Pexpr (annots, bty, pe_) as pe) =
         propagate_pexpr env pe1,
         propagate_pexpr env pe2,
         propagate_pexpr env pe3))
-  | PEis_scalar pe1 ->
-      Pexpr (annots, bty, PEis_scalar (propagate_pexpr env pe1))
-  | PEis_integer pe1 ->
-      Pexpr (annots, bty, PEis_integer (propagate_pexpr env pe1))
-  | PEis_signed pe1 ->
-      Pexpr (annots, bty, PEis_signed (propagate_pexpr env pe1))
   | PEis_unsigned pe1 ->
       Pexpr (annots, bty, PEis_unsigned (propagate_pexpr env pe1))
   | PEbmc_assume pe1 ->

@@ -56,12 +56,6 @@ let rec unsafe_substitute_pexpr (map: substitute_map)
         PEif(unsafe_substitute_pexpr map pe1,
              unsafe_substitute_pexpr map pe2,
              unsafe_substitute_pexpr map pe3)
-    | PEis_scalar pe ->
-        PEis_scalar(unsafe_substitute_pexpr map pe)
-    | PEis_integer pe ->
-        PEis_integer(unsafe_substitute_pexpr map pe)
-    | PEis_signed pe ->
-        PEis_signed (unsafe_substitute_pexpr map pe)
     | PEis_unsigned pe ->
         PEis_unsigned (unsafe_substitute_pexpr map pe)
     | PEbmc_assume pe ->

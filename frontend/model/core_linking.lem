@@ -119,12 +119,6 @@ let rec free_pexpr acc (Pexpr _ _ pe) =
       (* (free_pexpr (free_pexpr acc pe1) pe2) \ (symbols_in_pattern {} pat) *)
   | PEif pe1 pe2 pe3 ->
       free_pexpr (free_pexpr (free_pexpr acc pe1) pe2) pe3
-  | PEis_scalar pe ->
-      free_pexpr acc pe
-  | PEis_integer pe ->
-      free_pexpr acc pe
-  | PEis_signed pe ->
-      free_pexpr acc pe
   | PEis_unsigned pe ->
       free_pexpr acc pe
   | PEare_compatible pe1 pe2 ->

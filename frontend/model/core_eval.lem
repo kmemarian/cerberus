@@ -762,36 +762,6 @@ KKK:              EU.return (PEbase (Bloaded (LVspecified (OVstruct tag_sym xs))
           | Nothing ->
               EU.return $ PEif pe1' pe2 pe3
         end
-    | PEis_scalar pe ->
-        self pe >>= fun pe' ->
-        match Caux.valueFromPexpr pe' with
-          | Just (Bctype ty) ->
-              EU.return $ PEbase (if AilTypesAux.is_scalar ty then Btrue else Bfalse)
-          | Just _ ->
-              illformed_program "PEis_scalar: the operand should be a ctype"
-          | Nothing ->
-              EU.return $ PEis_scalar pe'
-        end
-    | PEis_integer pe ->
-        self pe >>= fun pe' ->
-        match Caux.valueFromPexpr pe' with
-          | Just (Bctype ty) ->
-              EU.return $ PEbase (if AilTypesAux.is_integer ty then Btrue else Bfalse)
-          | Just _ ->
-              illformed_program "PEis_integer: the operand should be a ctype"
-          | Nothing ->
-              EU.return $ PEis_scalar pe'
-        end
-    | PEis_signed pe ->
-        self pe >>= fun pe' ->
-        match Caux.valueFromPexpr pe' with
-          | Just (Bctype ty) ->
-              EU.return $ PEbase (if AilTypesAux.is_signed_integer_type ty then Btrue else Bfalse)
-          | Just _ ->
-              illformed_program "PEis_signed: the operand should be a ctype"
-          | Nothing ->
-              EU.return $ PEis_scalar pe'
-        end
     | PEis_unsigned pe ->
         self pe >>= fun pe' ->
         match Caux.valueFromPexpr pe' with
@@ -800,7 +770,7 @@ KKK:              EU.return (PEbase (Bloaded (LVspecified (OVstruct tag_sym xs))
           | Just _ ->
               illformed_program "PEis_unsigned: the operand should be a ctype"
           | Nothing ->
-              EU.return $ PEis_scalar pe'
+              EU.return $ PEis_unsigned pe'
         end
     | PEbmc_assume pe ->
       illformed_program "PEbmc_assume: __bmc_assume is for model checking only"

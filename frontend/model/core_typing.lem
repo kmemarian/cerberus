@@ -605,12 +605,6 @@ let rec infer_pexpr tagDefs env ((Pexpr annot _ pexpr_ as pexpr) : pexpr) =
         Pexpr annot infer <$> (PEif <$> typecheck_pexpr tagDefs env BTy_boolean pe1
              <*> E.return pe2'
              <*> E.return pe3')
-    | PEis_scalar pe ->
-        Pexpr annot (Just BTy_boolean) <$> (PEis_scalar <$> typecheck_pexpr tagDefs env BTy_ctype pe)
-    | PEis_integer pe ->
-        Pexpr annot (Just BTy_boolean) <$> (PEis_integer <$> typecheck_pexpr tagDefs env BTy_ctype pe)
-    | PEis_signed pe ->
-        Pexpr annot (Just BTy_boolean) <$> (PEis_signed <$> typecheck_pexpr tagDefs env BTy_ctype pe)
     | PEis_unsigned pe ->
         Pexpr annot (Just BTy_boolean) <$> (PEis_unsigned <$> typecheck_pexpr tagDefs env BTy_ctype pe)
     | PEbmc_assume pe ->
@@ -967,15 +961,6 @@ and typecheck_pexpr tagDefs (env: typing_env) (bTy: core_base_type) (Pexpr annot
         PEif <$> typecheck_pexpr tagDefs env BTy_boolean pe1
              <*> typecheck_pexpr tagDefs env bTy pe2
              <*> typecheck_pexpr tagDefs env bTy pe3
-    | PEis_scalar pe ->
-        guard_match loc "is_scalar()" bTy BTy_boolean >>
-        (PEis_scalar <$> typecheck_pexpr tagDefs env BTy_ctype pe)
-    | PEis_integer pe ->
-        guard_match loc "is_integer()" bTy BTy_boolean >>
-        (PEis_integer <$> typecheck_pexpr tagDefs env BTy_ctype pe)
-    | PEis_signed pe ->
-        guard_match loc "is_signed()" bTy BTy_boolean >>
-        (PEis_signed <$> typecheck_pexpr tagDefs env BTy_ctype pe)
     | PEis_unsigned pe ->
         guard_match loc "is_unsigned()" bTy BTy_boolean >>
         (PEis_unsigned <$> typecheck_pexpr tagDefs env BTy_ctype pe)

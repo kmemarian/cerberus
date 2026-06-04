@@ -746,12 +746,6 @@ let rec remove_conv_int_pexpr (Pexpr( annot1, bTy, _pe)) =
         PElet( pat, (remove_conv_int_pexpr pe1), (remove_conv_int_pexpr pe2))
     | PEif( pe1, pe2, pe3) ->
         PEif( (remove_conv_int_pexpr pe1), (remove_conv_int_pexpr pe2), (remove_conv_int_pexpr pe3))
-    | PEis_scalar pe ->
-        PEis_scalar (remove_conv_int_pexpr pe)
-    | PEis_integer pe ->
-        PEis_integer (remove_conv_int_pexpr pe)
-    | PEis_signed pe ->
-        PEis_signed (remove_conv_int_pexpr pe)
     | PEis_unsigned pe ->
         PEis_unsigned (remove_conv_int_pexpr pe)
     | PEbmc_assume pe ->
@@ -1064,12 +1058,6 @@ let rec isAlwaysDefined (Pexpr( _, _, pexpr_)):bool=
         isAlwaysDefined pe1 && isAlwaysDefined pe2
     | PEif( pe1, pe2, pe3) ->
         isAlwaysDefined pe1 && (isAlwaysDefined pe2 && isAlwaysDefined pe3)
-    | PEis_scalar pe ->
-        isAlwaysDefined pe
-    | PEis_integer pe ->
-        isAlwaysDefined pe
-    | PEis_signed pe ->
-        isAlwaysDefined pe
     | PEis_unsigned pe ->
         isAlwaysDefined pe
     | PEbmc_assume _ ->
@@ -1352,9 +1340,6 @@ let rec simpl_case_pexpr ((Pexpr( annot1, bTy, pexpr_) as pexpr1)) =
     | PEcall( nm, pes) -> wrap (PEcall( nm, (Lem_list.map simpl_case_pexpr pes)))
     | PElet( pat, pe1, pe2) -> wrap (PElet( pat, (simpl_case_pexpr pe1), (simpl_case_pexpr pe2)))
     | PEif( pe1, pe2, pe3) -> wrap (PEif( (simpl_case_pexpr pe1), (simpl_case_pexpr pe2), (simpl_case_pexpr pe3)))
-    | PEis_scalar pe -> wrap (PEis_scalar (simpl_case_pexpr pe))
-    | PEis_integer pe -> wrap (PEis_integer (simpl_case_pexpr pe))
-    | PEis_signed pe -> wrap (PEis_signed (simpl_case_pexpr pe))
     | PEis_unsigned pe -> wrap (PEis_unsigned (simpl_case_pexpr pe))
     | PEbmc_assume pe ->
         pexpr1

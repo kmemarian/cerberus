@@ -457,15 +457,6 @@ let rec texpr_of_pexpr (Pexpr (_, _, pe_)) =
   | PElet (_, _, _)
   | PEif _ ->
     None
-  | PEis_scalar pe ->
-    self pe >>= fun te ->
-    return @@ TEis_scalar te
-  | PEis_integer pe ->
-    self pe >>= fun te ->
-    return @@ TEis_integer te
-  | PEis_signed pe ->
-    self pe >>= fun te ->
-    return @@ TEis_signed te
   | PEis_unsigned pe ->
     self pe >>= fun te ->
     return @@ TEis_unsigned te
@@ -506,15 +497,6 @@ let rec cond_of_pexpr (Pexpr (_, _, pe_)) =
     assert false
   | PEcall _ | PElet (_, _, _) | PEif _ ->
     None
-  | PEis_scalar pe ->
-    texpr_of_pexpr pe >>= fun te ->
-    return @@ Cis_scalar te
-  | PEis_integer pe ->
-    texpr_of_pexpr pe >>= fun te ->
-    return @@ Cis_integer te
-  | PEis_signed pe ->
-    texpr_of_pexpr pe >>= fun te ->
-    return @@ Cis_signed te
   | PEis_unsigned pe ->
     texpr_of_pexpr pe >>= fun te ->
     return @@ Cis_unsigned te
@@ -683,24 +665,6 @@ let rec add_pe (in_v, out_v) in_pat (Pexpr (_, _, pe_) as pe) =
       new_vertex () >>= fun false_v ->
       add (in_v, false_v) (Tcond (Cnot cond)) >>= fun _ ->
       self (false_v, out_v) in_pat pe3
-    | PEis_scalar pe ->
-      let (sym, pat) = new_symbol () in
-      new_vertex () >>= fun mid_v ->
-      self (in_v, mid_v) pat pe >>= fun _ ->
-      let te = TEis_scalar (TEsym sym) in
-      add (mid_v, out_v) (Tassign (in_pat, te))
-    | PEis_integer pe ->
-      let (sym, pat) = new_symbol () in
-      new_vertex () >>= fun mid_v ->
-      self (in_v, mid_v) pat pe >>= fun _ ->
-      let te = TEis_integer (TEsym sym) in
-      add (mid_v, out_v) (Tassign (in_pat, te))
-    | PEis_signed pe ->
-      let (sym, pat) = new_symbol () in
-      new_vertex () >>= fun mid_v ->
-      self (in_v, mid_v) pat pe >>= fun _ ->
-      let te = TEis_signed (TEsym sym) in
-      add (mid_v, out_v) (Tassign (in_pat, te))
     | PEis_unsigned pe ->
       let (sym, pat) = new_symbol () in
       new_vertex () >>= fun mid_v ->
