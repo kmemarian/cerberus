@@ -4,7 +4,9 @@
  (name cerb_frontend)
  (public_name cerberus-lib.frontend)
  (synopsis "Cerberus frontend")
- (flags (:standard -w @8@11@12-9-27-33-67))
+ (flags (:standard -w @8@11@12-9-27-33-67
+  ; -open Monomorphic.Int
+ ))
  (modules :standard \ pp_sb)
  (virtual_modules impl_mem)
  (preprocess (pps ppx_deriving.eq ppx_deriving.ord))

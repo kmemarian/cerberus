@@ -25,7 +25,7 @@ int pop() {
   x = t->next;
   __BMC_ASSUME(
     atomic_compare_exchange_strong_explicit(&T, &t, x, 
-      memory_order_acq_rel, memory_order_relaxed);
+      memory_order_acq_rel, memory_order_relaxed));
   return t->data;
 }
 int main(void) {
