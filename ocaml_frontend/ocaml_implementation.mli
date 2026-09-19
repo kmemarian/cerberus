@@ -45,5 +45,18 @@ val hafniumIntImpl: IntegerImpl.implementation
 val set: implementation -> unit
 val get: unit -> implementation
 
-val alignof_proxy: (union_tag, (alignment option * ctype) list) Pmap.map -> ctype -> int option
+val offsetsof :
+  ?ignore_flexible:bool ->
+  (Symbol.sym, (Cerb_location.t * Ctype.tag_definition)) Pmap.map ->
+  Symbol.sym ->
+  (Symbol.identifier * Ctype.ctype * Z.t) list * Z.t
 
+val sizeof :
+  (Symbol.sym, (Cerb_location.t * Ctype.tag_definition)) Pmap.map ->
+  Ctype.ctype ->
+  Z.t
+
+val alignof :
+  (Symbol.sym, (Cerb_location.t * Ctype.tag_definition)) Pmap.map ->
+  Ctype.ctype ->
+  Z.t

@@ -92,187 +92,10 @@ end
 
 module IntMap = Map.Make(Z)
 
-
-(* TODO: memoise this, it's stupid to recompute this every time... *)
-(* NOTE: returns ([(memb_ident, type, offset)], last_offset) *)
-let rec offsetsof ?(ignore_flexible=false) tagDefs tag_sym =
-  let open Z in
-  match Pmap.find tag_sym tagDefs with
-    | _, StructDef (membrs_, flexible_opt) ->
-        (* NOTE: the offset of a flexible array member is just like
-           that of any other member *)
-        let membrs = match flexible_opt with
-          | None ->
-              membrs_
-          | Some (FlexibleArrayMember (attrs, ident, qs, ty)) ->
-              if ignore_flexible then
-                membrs_
-              else
-                membrs_ @ [(ident, (attrs, None, qs, ty))] in
-        let (xs, maxoffset) =
-          List.fold_left (fun (xs, last_offset) (membr, (_, align_opt, _, ty)) ->
-            let size = sizeof ~tagDefs ty in
-            let align =
-              match align_opt with
-                | None ->
-                    of_int (alignof ~tagDefs ty)
-                | Some (AlignInteger al_n) ->
-                    al_n
-                | Some (AlignType al_ty) ->
-                  of_int (alignof ~tagDefs al_ty) in
-            let x = modulus last_offset align in
-            let pad = if equal x zero then zero else sub align x in
-            ((membr, ty, add last_offset pad) :: xs, add (add last_offset pad) size)
-          ) ([], zero) membrs in
-        (List.rev xs, maxoffset)
-    | _, UnionDef membrs ->
-        (List.map (fun (ident, (_, _, _, ty)) -> (ident, ty, zero)) membrs, zero)
-
-and sizeof ?(tagDefs= Tags.tagDefs ()) (Ctype (_, ty) as cty) : Z.t =
-  let open Z in
-  match ty with
-    | Void | Array (_, None) | Function _ | FunctionNoParams _ ->
-        assert false
-    | Basic (Integer ity) ->
-        begin match (Ocaml_implementation.get ()).sizeof_ity ity with
-          | Some n ->
-              of_int n
-          | None ->
-              failwith ("the concrete memory model requires a complete implementation sizeof INTEGER => " ^ String_core_ctype.string_of_ctype cty)
-        end
-    | Basic (Floating fty) ->
-        begin match (Ocaml_implementation.get ()).sizeof_fty fty with
-          | Some n ->
-              of_int n
-          | None ->
-              failwith "the concrete memory model requires a complete implementation sizeof FLOAT"
-        end
-    | Array (elem_ty, Some n) ->
-        (* TODO: what if too big? *)
-        mul n (sizeof ~tagDefs elem_ty)
-    | Pointer _ ->
-        begin match (Ocaml_implementation.get ()).sizeof_pointer with
-          | Some n ->
-              of_int n
-          | None ->
-              failwith "the concrete memory model requires a complete implementation sizeof POINTER"
-        end
-    | Atomic atom_ty ->
-        sizeof ~tagDefs atom_ty
-    | Struct tag_sym ->
-        (* NOTE: the potential flexible array member indirectly take part in the size
-           by potentially introducing trailling padding bytes if its presence increases
-           the alignment requirement. This is done by the call the to alignof here.
-           But other than for these padding bytes, it is not counted in the size
-           (hence the `ignore_flexible` in the call to offsetof) *)
-        let (_, max_offset) = offsetsof ~ignore_flexible:true tagDefs tag_sym in
-        let align = of_int (alignof ~tagDefs cty) in
-        let x = modulus max_offset align in
-        if equal x zero then max_offset else Z.add max_offset (Z.sub align x)
-    | Union tag_sym ->
-        begin match Pmap.find tag_sym (Tags.tagDefs ()) with
-          | _, StructDef _ ->
-              assert false
-          | _, UnionDef membrs ->
-              let (max_size, max_align) =
-                List.fold_left (fun (acc_size, acc_align) (_, (_, align_opt, _, ty)) ->
-                  let align =
-                    match align_opt with
-                      | None ->
-                          of_int (alignof ~tagDefs ty)
-                      | Some (AlignInteger al_n) ->
-                          al_n
-                      | Some (AlignType al_ty) ->
-                        of_int (alignof ~tagDefs al_ty) in
-                  (max acc_size (sizeof ~tagDefs ty), max acc_align align)
-                ) (zero, zero) membrs in
-              (* NOTE: adding padding at the end to satisfy the alignment constraints *)
-              let x = modulus max_size max_align in
-              if equal x zero then max_size else add max_size (sub max_align x)
-        end
-    | Byte ->
-      of_int 1
-
-and alignof ?(tagDefs= Tags.tagDefs ()) (Ctype (_, ty) as cty) =
-  match ty with
-    | Void ->
-        assert false
-    | Basic (Integer ity) ->
-        begin match (Ocaml_implementation.get ()).alignof_ity ity with
-          | Some n ->
-              n
-          | None ->
-              failwith ("the concrete memory model requires a complete implementation alignof INTEGER => " ^ String_core_ctype.string_of_ctype cty)
-        end
-    | Basic (Floating fty) ->
-        begin match (Ocaml_implementation.get ()).alignof_fty fty with
-          | Some n ->
-              n
-          | None ->
-              failwith "the concrete memory model requires a complete implementation alignof FLOATING"
-        end
-    | Array (elem_ty, _) ->
-        alignof ~tagDefs elem_ty
-    | Function _
-    | FunctionNoParams _ ->
-        assert false
-    | Pointer _ ->
-        begin match (Ocaml_implementation.get ()).alignof_pointer with
-          | Some n ->
-              n
-          | None ->
-              failwith "the concrete memory model requires a complete implementation alignof POINTER"
-        end
-    | Atomic atom_ty ->
-        alignof ~tagDefs atom_ty
-    | Struct tag_sym ->
-        begin match Pmap.find tag_sym tagDefs with
-          | _, UnionDef _ ->
-              assert false
-          | _, StructDef (membrs, flexible_opt)  ->
-              (* NOTE: we take into account the potential flexible array member by tweaking
-                 the accumulator init of the fold. *)
-              let init = match flexible_opt with
-                | None ->
-                    0
-                | Some (FlexibleArrayMember (_, _, _, elem_ty)) ->
-                    alignof ~tagDefs (Ctype ([], Array (elem_ty, None))) in
-              (* NOTE: Structs (and unions) alignment is that of the maximum alignment
-                 of any of their components. *)
-              List.fold_left (fun acc (_, (_, align_opt, _, ty)) ->
-                let memb_align =
-                  match align_opt with
-                    | None ->
-                        alignof ~tagDefs ty
-                    | Some (AlignInteger al_n) ->
-                        Z.to_int al_n
-                    | Some (AlignType al_ty) ->
-                      alignof ~tagDefs al_ty in
-                max memb_align acc
-              ) init membrs
-        end
-    | Union tag_sym ->
-        begin match Pmap.find tag_sym (Tags.tagDefs ()) with
-          | _, StructDef _ ->
-              assert false
-          | _, UnionDef membrs ->
-              (* NOTE: Structs (and unions) alignment is that of the maximum alignment
-                 of any of their components. *)
-              List.fold_left (fun acc (_, (_, align_opt, _, ty)) ->
-                let memb_align =
-                  match align_opt with
-                    | None ->
-                        alignof ~tagDefs ty
-                    | Some (AlignInteger al_n) ->
-                        Z.to_int al_n
-                    | Some (AlignType al_ty) ->
-                      alignof ~tagDefs al_ty in
-                max memb_align acc
-              ) 0 membrs
-        end
-    | Byte ->
-      1
-
+let offsetsof = Ocaml_implementation.offsetsof
+(* TODO(state-removal) *)
+let sizeof ?(tagDefs= Tags.tagDefs ()) ty = Ocaml_implementation.sizeof tagDefs ty
+let alignof ?(tagDefs= Tags.tagDefs ()) ty = Ocaml_implementation.alignof tagDefs ty
 
 module Concrete : Memory = struct
   let name = "concrete"
@@ -2079,7 +1902,7 @@ module Concrete : Memory = struct
                 Printf.printf "addr: %s\n" (Z.to_string addr);
                 Printf.printf "align: %d\n" (alignof ref_ty);
 *)
-                return (Z.(equal (modulus addr (of_int (alignof ref_ty))) zero))
+                return (Z.(equal (modulus addr (alignof ref_ty)) zero))
           end
   
   (* Following §6.5.3.3, footnote 102) *)
@@ -2488,12 +2311,7 @@ let eff_member_shift_ptrval _ tag_sym membr_ident ptrval =
              the one that is forwarded *)
           (* TODO: fail properly when y is too big? *)
           IV (Prov_none, Z.pow n1 (Z.to_int n2))
-  
-  let sizeof_ival ty =
-    IV (Prov_none, sizeof ty)
-  let alignof_ival ty =
-    IV (Prov_none, Z.of_int (alignof ty))
-  
+
   let bitwise_complement_ival _ (IV (prov, n)) =
     (* NOTE: for PNVI we assume that prov = Prov_none *)
     (* TODO *)

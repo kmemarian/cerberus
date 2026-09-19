@@ -137,9 +137,6 @@ module type Memory = sig
   val op_ival: Mem_common.integer_operator -> integer_value -> integer_value -> integer_value
   val offsetof_ival: (Symbol.sym, Cerb_location.t * Ctype.tag_definition) Pmap.map -> Symbol.sym -> Symbol.identifier -> integer_value
   
-  val sizeof_ival: Ctype.ctype -> integer_value
-  val alignof_ival: Ctype.ctype -> integer_value
-  
   val bitwise_complement_ival: Ctype.integerType -> integer_value -> integer_value
   val bitwise_and_ival: Ctype.integerType -> integer_value -> integer_value -> integer_value
   val bitwise_or_ival: Ctype.integerType -> integer_value -> integer_value -> integer_value

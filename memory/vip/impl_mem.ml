@@ -3,6 +3,11 @@ open Memory_model
 open Memory_utils
 module MC = Mem_common
 
+open Monomorphic
+open None
+let (<) = Z.lt
+let (<=) = Z.leq
+
 module Z = struct
   include Z
   let quomod = ediv_rem
@@ -240,7 +245,7 @@ let lookup_alloc alloc_id : allocation memM =
 (* [a .. a + sizeof(ty) − 1] ⊆ [a_i .. a_i + n_1 - 1] *)
 let check_bounds addr ty alloc =
   Z.leq alloc.base addr
-&& Z.leq (Z.add addr (Z.pred (Z.of_int (Common.sizeof ty))))
+&& Z.leq (Z.add addr (Z.pred (Common.sizeof ty)))
                (Z.add alloc.base (Z.pred alloc.length))
 
 
@@ -266,7 +271,7 @@ let int_of_bytes is_signed bs =
 match List.rev bs with
  | [] ->
      assert false
- | cs when L.length cs > 16 ->
+ | cs when Int.(L.length cs > 16) ->
      assert false
  | (first::_ as cs) ->
      (* NOTE: this is to preserve the binary signedness *)
@@ -291,7 +296,7 @@ let (min, max) =
  else
    ( Z.zero
    , Z.sub (Z.pow (Z.of_int 2) nbits) Z.one ) in
-if not (min <= i && i <= max) || nbits > 128 then begin
+if not (min <= i && i <= max) || Int.(nbits > 128) then begin
  Printf.printf "failed: bytes_of_int(%s), i= %s, nbits= %d, [%s ... %s]\n"
    (if is_signed then "signed" else "unsigned")
    (Z.to_string i) nbits (Z.to_string min) (Z.to_string max);
@@ -305,7 +310,9 @@ let rec repr funptrmap mval : ((Digest.t * string) IntMap.t * AbsByte.t list) =
   let ret bs = (funptrmap, bs) in
   match mval with
     | MVunspecified ty ->
-        ret @@ List.init (Common.sizeof ty)
+        (* TODO(fix-Overflow) *)
+        let sz = Z.to_int (Common.sizeof ty) in
+        ret @@ List.init sz
           (fun _ -> AbsByte.{prov= Prov_empty; value= None; ptrfrag_idx= None})
     | MVinteger (ity, ival) ->
         let (prov, z) =
@@ -314,16 +321,18 @@ let rec repr funptrmap mval : ((Digest.t * string) IntMap.t * AbsByte.t list) =
                 (Prov_empty, z)
             | IVloc (prov, z) ->
                 (prov, z) in
+        (* TODO(state-removal) *)
+        (* TODO(fix-missing-impl) *)
+        let sz = Option.get (Ocaml_implementation.(get ()).sizeof_ity ity) in
         ret @@ List.map (fun value -> AbsByte.{prov; value; ptrfrag_idx= None}) begin
-          bytes_of_int
-            (AilTypesAux.is_signed_ity ity)
-            (Common.sizeof (Ctype ([], Basic (Integer ity)))) z
+          bytes_of_int (AilTypesAux.is_signed_ity ity) sz z
         end
     | MVfloating (fty, fval) ->
+      (* TODO(state-removal) *)
+      (* TODO(fix-missing-impl) *)
+      let sz = Option.get (Ocaml_implementation.(get ()).sizeof_fty fty) in
       ret @@ List.map (fun value -> AbsByte.{prov= Prov_empty; value; ptrfrag_idx= None}) begin
-        bytes_of_int
-          true
-          (Common.sizeof (Ctype ([], Basic (Floating fty)))) (Z.of_int64 (Int64.bits_of_float fval))
+        bytes_of_int true sz (Z.of_int64 (Int64.bits_of_float fval))
       end
     | MVpointer (_, ptrval) ->
         Cerb_debug.print_debug 1 [] (fun () -> "NOTE: we fix the sizeof pointers to 8 bytes");
@@ -366,17 +375,21 @@ let rec repr funptrmap mval : ((Digest.t * string) IntMap.t * AbsByte.t list) =
     | MVstruct (tag_sym, xs) ->
         let padding_byte _ = AbsByte.{prov= Prov_empty; value= None; ptrfrag_idx= None} in
         let (offs, last_off) = Common.offsetsof (Tags.tagDefs ()) tag_sym in
-        let final_pad = Common.sizeof (Ctype ([], Struct tag_sym)) - last_off in
+        let sz = Common.sizeof (Ctype ([], Struct tag_sym)) in
+        (* TODO(fix-Overflow) *)
+        let final_pad = Z.(to_int (sz - last_off)) in
         let (funptrmap, _, bs) = List.fold_left2 begin fun (funptrmap, last_off, acc) (ident, ty, off) (_, _, mval) ->
-            let pad = off - last_off in
+            (* TODO(fix-Overflow) *)
+            let pad = Z.(to_int (off - last_off)) in
             let (funptrmap, bs) = repr funptrmap mval in
-            (funptrmap, off + Common.sizeof ty, acc @ List.init pad padding_byte @ bs)
-          end (funptrmap, 0, []) offs xs
+            (funptrmap, Z.add off (Common.sizeof ty), acc @ List.init pad padding_byte @ bs)
+          end (funptrmap, Z.zero, []) offs xs
         in
         (funptrmap, bs @ List.init final_pad padding_byte)
     | MVunion (tag_sym, memb_ident, mval) ->
         let padding_byte _ = AbsByte.{prov= Prov_empty; value= None; ptrfrag_idx= None} in
-        let size = Common.sizeof (Ctype ([], Union tag_sym)) in
+        (* TODO(fix-Overflow) *)
+        let size = Z.to_int (Common.sizeof (Ctype ([], Union tag_sym))) in
         let (funptrmap', bs) = repr funptrmap mval in
         (funptrmap', bs @ List.init (size - List.length bs) padding_byte)
 
@@ -412,7 +425,7 @@ let interp_bytes xs : [ `SPECIFIED of   [ `PROV of allocation_id | `NOPROV ]
          let prov2_status' =
            match prov2_status, mbyte.AbsByte.prov with
              | `PROV2 alloc_id1, Prov_some alloc_id2 ->
-                 if Z.equal alloc_id1 alloc_id2 || mbyte.AbsByte.ptrfrag_idx <> None then
+                 if Z.equal alloc_id1 alloc_id2 || Option.is_some mbyte.AbsByte.ptrfrag_idx then
                    prov2_status
                  else
                    (* if any two bytes have different @i provenances,
@@ -424,13 +437,14 @@ let interp_bytes xs : [ `SPECIFIED of   [ `PROV of allocation_id | `NOPROV ]
                  prov2_status in
          let ptrfrag_status' =
            match ptrfrag_status, mbyte.AbsByte.ptrfrag_idx with
-             | `VALID_PTRFRAG idx1, Some idx2 when idx1 = idx2 ->
+             | `VALID_PTRFRAG idx1, Some idx2 when Int.(idx1 = idx2) ->
                  `VALID_PTRFRAG (idx1+1)
              | _, _ ->
                  `INVALID_PTRFRAG in
            `SPECIFIED (prov_status', prov2_status', c :: cs, ptrfrag_status')
  ) (`SPECIFIED (`NOPROV, `NOPROV2, [], `VALID_PTRFRAG 0)) (List.rev xs) in
-if List.length bs < Common.sizeof cty then
+let cty_sz = Common.sizeof cty in
+if Z.lt (Z.of_int (List.length bs)) cty_sz then
  failwith "INTERNAL ERROR: Vip.abst, |bs| < sizeof(ty)";
 match ty with
  | Void
@@ -440,7 +454,10 @@ match ty with
      (* ty must have a known size *)
      assert false
  | Basic (Integer ity) ->
-     let (bs1, bs2) = L.split_at (Common.sizeof cty) bs in
+     (* TODO(state-removal) *)
+     (* TODO(fix-missing-impl) *)
+     let sz = Option.get (Ocaml_implementation.(get ()).sizeof_ity ity) in
+     let (bs1, bs2) = L.split_at sz bs in
      ( begin match interp_bytes bs1 with
          | `SPECIFIED (prov_status, _, cs, _) ->
              let n = int_of_bytes (AilTypesAux.is_signed_ity ity) cs in
@@ -457,7 +474,8 @@ match ty with
              MVunspecified cty
        end , bs2)
  | Byte ->
-     let (bs1, bs2) = L.split_at (Common.sizeof cty) bs in
+     let sz = 1 in
+     let (bs1, bs2) = L.split_at sz bs in
      ( begin match interp_bytes bs1 with
          | `SPECIFIED (prov_status, _, cs, _) ->
               (* C++ has std::byte typedef'd to unsigned char, hence false *)
@@ -475,7 +493,10 @@ match ty with
              MVunspecified cty
        end , bs2)
  | Basic (Floating fty) ->
-     let (bs1, bs2) = L.split_at (Common.sizeof cty) bs in
+     (* TODO(state-removal) *)
+     (* TODO(fix-missing-impl) *)
+     let sz = Option.get (Ocaml_implementation.(get ()).sizeof_fty fty) in
+     let (bs1, bs2) = L.split_at sz bs in
      (* let (_, _, bs1') = AbsByte.split_bytes bs1 in *)
      ( begin match interp_bytes bs1 with
          | `SPECIFIED (_, _, cs, _) ->
@@ -486,7 +507,7 @@ match ty with
        end , bs2)
     | Array (elem_ty, Some n) ->
      let rec aux n mval_acc cs =
-       if n <= 0 then
+       if Int.(n <= 0) then
          (MVarray (List.rev mval_acc), cs)
        else
          let (mval, cs') = self elem_ty cs in
@@ -494,7 +515,9 @@ match ty with
      in
      aux (Z.to_int n) [] bs
  | Pointer (_, ref_ty) ->
-     let (bs1, bs2) = L.split_at (Common.sizeof cty) bs in
+     (* TODO(fix-Overflow) *)
+     let sz = Z.to_int cty_sz in
+     let (bs1, bs2) = L.split_at sz bs in
      ( begin match interp_bytes bs1 with
          | `SPECIFIED (_, prov2_status, cs, ptrfrag_status) ->
              let addr = int_of_bytes false cs in
@@ -523,12 +546,15 @@ match ty with
               the type they are derived from *)
      self atom_ty bs
  | Struct tag_sym ->
-     let (bs1, bs2) = L.split_at (Common.sizeof cty) bs in
+     (* TODO(fix-Overflow) *)
+     let sz = Z.to_int cty_sz in
+     let (bs1, bs2) = L.split_at sz bs in
      let (rev_xs, _, bs') = List.fold_left (fun (acc_xs, previous_offset, acc_bs) (memb_ident, memb_ty, memb_offset) ->
-       let pad = memb_offset - previous_offset in
+       (* TODO(fix-Overflow) *)
+       let pad = Z.(to_int (memb_offset - previous_offset)) in
        let (mval, acc_bs') = self memb_ty (L.drop pad acc_bs) in
-       ((memb_ident, memb_ty, mval)::acc_xs, memb_offset + Common.sizeof memb_ty, acc_bs')
-     ) ([], 0, bs1) (fst (Common.offsetsof (Tags.tagDefs ()) tag_sym)) in
+       ((memb_ident, memb_ty, mval)::acc_xs, Z.(memb_offset + (Common.sizeof memb_ty)), acc_bs')
+     ) ([], Z.zero, bs1) (fst (Common.offsetsof (Tags.tagDefs ()) tag_sym)) in
      (* TODO: check that bs' = last padding of the struct *)
      (MVstruct (tag_sym, List.rev rev_xs), bs2)
 | Union tag_sym ->
@@ -541,7 +567,7 @@ let in_bounds addr alloc =
 
 
 let allocate_object tid prefix al_ival ty _ init_opt : pointer_value memM =
-  let n = Z.of_int (Common.sizeof ty) in
+  let n = Common.sizeof ty in
   allocator n (ival_to_int al_ival) >>= fun (alloc_id, addr) ->
   let init_mval =
     match init_opt with
@@ -598,7 +624,9 @@ let load loc ty ptrval : (footprint * mem_value) memM =
         else
           get >>= fun st ->
           put { st with last_used= Some alloc_id } >>= fun () ->
-          let bs = fetch_bytes st.bytemap addr (Common.sizeof ty) in
+          (* TODO(fix-Overflow) *)
+          let sz = Z.to_int (Common.sizeof ty) in
+          let bs = fetch_bytes st.bytemap addr sz in
           return (FOOTPRINT, fst (abst (*st.allocations*) ty bs))
     | PVfunptr _ ->
       fail ~loc (MerrAccess (LoadAccess, FunctionPtr))
@@ -715,7 +743,7 @@ let diff_ptrval loc diff_ty ptrval1 ptrval2 : integer_value memM =
                 elem_ty
             | _ ->
                 diff_ty in
-          return (IVint (Z.div (Z.sub addr1 addr2) (Z.of_int (Common.sizeof diff_ty'))))
+          return (IVint (Z.div (Z.sub addr1 addr2) (Common.sizeof diff_ty')))
         else
           fail ~loc (MerrVIP VIP_diffptr_out_of_bound)
     | _ ->
@@ -739,7 +767,7 @@ let isWellAligned_ptrval ref_ty ptrval =
           | PVnull ->
               return true
           | PVloc (_, addr) ->
-              return (Z.(equal (modulus addr (of_int (Common.alignof ref_ty))) zero))
+              return (Z.(equal (modulus addr (Common.alignof ref_ty)) zero))
           | PVfunptr _ ->
               fail (MerrOther "called isWellAligned_ptrval on function pointer")
         end
@@ -849,7 +877,7 @@ let array_shift_ptrval ptrval ty ival : pointer_value =
         (* lookup_alloc alloc_id >>= fun alloc -> *)
         (* As a GNU extension ty may be void, in which case the pointer arithmetic
           is performed at the byte granularity *)
-        let sz = if AilTypesAux.is_void ty then Z.of_int 1 else Z.of_int (Common.sizeof ty) in
+        let sz = if AilTypesAux.is_void ty then Z.one else Common.sizeof ty in
         let addr' = Z.(add addr (mul (ival_to_int ival) sz)) in
         (* TODO *)
         (* if alloc.killed then
@@ -869,7 +897,7 @@ let offsetof_ival tagDefs tag_sym membr_ident =
     Common.ident_equal ident membr_ident in
   match List.find_opt pred xs with
     | Some (_, _, offset) ->
-        IVint (Z.of_int offset)
+        IVint offset
     | None ->
         (* NOTE: this is an internal error *)
         failwith "VIP.offsetof_ival: invalid membr_ident"
@@ -903,7 +931,7 @@ let eff_array_shift_ptrval loc ptrval ty ival : pointer_value memM =
         fail (MerrVIP (VIP_array_shift VIP_empty))
     | PVloc (Prov_some alloc_id, addr) ->
         lookup_alloc alloc_id >>= fun alloc ->
-          let addr' = Z.(add addr (mul (ival_to_int ival) (Z.of_int (Common.sizeof ty)))) in
+          let addr' = Z.(add addr (mul (ival_to_int ival) (Common.sizeof ty))) in
         if not (in_bounds addr' alloc) then
           fail (MerrVIP (VIP_array_shift VIP_out_of_bound))
         else
@@ -1024,8 +1052,8 @@ let op_ival op ival1 ival2 : integer_value =
     | IntExp   -> fun x y -> Z.pow x (Z.to_int y) in
   IVint (op (ival_to_int ival1) (ival_to_int ival2))
 
-let sizeof_ival ty = IVint (Z.of_int (Common.sizeof ty))
-let alignof_ival ty = IVint (Z.of_int (Common.alignof ty))
+let sizeof_ival ty = IVint (Common.sizeof ty)
+let alignof_ival ty = IVint (Common.alignof ty)
 
 let bitwise_complement_ival _ ival =
   IVint (Z.(sub (neg (ival_to_int ival)) one))
@@ -1077,14 +1105,9 @@ let op_fval fop fval1 fval2 =
     | FloatDiv ->
         fval1 /. fval2
 
-let eq_fval fval1 fval2 =
-  fval1 = fval2
-
-let lt_fval fval1 fval2 =
-  fval1 < fval2
-
-let le_fval fval1 fval2 =
-  fval1 <= fval2
+let eq_fval = Float.(=)
+let lt_fval = Float.(<)
+let le_fval = Float.(<=)
 
 (* Integer <-> Floating casting constructors *)
 let fvfromint ival =
@@ -1313,7 +1336,9 @@ type ui_alloc = {
 let rec mk_ui_values st bs ty mval : ui_value list =
   let mk_ui_values = mk_ui_values st in
   let mk_scalar kind v p bs_opt =
-    [{ kind; size = Common.sizeof ty; path = []; value = v;
+    (* TODO(fix-Overflow) *)
+    let size = Z.to_int (Common.sizeof ty) in
+    [{ kind; size; path = []; value = v;
        prov = p; typ = Some ty; bytes = bs_opt }] in
   let mk_pad n v =
     { kind = `Padding; size = n; typ = None; path = []; value = v;
@@ -1350,8 +1375,9 @@ let rec mk_ui_values st bs ty mval : ui_value list =
     | MVarray mvals ->
       begin match ty with
         | Ctype (_, Array (elem_ty, _)) ->
-          (* TODO: the Z.to_int on the sizeof() will raise Overflow on huge structs/unions *)
-          let size = Common.sizeof elem_ty in
+          (* the Z.to_int on the sizeof() will raise Overflow on huge structs/unions *)
+          (* TODO(fix-Overflow) *)
+          let size = Z.to_int (Common.sizeof elem_ty) in
           let (rev_rows, _, _) = List.fold_left begin fun (acc, i, acc_bs) mval ->
               let row = List.map (add_path (string_of_int i)) @@ mk_ui_values acc_bs elem_ty mval in
               (row::acc, i+1, L.drop size acc_bs)
@@ -1363,19 +1389,20 @@ let rec mk_ui_values st bs ty mval : ui_value list =
     | MVstruct (tag_sym, _) ->
         let open Z in
         (* NOTE: we recombine the bytes to get paddings *)
-        (* TODO: the Z.to_int on the sizeof() will raise Overflow on huge structs *)
-        let (bs1, bs2) = L.split_at (Common.sizeof ty) bs in
+        (* the Z.to_int on the sizeof() will raise Overflow on huge structs *)
+          (* TODO(fix-Overflow) *)
+        let size = Z.to_int (Common.sizeof ty) in
+        let (bs1, bs2) = L.split_at size bs in
             let (rev_rowss, _, bs') = List.fold_left begin
-            fun (acc_rowss, previous_offset, acc_bs) (Symbol.Identifier (_, memb), memb_ty, memb_offset_) ->
-              let memb_offset = of_int memb_offset_ in
+            fun (acc_rowss, previous_offset, acc_bs) (Symbol.Identifier (_, memb), memb_ty, memb_offset) ->
               let pad = to_int (sub memb_offset previous_offset) in
               let acc_bs' = L.drop pad acc_bs in
               let (mval, acc_bs'') = abst memb_ty acc_bs' in
               let rows = mk_ui_values acc_bs' memb_ty mval in
               let rows' = List.map (add_path memb) rows in
               (* TODO: set padding value here *)
-              let rows'' = if pad = 0 then rows' else mk_pad pad "" :: rows' in
-              (rows''::acc_rowss, Z.add memb_offset (of_int (Common.sizeof memb_ty)), acc_bs'')
+              let rows'' = if Int.(pad = 0) then rows' else mk_pad pad "" :: rows' in
+              (rows''::acc_rowss, Z.add memb_offset (Common.sizeof memb_ty), acc_bs'')
           end ([], Z.zero, bs1) (fst (Common.offsetsof (Tags.tagDefs ()) tag_sym))
         in List.concat (List.rev rev_rowss)
     | MVunion (tag_sym, Symbol.Identifier (_, memb), mval) ->
@@ -1437,10 +1464,10 @@ let serialise_mem_state dig (st: mem_state) : Cerb_json.json =
   let allocs =
     IntMap.filter (fun _ (alloc : allocation) ->
       match alloc.prefix with
-        | Symbol.PrefSource (_, syms) -> List.exists (fun (Symbol.Symbol (hash, _, _)) -> hash = dig) syms
-        | Symbol.PrefStringLiteral (_, hash) -> hash = dig
-        | Symbol.PrefCompoundLiteral (_, hash) -> hash = dig
-        | Symbol.PrefFunArg (_, hash, _) -> hash = dig
+        | Symbol.PrefSource (_, syms) -> List.exists (fun (Symbol.Symbol (hash, _, _)) -> Digest.equal hash dig) syms
+        | Symbol.PrefStringLiteral (_, hash) -> Digest.equal hash dig
+        | Symbol.PrefCompoundLiteral (_, hash) -> Digest.equal hash dig
+        | Symbol.PrefFunArg (_, hash, _) -> Digest.equal hash dig
         | Symbol.PrefMalloc -> true
         | _ -> false
     ) st.allocations in

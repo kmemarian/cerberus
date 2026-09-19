@@ -2811,12 +2811,8 @@ and desugar_alignment_specifiers loc decl_ty xs =
                   | Nothing ->
                       if Global.isAgnostic () then
                         E.fail loc (Errors.Desugar_agnosticFailure "alignment specifiers are too complicated")
-                      else match (alignof_ty prev_ty, alignof_ty new_ty) with
-                        | (Just prev_n, Just new_n) ->
-                            common (integerFromNat prev_n) (integerFromNat new_n)
-                        | _ ->
-                          E.fail loc (Errors.Desugar_TODO "error msg: need a better implementation (2)")
-                      end
+                      else
+                        common (alignof_ty prev_ty) (alignof_ty new_ty)
                   | Just EQ ->
                       E.return acc_opt
                   | Just GT ->
@@ -2827,19 +2823,9 @@ and desugar_alignment_specifiers loc decl_ty xs =
             | (Just (Ctype.AlignInteger prev_n), Ctype.AlignInteger new_n) ->
                 common prev_n new_n
             | (Just (Ctype.AlignType prev_ty), Ctype.AlignInteger new_n) ->
-                match alignof_ty prev_ty with
-                  | Just prev_n ->
-                      common (integerFromNat prev_n) new_n
-                  | Nothing ->
-                      E.fail loc (Errors.Desugar_TODO "error msg: need a better implementation (3a)")
-                end
+                common (alignof_ty prev_ty) new_n
             | (Just (Ctype.AlignInteger prev_n), Ctype.AlignType new_ty) ->
-                match alignof_ty new_ty with
-                  | Just new_n ->
-                      common prev_n (integerFromNat new_n)
-                  | Nothing ->
-                      E.fail loc (Errors.Desugar_TODO "error msg: need a better implementation (3b)")
-                end
+                common prev_n (alignof_ty new_ty)
           end
     end
   ) Nothing xs >>= function
@@ -2851,29 +2837,21 @@ and desugar_alignment_specifiers loc decl_ty xs =
           E.return (Just al)
         else if Global.isAgnostic () then
           E.fail loc (Errors.Desugar_agnosticFailure "alignment specifiers are too complicated")
-        else match alignof_ty decl_ty with
-          | Just decl_n ->
-              if (integerFromNat decl_n) > al_n then
-                E.constraint_violation loc (AlignasLessThanRequired decl_ty)
-              else
-                E.return (Just al)
-          | _ ->
-            E.fail loc (Errors.Desugar_TODO "error msg: need a better implementation (5)")
-        end
+        else
+          if (alignof_ty decl_ty) > al_n then
+            E.constraint_violation loc (AlignasLessThanRequired decl_ty)
+          else
+            E.return (Just al)
     | Just ((Ctype.AlignType al_ty) as al) ->
         match AilTypesAux.agnostic_alignment_requirement_ord decl_ty al_ty with
           | Nothing ->
               if Global.isAgnostic () then
                 E.fail loc (Errors.Desugar_agnosticFailure "alignment specifiers are too complicated")
-              else match (alignof_ty decl_ty, alignof_ty al_ty) with
-                | (Just decl_n, Just al_n) ->
-                    if (integerFromNat decl_n) > (integerFromNat al_n) then
-                      E.constraint_violation loc (AlignasLessThanRequired decl_ty)
-                    else
-                      E.return (Just al)
-                | _ ->
-                  E.fail loc (Errors.Desugar_TODO "error msg: need a better implementation (7)")
-              end
+              else
+                if (alignof_ty decl_ty) > (alignof_ty al_ty) then
+                  E.constraint_violation loc (AlignasLessThanRequired decl_ty)
+                else
+                  E.return (Just al)
           | Just EQ ->
               (* no change to the alignment from declaration type *)
               E.return Nothing

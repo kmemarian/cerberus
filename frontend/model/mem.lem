@@ -187,8 +187,6 @@ val max_ival: Ctype.integerType -> integer_value
 val min_ival: Ctype.integerType -> integer_value
 val op_ival: Mem_common.integer_operator -> integer_value -> integer_value -> integer_value
 val offsetof_ival: map Symbol.sym (Loc.t * Ctype.tag_definition) -> Symbol.sym -> Symbol.identifier -> integer_value
-val sizeof_ival: Ctype.ctype -> integer_value
-val alignof_ival: Ctype.ctype -> integer_value
 val bitwise_complement_ival: Ctype.integerType -> integer_value -> integer_value
 val bitwise_and_ival: Ctype.integerType -> integer_value -> integer_value -> integer_value
 val bitwise_or_ival: Ctype.integerType -> integer_value -> integer_value -> integer_value
@@ -199,8 +197,6 @@ declare ocaml target_rep function max_ival = `Impl_mem.max_ival`
 declare ocaml target_rep function min_ival = `Impl_mem.min_ival`
 declare ocaml target_rep function op_ival = `Impl_mem.op_ival`
 declare ocaml target_rep function offsetof_ival = `Impl_mem.offsetof_ival`
-declare ocaml target_rep function sizeof_ival = `Impl_mem.sizeof_ival`
-declare ocaml target_rep function alignof_ival = `Impl_mem.alignof_ival`
 declare ocaml target_rep function bitwise_complement_ival = `Impl_mem.bitwise_complement_ival`
 declare ocaml target_rep function bitwise_and_ival = `Impl_mem.bitwise_and_ival`
 declare ocaml target_rep function bitwise_or_ival = `Impl_mem.bitwise_or_ival`

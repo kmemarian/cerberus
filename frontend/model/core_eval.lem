@@ -646,9 +646,11 @@ let rec step_eval_pexpr n loc parent_call_loc_opt core_extern env mem_st_opt fil
                                Pp.stringFromCore_expr (Core.Expr [] (Core.Epure (Core.Pexpr [] () (Core.PEval (Vctype ty)))) : Core.expr unit)) (* DEBUG *)
               end
           | (Civsizeof, Just [Vctype ty]) ->
-              EU.return $ PEval (Vobject (OVinteger (Mem.sizeof_ival ty)))
+              EU.return (PEval (Vobject (OVinteger (Mem.integer_ival
+                (Implementation.sizeof_ty file.tagDefs ty)))))
           | (Civalignof, Just [Vctype ty]) ->
-              EU.return $ PEval (Vobject (OVinteger (Mem.alignof_ival ty)))
+              EU.return (PEval (Vobject (OVinteger (Mem.integer_ival
+                (Implementation.alignof_ty file.tagDefs ty)))))
           | (CivCOMPL, Just [Vctype ty; Vobject (OVinteger ival)]) ->
               match Ctype.unatomic_ ty with
                 | (Ctype.Basic (Ctype.Integer ity)) ->

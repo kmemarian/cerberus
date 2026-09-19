@@ -181,6 +181,7 @@ let liftCore_run m =
 
 val drive_fs_step: Mem.thread_id -> Core_run.thread_state -> driver_state -> Core_run.fs_oper -> driverM unit
 let drive_fs_step tid th_st dr_st fs_oper =
+  let alignof_ival ty = Mem.integer_ival (Implementation.alignof_ty dr_st.core_file.Core.tagDefs ty) in
   let th_st_from_int n =
     let (Core.Expr arena_annots _) = th_st.Core_run.arena in
     <| th_st with Core_run.arena= Core.Expr arena_annots (Core.Epure (Caux.mk_specified_pe (Caux.mk_integer_pe n))) |>
@@ -286,7 +287,7 @@ let drive_fs_step tid th_st dr_st fs_oper =
     let loc = Loc.other "store struct dirent" in
     let dirent_cty = Ctype.Ctype [] (Ctype.Struct sym) in
     let update_mem dir_name =
-      Mem.bind (Mem.allocate_object tid (Symbol.PrefOther "dirent") (Mem.alignof_ival dirent_cty) dirent_cty Nothing Nothing) (fun dirent_ptr ->
+      Mem.bind (Mem.allocate_object tid (Symbol.PrefOther "dirent") (alignof_ival dirent_cty) dirent_cty Nothing Nothing) (fun dirent_ptr ->
         let d_name_ptr = Mem.member_shift_ptrval dirent_ptr sym (Symbol.Identifier loc "d_name") in
         Mem.bind (Formatted.store_chars_in_array true d_name_ptr dir_name) (fun _ ->
           (Mem.return dirent_ptr)))
@@ -1624,7 +1625,7 @@ declare ocaml target_rep function pp_exeState = `Pp_cmm.pp_execState`
 
 
 
-let prepare_main_args loc callconv tid0 main_sym arg_strs argc_sym argv_sym =
+let prepare_main_args loc callconv alignof_ival tid0 main_sym arg_strs argc_sym argv_sym =
   (* memory_values to be stored in memory objects pointed to by the element of main.argv *)
   let args_mem_val_tys =
     List.map (fun arg_str ->
@@ -1643,7 +1644,7 @@ let prepare_main_args loc callconv tid0 main_sym arg_strs argc_sym argv_sym =
   (* allocating and initialising the objects pointed to by the elements of argv *)
   ND.foldlM (fun ptr_vals (arg_mem_val, arg_ty) ->
     liftMem (
-      Mem.bind (Mem.allocate_object tid0 (Symbol.PrefOther "argv refs") (Mem.alignof_ival arg_ty) arg_ty Nothing Nothing) (fun ptr_val ->
+      Mem.bind (Mem.allocate_object tid0 (Symbol.PrefOther "argv refs") (alignof_ival arg_ty) arg_ty Nothing Nothing) (fun ptr_val ->
         Mem.bind (Mem.store (Loc.other "argv refs init") arg_ty false ptr_val arg_mem_val) (fun _ ->
           Mem.return (ptr_val :: ptr_vals)
         )
@@ -1662,7 +1663,7 @@ let prepare_main_args loc callconv tid0 main_sym arg_strs argc_sym argv_sym =
       List.map (Mem.pointer_mval Ctype.char) (List.reverse (Mem.null_ptrval Ctype.char :: ptr_vals_rev))
     ) in
     Mem.bind
-      (Mem.allocate_object tid0 pref (Mem.alignof_ival argv_array_ty) argv_array_ty Nothing Nothing) (fun ptr_val ->
+      (Mem.allocate_object tid0 pref (alignof_ival argv_array_ty) argv_array_ty Nothing Nothing) (fun ptr_val ->
     Mem.bind
       (Mem.store (Loc.other "argv array init") argv_array_ty false ptr_val argv_array_mem_val) (fun _ ->
       ND.return ptr_val
@@ -1674,7 +1675,7 @@ let prepare_main_args loc callconv tid0 main_sym arg_strs argc_sym argv_sym =
         let argc_mem_val = Mem.integer_mval (Ctype.Signed Ctype.Int_) number_of_args in
         liftMem begin
           let pref = Symbol.PrefSource loc [main_sym; argc_sym] in
-          Mem.bind (Mem.allocate_object tid0 pref (Mem.alignof_ival Ctype.signed_int) Ctype.signed_int Nothing Nothing) (fun argc_ptr_val ->
+          Mem.bind (Mem.allocate_object tid0 pref (alignof_ival Ctype.signed_int) Ctype.signed_int Nothing Nothing) (fun argc_ptr_val ->
           Mem.bind (Mem.store (Loc.other "argc init") Ctype.signed_int false argc_ptr_val argc_mem_val) (fun _ ->
 
           (* NOTE: because of argument promotions, the char *argv[] is turned into a char **argv
@@ -1682,7 +1683,7 @@ let prepare_main_args loc callconv tid0 main_sym arg_strs argc_sym argv_sym =
           let pref = Symbol.PrefSource loc [main_sym; argv_sym] in
           let argv_ty = Ctype.mk_ctype_pointer Ctype.no_qualifiers Ctype.pointer_to_char in
           Mem.bind
-            (Mem.allocate_object tid0 pref (Mem.alignof_ival argv_ty) argv_ty Nothing Nothing) (fun argv_ptr_val ->
+            (Mem.allocate_object tid0 pref (alignof_ival argv_ty) argv_ty Nothing Nothing) (fun argv_ptr_val ->
           Mem.bind
             (Mem.store (Loc.other "argv init") argv_ty false argv_ptr_val (Mem.pointer_mval Ctype.pointer_to_char argv_array_ptr_val)) ( fun _ ->
 
@@ -1702,6 +1703,7 @@ let prepare_main_args loc callconv tid0 main_sym arg_strs argc_sym argv_sym =
 
 val drive: bool -> Core.file Core_run.core_run_annotation -> list string -> driverM driver_result
 let drive (with_concurrency: bool) file (arg_strs: list string) =
+  let alignof_ival ty = Mem.integer_ival (Implementation.alignof_ty file.Core.tagDefs ty) in
   (* Setting the read-only tag definitions (used by the memory model) *)
   (* first we execute the body of global definitions and remove their symbols
      from the rest of the program *)
@@ -1809,7 +1811,8 @@ let drive (with_concurrency: bool) file (arg_strs: list string) =
                 ))))
               ) >>= fun argv_cval ->
 *)
-              prepare_main_args loc file.Core.calling_convention tid0 main_sym arg_strs argc_sym argv_sym >>= fun (argc_cval, argv_cval) ->
+              prepare_main_args loc file.Core.calling_convention alignof_ival tid0 main_sym
+                arg_strs argc_sym argv_sym >>= fun (argc_cval, argv_cval) ->
 
               (* Adding the values of argc and argv to the Core symbol environment *)
               get_thread_states >>= function
@@ -1836,7 +1839,7 @@ let drive (with_concurrency: bool) file (arg_strs: list string) =
         
         (* allocating and initialising errno *)
         liftMem (
-          Mem.bind (Mem.allocate_object tid0 (Symbol.PrefOther "errno") (Mem.alignof_ival Ctype.signed_int) Ctype.signed_int Nothing Nothing) (fun ptr_val ->
+          Mem.bind (Mem.allocate_object tid0 (Symbol.PrefOther "errno") (alignof_ival Ctype.signed_int) Ctype.signed_int Nothing Nothing) (fun ptr_val ->
             let zero = Mem.integer_value_mval (Ctype.Signed Ctype.Int_) (Mem.integer_ival 0) in
             Mem.bind (Mem.store (Loc.other "errno init") Ctype.signed_int false ptr_val zero) (fun _ ->
               Mem.return ptr_val

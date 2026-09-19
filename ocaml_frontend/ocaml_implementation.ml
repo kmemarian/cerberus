@@ -425,90 +425,160 @@ let (set, get) : (implementation -> unit) * (unit -> implementation) =
     end )
 
 
-(* this is to make it possible to use `alignof' from Cabs_to_ail
-   (where tagDefs is a bit different from the Ctype version) *)
-let alignof_tagDefs_aux () =
-  Pmap.map (function
-    | _, Ctype.StructDef (xs, flex_opt) ->
-      List.map (fun (_, (_, align_opt, _, ty)) -> (align_opt, ty)) xs @
-      begin match flex_opt with
-        | None ->
-            []
-        | Some (FlexibleArrayMember (_, _, _, ty)) ->
-            [(None, Ctype ([], Array (ty, None)))]
-      end
-    | _, Ctype.UnionDef xs ->
-        List.map (fun (_, (_, align_opt, _, ty)) -> (align_opt, ty)) xs
-  ) (Tags.tagDefs ())
+module Z = struct
+  include Z
+  let modulus = erem
+end
 
-let rec alignof ?(tagDefs= alignof_tagDefs_aux ()) (Ctype (_, ty)) =
+exception Missing_implementation_detail of string
+
+(* TODO: memoise this, it's stupid to recompute this every time... *)
+(* NOTE: returns ([(memb_ident, type, offset)], last_offset) *)
+let rec offsetsof ?(ignore_flexible=false) tagDefs tag_sym =
+  let open Z in
+  match Pmap.find tag_sym tagDefs with
+  | _, StructDef (membrs_, flexible_opt) ->
+      (* NOTE: the offset of a flexible array member is just like
+          that of any other member *)
+      let membrs = match flexible_opt with
+      | None -> membrs_
+      | Some (FlexibleArrayMember (attrs, ident, qs, ty)) ->
+          if ignore_flexible then
+            membrs_
+          else
+            membrs_ @ [(ident, (attrs, None, qs, ty))] in
+      let (xs, maxoffset) =
+        List.fold_left (fun (xs, last_offset) (membr, (_, align_opt, _, ty)) ->
+          let size = sizeof tagDefs ty in
+          let align =
+            match align_opt with
+            | None -> alignof tagDefs ty
+            | Some (AlignInteger al_n) -> al_n
+            | Some (AlignType al_ty) -> alignof tagDefs al_ty in
+          let x = modulus last_offset align in
+          let pad = if equal x zero then zero else sub align x in
+          ((membr, ty, add last_offset pad) :: xs, add (add last_offset pad) size)
+        ) ([], zero) membrs in
+      (List.rev xs, maxoffset)
+  | _, UnionDef membrs ->
+      (List.map (fun (ident, (_, _, _, ty)) -> (ident, ty, zero)) membrs, zero)
+
+
+and sizeof tagDefs (Ctype (_, ty) as cty) : Z.t =
+  let open Z in
   match ty with
-    | Void ->
-        assert false
-    | Basic (Integer ity) ->
-        begin match (get ()).alignof_ity ity with
-          | Some n ->
-              Some n
-          | None ->
-              None
-        end
-    | Basic (Floating fty) ->
-        begin match (get ()).alignof_fty fty with
-          | Some n ->
-              Some n
-          | None ->
-              None
-        end
-    | Array (elem_ty, _) ->
-        alignof ~tagDefs elem_ty
-    | Function _
-    | FunctionNoParams _ ->
-        assert false
-    | Pointer _ ->
-        begin match (get ()).alignof_pointer with
-          | Some n ->
-              Some n
-          | None ->
-              None
-        end
-    | Atomic atom_ty ->
-        alignof ~tagDefs atom_ty
-    | Struct tag_sym ->
-        List.fold_left (fun acc_opt (align_opt, ty) ->
-          let al_opt =
-            match align_opt with
-              | None ->
-                  alignof ~tagDefs ty
-              | Some (AlignInteger al_n) ->
-                  Some (Z.to_int al_n)
-              | Some (AlignType al_ty) ->
-                  alignof ~tagDefs al_ty in
-          match acc_opt, al_opt with
-            | Some acc, Some al ->
-                Some (max al acc)
-            | _ ->
-                None
-        ) (Some 1) (Pmap.find tag_sym tagDefs)
-    | Union tag_sym ->
-        (* NOTE: Structs (and unions) alignment is that of the maximum alignment
-            of any of their components. *)
-        List.fold_left (fun acc_opt (align_opt, ty) ->
-          let al_opt =
-            match align_opt with
-              | None ->
-                  alignof ~tagDefs ty
-              | Some (AlignInteger al_n) ->
-                  Some (Z.to_int al_n)
-              | Some (AlignType al_ty) ->
-                  alignof ~tagDefs al_ty in
-          match acc_opt, al_opt with
-            | Some acc, Some al ->
-                Some (max al acc)
-            | _ ->
-                None
-        ) (Some 1) (Pmap.find tag_sym tagDefs)
-    | Byte ->
-      Some 1
+  | Void | Array (_, None) | Function _ | FunctionNoParams _ ->
+      assert false
+  | Basic (Integer ity) ->
+      begin match (get ()).sizeof_ity ity with
+      | Some n -> of_int n
+      | None -> raise @@ Missing_implementation_detail "sizeof an ITY"
+      end
+  | Basic (Floating fty) ->
+      begin match (get ()).sizeof_fty fty with
+      | Some n -> of_int n
+      | None -> raise @@ Missing_implementation_detail "sizeof a FLOAT"
+      end
+  | Array (elem_ty, Some n) ->
+      mul n (sizeof tagDefs elem_ty)
+  | Pointer _ ->
+      begin match (get ()).sizeof_pointer with
+      | Some n -> of_int n
+      | None -> raise @@ Missing_implementation_detail "sizeof a POINTER"
+      end
+  | Atomic atom_ty ->
+      sizeof tagDefs atom_ty
+  | Struct tag_sym ->
+      (* NOTE: the potential flexible array member indirectly take part in the size
+          by potentially introducing trailling padding bytes if its presence increases
+          the alignment requirement. This is done by the call the to alignof here.
+          But other than for these padding bytes, it is not counted in the size
+          (hence the `ignore_flexible` in the call to offsetof) *)
+      let (_, max_offset) = offsetsof ~ignore_flexible:true tagDefs tag_sym in
+      let align = alignof tagDefs cty in
+      let x = modulus max_offset align in
+      if equal x zero then max_offset else Z.add max_offset (Z.sub align x)
+  | Union tag_sym ->
+      begin match Pmap.find tag_sym tagDefs with
+      | _, StructDef _ -> assert false
+      | _, UnionDef membrs ->
+          let (max_size, max_align) =
+            List.fold_left (fun (acc_size, acc_align) (_, (_, align_opt, _, ty)) ->
+              let align =
+                match align_opt with
+                | None -> alignof tagDefs ty
+                | Some (AlignInteger al_n) -> al_n
+                | Some (AlignType al_ty) -> alignof tagDefs al_ty in
+              (max acc_size (sizeof tagDefs ty), max acc_align align)
+            ) (zero, zero) membrs in
+          (* NOTE: adding padding at the end to satisfy the alignment constraints *)
+          let x = modulus max_size max_align in
+          if equal x zero then max_size else add max_size (sub max_align x)
+      end
+  | Byte ->
+      of_int 1
 
-let alignof_proxy tagDefs =
-  alignof ~tagDefs
+and alignof tagDefs (Ctype (_, ty)) : Z.t =
+  match ty with
+  | Void -> assert false
+  | Basic (Integer ity) ->
+      begin match (get ()).alignof_ity ity with
+      | Some n -> Z.of_int n
+      | None -> raise @@ Missing_implementation_detail "alignof an INTEGER"
+      end
+  | Basic (Floating fty) ->
+      begin match (get ()).alignof_fty fty with
+      | Some n -> Z.of_int n
+      | None -> raise @@ Missing_implementation_detail "alignof a FLOATING"
+      end
+  | Array (elem_ty, _) -> alignof tagDefs elem_ty
+  | Function _
+  | FunctionNoParams _ -> assert false
+  | Pointer _ ->
+      begin match (get ()).alignof_pointer with
+      | Some n -> Z.of_int n
+      | None -> raise @@ Missing_implementation_detail "alignof a POINTER"
+      end
+  | Atomic atom_ty ->
+      alignof tagDefs atom_ty
+  | Struct tag_sym ->
+      begin match Pmap.find tag_sym tagDefs with
+      | _, UnionDef _ -> assert false
+      | _, StructDef (membrs, flexible_opt)  ->
+          (* NOTE: we take into account the potential flexible array member by tweaking
+              the accumulator init of the fold. *)
+          let init = match flexible_opt with
+            | None -> Z.zero
+            | Some (FlexibleArrayMember (_, _, _, elem_ty)) ->
+                alignof tagDefs (Ctype ([], Array (elem_ty, None))) in
+          (* NOTE: Structs (and unions) alignment is that of the maximum alignment
+              of any of their components. *)
+          List.fold_left (fun acc (_, (_, align_opt, _, ty)) ->
+            let memb_align =
+              match align_opt with
+              | None -> alignof tagDefs ty
+              | Some (AlignInteger al_n) -> al_n
+              | Some (AlignType al_ty) -> alignof tagDefs al_ty in
+            max memb_align acc
+          ) init membrs
+      end
+  | Union tag_sym ->
+      begin match Pmap.find tag_sym (Tags.tagDefs ()) with
+      | _, StructDef _ -> assert false
+      | _, UnionDef membrs ->
+          (* NOTE: Structs (and unions) alignment is that of the maximum alignment
+              of any of their components. *)
+          List.fold_left (fun acc (_, (_, align_opt, _, ty)) ->
+            let memb_align =
+              match align_opt with
+              | None ->
+                  alignof tagDefs ty
+              | Some (AlignInteger al_n) ->
+                  al_n
+              | Some (AlignType al_ty) ->
+                alignof tagDefs al_ty in
+            max memb_align acc
+          ) Z.zero membrs
+      end
+  | Byte ->
+      Z.one

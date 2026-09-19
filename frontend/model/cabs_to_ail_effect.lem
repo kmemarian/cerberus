@@ -2106,22 +2106,16 @@ read_inner (fun st ->
 
 let get_alignof =
   get_tag_definitions >>= fun tagDefs ->
-  let pseudo_tagDefs =
-    Map.map function
-      | Struct_definition _ _ _ membrs flex_opt ->
-          List.map (fun (_, (_, align_opt, _, ty)) -> (align_opt, ty)) membrs ++
-          match flex_opt with
-            | Nothing ->
-                []
-            | Just (Ctype.FlexibleArrayMember _ _ _ ty) ->
-                [(Nothing, Ctype.Ctype [] (Ctype.Array ty Nothing))]
-          end
-      | Union_definition _ _ _ membrs ->
-          List.map (fun (_, (_, align_opt, _, ty)) -> (Nothing, ty)) membrs
-      | Enum_definition _ ->
-          [(* dummy, this won't be called *)]
-    end tagDefs in
-  return (fun z -> Implementation.alignof_ty pseudo_tagDefs z)
+  let tagDefs = Map_extra.fold (fun k def acc ->
+    match def with
+    | Struct_definition loc _ _ membrs flex_opt ->
+        Map.insert k (loc, Ctype.StructDef membrs flex_opt) acc
+    | Union_definition loc _ _ membrs ->
+        Map.insert k (loc, Ctype.UnionDef membrs) acc
+    | Enum_definition _ ->
+        acc
+  end) tagDefs Map.empty in
+  return (fun z -> Implementation.alignof_ty tagDefs z)
 
 (* STD §6.7.5#7 *)
 let get_compatible_alignment_requirements loc new_align_opt prev_align_opt =
@@ -2145,32 +2139,17 @@ let get_compatible_alignment_requirements loc new_align_opt prev_align_opt =
         if Global.isAgnostic () then
           fail loc (Errors.Desugar_agnosticFailure "redeclaration with alignment specifiers is too complicated")
         else
-          match (alignof_ty new_ty, alignof_ty prev_ty) with
-            | (Just new_n, Just prev_n) ->
-                common (integerFromNat new_n) (integerFromNat prev_n)
-            | _ ->
-                fail loc (Errors.Desugar_TODO "error msg: need a better implementation")
-          end
+          common (alignof_ty new_ty) (alignof_ty prev_ty)
     | (Just (Ctype.AlignType new_ty), Just (Ctype.AlignInteger prev_n)) ->
         if Global.isAgnostic () then
           fail loc (Errors.Desugar_agnosticFailure "redeclaration with alignment specifiers is too complicated")
         else
-          match alignof_ty new_ty with
-            | Just new_n ->
-                common (integerFromNat new_n) prev_n
-            | Nothing ->
-                fail loc (Errors.Desugar_TODO "error msg: need a better implementation")
-          end
+          common (alignof_ty new_ty) prev_n
     | (Just (Ctype.AlignInteger new_n), Just (Ctype.AlignType prev_ty)) ->
         if Global.isAgnostic () then
           fail loc (Errors.Desugar_agnosticFailure "redeclaration with alignment specifiers is too complicated")
         else
-          match alignof_ty prev_ty with
-            | Just prev_n ->
-                common new_n (integerFromNat prev_n)
-            | Nothing ->
-                fail loc (Errors.Desugar_TODO "error msg: need a better implementation")
-          end
+          common new_n (alignof_ty prev_ty)
   end
 
 (* TODO: the redeclaration check don't mix external/internal declarations *)
