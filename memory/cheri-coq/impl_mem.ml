@@ -257,13 +257,12 @@ module L = struct
 end
 
 
-module CHERIMorello : Memory = struct
+module CHERIMorello (*: Memory*) = struct
 
   let name = MM.name
 
   type pointer_value = MM.pointer_value
   type integer_value = MM.integer_value
-  type floating_value = MM.floating_value
   type mem_value = MM.mem_value
 
   type mem_iv_constraint = integer_value Mem_common.mem_constraint
@@ -856,12 +855,6 @@ module CHERIMorello : Memory = struct
   | IntRem_f -> IntRem_f
   | IntExp   -> IntExp
 
-  let toCoq_floating_operator: Mem_common.floating_operator -> MemCommonExe.floating_operator = function
-    | FloatAdd -> FloatAdd
-    | FloatSub -> FloatSub
-    | FloatMul -> FloatMul
-    | FloatDiv -> FloatDiv
-
   (* Intrinisics *)
   let fromCoq_type_predicate: MemCommonExe.type_predicate -> type_predicate = function
     | TyPred f -> TyPred (fun cty ->
@@ -1322,29 +1315,10 @@ module CHERIMorello : Memory = struct
   let lt_ival = MM.lt_ival
   let le_ival = MM.le_ival
 
-  (* Floating value constructors *)
-  let zero_fval = MM.zero_fval
-  let one_fval = MM.one_fval
-  let str_fval s = lift_coq_serr (MM.str_fval s)
-
-  (* Floating value destructors *)
-  (* We have this one implemented in Coq but it looks like
-     it OK to have in in OCaml for now *)
-  let case_fval (fval:floating_value) (_:unit -> 'a) (fconcrete:float -> 'a) : 'a
-    = fconcrete (Float64.to_float fval)
-
-  let op_fval fop a b =
-    MM.op_fval (toCoq_floating_operator fop) a b
-
-  (* Predicates on floating values *)
-  let eq_fval = MM.eq_fval
-  let lt_fval = MM.lt_fval
-  let le_fval = MM.le_fval
-
   (* Integer <-> Floating casting constructors *)
-  let fvfromint x = lift_coq_serr (MM.fvfromint x)
+  let fvfromint x = Float64.to_float @@ lift_coq_serr (MM.fvfromint x)
   let ivfromfloat ity fv =
-    lift_coq_serr (MM.ivfromfloat (toCoq_integerType ity) fv)
+    lift_coq_serr (MM.ivfromfloat (toCoq_integerType ity) (Float64.of_float fv))
 
   (* Memory value constructors *)
   let unspecified_mval ty =
@@ -1354,7 +1328,7 @@ module CHERIMorello : Memory = struct
     MM.integer_value_mval (toCoq_integerType ity) iv
 
   let floating_value_mval fty fv =
-    MM.floating_value_mval (toCoq_floatingType fty) fv
+    MM.floating_value_mval (toCoq_floatingType fty) (Float64.of_float fv)
 
   let pointer_mval ty pv =
     MM.pointer_mval (toCoq_ctype ty) pv
@@ -1377,7 +1351,7 @@ module CHERIMorello : Memory = struct
         (f_unspec:ctype -> 'a)
         (_:Ctype.integerType -> Sym.t -> 'a)
         (f_ival:integerType -> integer_value -> 'a)
-        (f_fval:floatingType -> floating_value -> 'a)
+        (f_fval:floatingType -> Float.t -> 'a)
         (f_ptr:ctype -> pointer_value -> 'a)
         (f_array:mem_value list -> 'a)
         (f_struct: Sym.t -> (Identifier.t * Ctype.ctype * mem_value) list -> 'a)
@@ -1389,7 +1363,7 @@ module CHERIMorello : Memory = struct
     | MVinteger (ity, ival) ->
        f_ival (fromCoq_integerType ity) ival
     | MVfloating (fty, fval) ->
-       f_fval (fromCoq_floatingType fty) fval
+       f_fval (fromCoq_floatingType fty) (Float64.to_float fval)
     | MVpointer (ref_ty, ptrval) ->
        f_ptr (fromCoq_ctype ref_ty) ptrval
     | MVarray mvals ->

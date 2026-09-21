@@ -4,6 +4,7 @@ open import Utils
 open import Core
 open import Core_run_aux
 import Errors
+import Floating
 import Mem
 import AilTypesAux
 import Loc Symbol Exception_undefined Pp
@@ -195,7 +196,7 @@ let step_eval_peop loc self binop pe1 pe2 =
             end
 
         | (OpEq, Just (Bobject (OVfloating fval1)), Just (Bobject (OVfloating fval2))) ->
-            EU.return (PEbase (if Mem.eq_fval fval1 fval2 then Btrue else Bfalse))
+            EU.return (PEbase (if Floating.eq_fval fval1 fval2 then Btrue else Bfalse))
         
         | (OpLt, Just (Bobject (OVinteger ival1)), Just (Bobject (OVinteger ival2))) ->
             match Mem.lt_ival ival1 ival2 with
@@ -206,7 +207,7 @@ let step_eval_peop loc self binop pe1 pe2 =
             end
 
         | (OpLt, Just (Bobject (OVfloating fval1)), Just (Bobject (OVfloating fval2))) ->
-            EU.return (PEbase (if Mem.lt_fval fval1 fval2 then Btrue else Bfalse))
+            EU.return (PEbase (if Floating.lt_fval fval1 fval2 then Btrue else Bfalse))
         
         | (OpLe, Just (Bobject (OVinteger ival1)), Just (Bobject (OVinteger ival2))) ->
             match Mem.le_ival ival1 ival2 with
@@ -217,7 +218,7 @@ let step_eval_peop loc self binop pe1 pe2 =
             end
 
         | (OpLe, Just (Bobject (OVfloating fval1)), Just (Bobject (OVfloating fval2))) ->
-            EU.return (PEbase (if Mem.le_fval fval1 fval2 then Btrue else Bfalse))
+            EU.return (PEbase (if Floating.le_fval fval1 fval2 then Btrue else Bfalse))
         
         | (OpGe, Just (Bobject (OVinteger ival1)), Just (Bobject (OVinteger ival2))) ->
             (* TODO CHECK *)
@@ -229,7 +230,7 @@ let step_eval_peop loc self binop pe1 pe2 =
             end
 
         | (OpGe, Just (Bobject (OVfloating fval1)), Just (Bobject (OVfloating fval2))) ->
-            EU.return (PEbase (if Mem.le_fval fval2 fval1 then Btrue else Bfalse))
+            EU.return (PEbase (if Floating.le_fval fval2 fval1 then Btrue else Bfalse))
         
         | (OpGt, Just (Bobject (OVinteger ival1)), Just (Bobject (OVinteger ival2))) ->
             (* TODO CHECK *)
@@ -241,7 +242,7 @@ let step_eval_peop loc self binop pe1 pe2 =
             end
 
         | (OpGt, Just (Bobject (OVfloating fval1)), Just (Bobject (OVfloating fval2))) ->
-            EU.return (PEbase (if Mem.lt_fval fval2 fval1 then Btrue else Bfalse))
+            EU.return (PEbase (if Floating.lt_fval fval2 fval1 then Btrue else Bfalse))
         
         | (_, Just (Bobject (OVinteger ival1)), Just (Bobject (OVinteger ival2))) ->
             let iop = match binop with
@@ -258,15 +259,15 @@ let step_eval_peop loc self binop pe1 pe2 =
             EU.return (PEbase (Bobject (OVinteger (Mem.op_ival iop ival1 ival2))))
 
         | (_, Just (Bobject (OVfloating fval1)), Just (Bobject (OVfloating fval2))) ->
-            let fop = match binop with
-              | OpAdd -> Mem_common.FloatAdd
-              | OpSub -> Mem_common.FloatSub
-              | OpMul -> Mem_common.FloatMul
-              | OpDiv -> Mem_common.FloatDiv
+            let res = match binop with
+              | OpAdd -> Floating.add_fval fval1 fval2
+              | OpSub -> Floating.sub_fval fval1 fval2
+              | OpMul -> Floating.mul_fval fval1 fval2
+              | OpDiv -> Floating.div_fval fval1 fval2
               | _ ->
                 error ("Core_eval.eval_pexpr, PEop Vfloating Vfloating " ^ show binop)
             end in
-            EU.return (PEbase (Bobject (OVfloating (Mem.op_fval fop fval1 fval2))))
+            EU.return (PEbase (Bobject (OVfloating res)))
         
         | (OpAnd, Just v1, Just v2) ->
             let v1 = (*Core_aux.flatten_constrained_value*) v1 in
@@ -484,6 +485,16 @@ let rec step_eval_pexpr n loc parent_call_loc_opt core_extern env mem_st_opt fil
               EU.return $ PEbase (Bobject (OVfloating (Mem.fvfromint ival)))
           | (Civfromfloat, Just [Bctype (Ctype.Ctype _ (Ctype.Basic (Ctype.Integer ity))); Bobject (OVfloating fval)]) ->
               EU.return $ PEbase (Bobject (OVinteger (Mem.ivfromfloat ity fval)))
+
+          | (Cfloatingcast, Just  [ Bctype (Ctype.Ctype _ (Ctype.Basic (Ctype.Floating (Ctype.RealFloating rfty_to))))
+                                  ; Bctype (Ctype.Ctype _ (Ctype.Basic (Ctype.Floating (Ctype.RealFloating rfty_from))))
+                                  ; Bobject (OVfloating fval)]) ->
+              let fval = match (rfty_to, rfty_from) with
+                | (Ctype.Float, Ctype.Double) -> Floating.round_double_to_float32 fval
+                | (Ctype.Float, Ctype.LongDouble) -> Floating.round_double_to_float32 fval
+                | _ -> fval
+              end in
+              EU.return (PEbase (Bobject (OVfloating fval)))
 
           | (CivNULLcap is_signed, Just []) ->
               EU.return $ PEbase (Bobject (OVinteger (Mem.null_cap is_signed)))

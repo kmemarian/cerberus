@@ -129,7 +129,7 @@ LEM_RENAMED = global.lem loc.lem debug.lem decode.lem core_aux.lem errors.lem sy
 
 LEM_PRELUDE       = utils.lem annot.lem bimap.lem \
                     dlist.lem enum.lem state.lem \
-                    exception.lem product.lem float.lem any.lem
+                    exception.lem product.lem floating.lem any.lem
 LEM_CABS          = cabs.lem undefined.lem constraint.lem integerType.lem ctype.lem
 LEM_AIL           = typingError.lem errorMonad.lem ailSyntax.lem genTypes.lem
 LEM_CTYPE_AUX     = ctype_aux.lem
@@ -138,7 +138,7 @@ LEM_CORE_TYPING   = core_typing.lem core_typing_aux.lem core_typing_effect.lem
 LEM_UTILS         = boot.lem exception_undefined.lem multiset.lem \
                     state_exception.lem state_exception_undefined.lem \
                     std.lem monadic_parsing.lem fs.lem trace_event.lem \
-										cerb_attributes.lem
+                    cerb_attributes.lem
 LEM_AIL_TYPING    = range.lem integerImpl.lem ailTypesAux.lem \
                     ailSyntaxAux.lem ailWf.lem ailTyping.lem genTypesAux.lem \
                     genTyping.lem

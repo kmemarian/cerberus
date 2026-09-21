@@ -10,7 +10,7 @@ Classification of the files in model/
 * errors.lem
 * exception.lem
 * exception_undefined.lem
-* float.lem
+* floating.lem
 * global.lem
 * loc.lem
 * monadic_parsing.lem

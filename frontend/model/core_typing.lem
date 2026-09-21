@@ -747,6 +747,13 @@ and typecheck_pexpr tagDefs (env: typing_env) (bTy: core_base_type) (Pexpr annot
               E.return (PEctor Civfromfloat [pe_ty'; pe_fval'])
           | (Civfromfloat, _, _) ->
               E.mismatch loc "Civfromfloat" bTy (BTy_object OTy_integer)
+          | (Cfloatingcast, BTy_object OTy_floating, [pe_ty1; pe_ty2; pe_fval]) ->
+              typecheck_pexpr tagDefs env BTy_ctype                 pe_ty1  >>= fun pe_ty1'  ->
+              typecheck_pexpr tagDefs env BTy_ctype                 pe_ty2  >>= fun pe_ty2'  ->
+              typecheck_pexpr tagDefs env (BTy_object OTy_floating) pe_fval >>= fun pe_fval' ->
+              E.return (PEctor Cfloatingcast [pe_ty1'; pe_ty2'; pe_fval'])
+          | (Cfloatingcast, _, _) ->
+              E.mismatch loc "Cfloatingcast" bTy (BTy_object OTy_floating)
           | (CivNULLcap is_signed, BTy_object OTy_integer, []) ->
               E.return (PEctor (CivNULLcap is_signed) [])
           | (CivNULLcap _, _, _) ->

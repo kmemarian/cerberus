@@ -276,9 +276,7 @@ let rec pp_object_value = function
   | OVinteger ival ->
       Impl_mem.pp_integer_value_for_core ival
   | OVfloating fval ->
-      Impl_mem.case_fval fval
-        (fun () -> !^ "unspec(floating)")
-        (fun fval -> !^(string_of_float fval))
+      !^(string_of_float fval)
   | OVpointer ptr_val ->
       Impl_mem.pp_pointer_value ptr_val
   | OVarray lvals ->
@@ -363,6 +361,8 @@ let pp_ctor = function
       pp_datactor "Cfvfromint"
   | Civfromfloat ->
       pp_datactor "Civfromfloat"
+  | Cfloatingcast ->
+      pp_datactor "Cfloatingcast"
   | CivNULLcap is_signed ->
       pp_datactor "CivNULLcap" ^^ P.parens (!^ (if is_signed then "signed" else "unsigned"))
 

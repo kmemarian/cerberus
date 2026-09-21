@@ -357,7 +357,7 @@ let print_pointer_value pv =
 (* THIS IS ONLY USED WHEN TYPE ANNOTATING *)
 let rec print_core_object = function
   | OTy_integer    -> !^"M.integer_value"
-  | OTy_floating   -> !^"M.floating_value"
+  | OTy_floating   -> !^"Float.t"
   | OTy_pointer    -> !^"M.pointer_value"
   (*| OTy_cfunction (ret_oTy, naparams, isVariadic) ->
      (* TODO: K wip *)

@@ -307,6 +307,7 @@ type translation_stdlib = <|
   mkcall_conv_loaded_int:             Ctype.ctype -> C.pexpr -> C.pexpr;
   mkcall_loaded_fvfromint:            Ctype.ctype -> C.pexpr -> C.pexpr;
   mkcall_loaded_ivfromfloat:          Ctype.ctype -> C.pexpr -> C.pexpr;
+  mkcall_loaded_floatingcast:         Ctype.ctype -> Ctype.ctype -> C.pexpr -> C.pexpr;
   mkcall_conv_loaded_int_:            C.pexpr -> C.pexpr -> C.pexpr;
   mkcall_loaded_fvfromint_:           C.pexpr -> C.pexpr -> C.pexpr;
   mkcall_loaded_ivfromfloat_:         C.pexpr -> C.pexpr -> C.pexpr;
@@ -336,6 +337,11 @@ let mk_translation_stdlib (ailnames, stdlib_fun_map) =
          error "mkcall_conv_int called on non integer type"
        else
          mk_call "conv_int" [Caux.mk_ail_ctype_pe ty; pe]
+   ; mkcall_loaded_floatingcast= fun ty1 ty2 pe ->
+       if not (AilTypesAux.is_floating ty1 && AilTypesAux.is_floating ty2) then
+         error "mkcall_loaded_floatingcast called on a non floating type"
+       else
+         mk_call "loaded_floatingcast" [Caux.mk_ail_ctype_pe ty1; Caux.mk_ail_ctype_pe ty2; pe]
    ; mkcall_conv_loaded_int= fun ty pe ->
        if not (AilTypesAux.is_integer ty) then
          error "mkcall_conv_loaded_int called on non integer type"
@@ -403,8 +409,10 @@ let conv_loaded_arith stdlib ty_src ty_dst pe =
       stdlib.mkcall_loaded_ivfromfloat ty_dst pe
 (*      C.Pexpr [] Nothing (C.PEctor C.Civfromfloat [Caux.mk_ail_ctype_pe ty_dst; pe]) *)
     else if AilTypesAux.is_floating ty_dst then
-      (* TODO: floating vs floating conversion *)
-      pe
+      if not (ctypeEqual ty_dst ty_src) then
+        stdlib.mkcall_loaded_floatingcast ty_dst ty_src pe
+      else
+        pe
     else
       (* NOTE: this case will occurs in particular if ty_dst is an atomic type *)
       error "Translation_aux.conv_loaded_arith, not (is_arithmetic ty_dst)"

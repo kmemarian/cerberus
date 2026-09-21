@@ -124,14 +124,10 @@ module Concrete : Memory = struct
   type integer_value =
     | IV of provenance * Z.t
   
-  type floating_value =
-    (* TODO: hack hack hack ==> OCaml's float are 64bits *)
-    float
-  
   type mem_value =
     | MVunspecified of ctype
     | MVinteger of integerType * integer_value
-    | MVfloating of floatingType * floating_value
+    | MVfloating of floatingType * Float.t
     | MVpointer of ctype * pointer_value
     | MVarray of mem_value list
     | MVstruct of Sym.t (*struct/union tag*) * (Identifier.t (*member*) * ctype * mem_value) list
@@ -391,8 +387,6 @@ module Concrete : Memory = struct
       | PVconcrete (_, n) ->
           (* TODO: remove this idiotic hack when Lem's nat_big_num library expose "format" *)
           P.parens (!^ (string_of_provenance prov) ^^ P.comma ^^^ !^ ("0x" ^ Z.format "%x" n))
-  
-  let pp_floating_value_for_coq (f:floating_value) = !^ (string_of_float f)
   
   let pp_integer_value (IV (prov, n)) =
     if !Cerb_debug.debug_level >= 3 then
@@ -799,11 +793,15 @@ module Concrete : Memory = struct
           ( `NoTaint
           , begin match extract_unspec bs1' with
               | Some cs ->
-                  MVfloating ( fty
-                             , Int64.float_of_bits (Z.to_int64 (int_of_bytes true cs)) )
+                  let f = match fty with
+                  | Ctype.(RealFloating Float) ->
+                      Int32.float_of_bits (Z.to_int32 (int_of_bytes true cs))
+                  | Ctype.(RealFloating (Double | LongDouble)) ->
+                      Int64.float_of_bits (Z.to_int64 (int_of_bytes true cs)) in
+                  MVfloating (fty, f)
               | None ->
                   MVunspecified cty
-            end, bs2)
+            end, bs2 )
       | Array (elem_ty, Some n) ->
           let rec aux n (taint_acc, mval_acc) cs =
             if n <= 0 then
@@ -969,11 +967,17 @@ module Concrete : Memory = struct
               (AilTypesAux.is_signed_ity ity)
               (Z.to_int (sizeof (Ctype ([], Basic (Integer ity))))) n
           end
-      | MVfloating (fty, fval) ->
+      | MVfloating (Ctype.RealFloating rfty, fval) ->
+          (* let fval = 1.0 in *)
+          (* Printf.printf "repr FLOAT: %f --> %Lx\n" fval (Int64.bits_of_float fval); *)
+          let n = match rfty with
+            | Float -> Z.of_int32 (Int32.bits_of_float fval)
+            | Double | LongDouble -> Z.of_int64 (Int64.bits_of_float fval) in
           ret @@ List.map (AbsByte.v Prov_none) begin
             bytes_of_int
               true (* TODO: check that *)
-              (Z.to_int (sizeof (Ctype ([], Basic (Floating fty))))) (Z.of_int64 (Int64.bits_of_float fval))
+              (Z.to_int (sizeof (Ctype ([], Basic (Floating (Ctype.RealFloating rfty))))))
+              n
           end
       | MVpointer (_, PV (prov, ptrval_)) ->
           Cerb_debug.print_debug 1 [] (fun () -> "NOTE: we fix the sizeof pointers to 8 bytes");
@@ -2326,35 +2330,6 @@ let eff_member_shift_ptrval _ tag_sym membr_ident ptrval =
   let case_integer_value (IV (_, n)) f_concrete _ =
     f_concrete n
   
-  let zero_fval =
-    0.0
-  let one_fval =
-    1.0
-  let str_fval str =
-    float_of_string str
-  
-  let case_fval fval _ fconcrete =
-    fconcrete fval
-  
-  let op_fval fop fval1 fval2 =
-    match fop with
-      | FloatAdd ->
-          fval1 +. fval2
-      | FloatSub ->
-          fval1 -. fval2
-      | FloatMul ->
-          fval1 *. fval2
-      | FloatDiv ->
-          fval1 /. fval2
-  
-  let eq_fval fval1 fval2 =
-    fval1 = fval2
-  
-  let lt_fval fval1 fval2 =
-    fval1 < fval2
-  
-  let le_fval fval1 fval2 =
-    fval1 <= fval2
   
   let fvfromint (IV (_, n)) =
     (* NOTE: if n is too big, the float will be truncated *)

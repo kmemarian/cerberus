@@ -206,7 +206,7 @@ let rec translate_constant cst =
         Caux.mk_value_pe (C.Bloaded (C.LVspecified (C.OVinteger (Mem.min_ival ity))))
     | A.ConstantFloating (str, _) ->
         (* TODO: when we support float vs double, we'll need to inspect the suffix *)
-        Caux.mk_value_pe (C.Bloaded (C.LVspecified (C.OVfloating (Mem.str_fval str))))
+        Caux.mk_value_pe (C.Bloaded (C.LVspecified (C.OVfloating (Floating.str_fval str))))
     | A.ConstantCharacter (_, str) ->
         (* NOTE: making an implementation fix here (ASCII) *)
         Caux.mk_value_pe (C.Bloaded (C.LVspecified (C.OVinteger (Mem.integer_ival (Decode.decode_character_constant str)))))
@@ -345,7 +345,7 @@ let translate_div_mod_operator loc translate_expr usual_arithmetic_conversion st
     | C.OTy_integer ->
         Caux.mk_integer_pe 0
     | C.OTy_floating ->
-        Caux.mk_floating_value_pe Mem.zero_fval
+        Caux.mk_floating_pe Floating.zero_fval
     | (*BISECT-IGNORE*) _ ->
       illTypedAil loc "AilEbinary Div, Mod"
   end in
@@ -728,7 +728,7 @@ match Ctype.unatomic_ ty with
                       end
   | Ctype.Basic (Ctype.Floating (Ctype.RealFloating _)) ->
                       (* NOTE: we are not modelling floating UBs *)
-                      Caux.mk_op_pe core_op obj_wrp.E.sym_pe (Caux.mk_floating_value_pe Mem.one_fval)
+                      Caux.mk_op_pe core_op obj_wrp.E.sym_pe (Caux.mk_floating_pe Floating.one_fval)
   | Ctype.Pointer _ ref_ty ->
                       Caux.mk_array_shift obj_wrp.E.sym_pe ref_ty (Caux.mk_integer_pe ptr_shift_const)
   | (*BISECT-IGNORE*) _ ->
@@ -1529,7 +1529,7 @@ let rec translate_expression translate_block_opt is_used ctx variadic_env stdlib
               let (mk_conversion, promoted_ty) = integer_promotion_and_type (ctype_of e) in
               (C.OTy_integer, Caux.annotate_integer_type_pexpr promoted_ty (Caux.mk_integer_pe 0), mk_conversion)
             else
-              (C.OTy_floating, Caux.mk_floating_value_pe Mem.zero_fval, fun z -> z) in
+              (C.OTy_floating, Caux.mk_floating_pe Floating.zero_fval, fun z -> z) in
           E.wrapped_fresh_symbol (C.BTy_object oTy) >>= fun obj_wrp ->
           E.wrapped_fresh_symbol (C.BTy_loaded oTy) >>= fun e_wrp   ->
           self e                                    >>= fun core_e  ->
@@ -2686,7 +2686,7 @@ begin if AilTypesAux.is_arithmetic (ctype_of e) then
                 if AilTypesAux.is_integer (ctype_of e) then
                   Caux.mk_integer_pe 0
                 else
-                  Caux.mk_floating_value_pe Mem.zero_fval in
+                  Caux.mk_floating_pe Floating.zero_fval in
               Caux.mk_pure_e begin
                 Caux.mk_case_pe e_wrp.E.sym_pe
                   [ ( Caux.mk_specified_pat obj_wrp.E.sym_pat
@@ -3114,7 +3114,7 @@ if AilTypesAux.is_arithmetic (ctype_of e) then
                 if AilTypesAux.is_integer (ctype_of e) then
                   Caux.mk_integer_pe 0
                 else
-                  Caux.mk_floating_value_pe Mem.zero_fval in
+                  Caux.mk_floating_pe Floating.zero_fval in
               Caux.mk_pure_e (
                 Caux.mk_case_pe e_wrp.E.sym_pe
                   [ (Caux.mk_specified_pat obj_wrp.E.sym_pat,

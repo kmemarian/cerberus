@@ -23,7 +23,7 @@ val mk_unspecified_pat : pattern -> pattern
 (* Core pexpr builders  ***************************************************** *)
 val mk_sym_pe : Sym.t -> pexpr
 val mk_integer_pe : Z.t -> pexpr
-val mk_floating_value_pe : Impl_mem.floating_value -> pexpr
+val mk_floating_pe : float -> pexpr
 val mk_nullptr_pe : ctype -> pexpr
 val mk_specified_pe : pexpr -> pexpr
 val mk_unspecified_pe : ctype -> pexpr

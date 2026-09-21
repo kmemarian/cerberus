@@ -217,7 +217,7 @@ let mk_sym_pe sym1 = Pexpr.mk (PEsym sym1)
 let mk_integer_pe n =
   Pexpr.mk (PEbase (Bobject (OVinteger (Impl_mem.integer_ival n))))
 
-let mk_floating_value_pe fval = Pexpr.mk (PEbase (Bobject (OVfloating fval)))
+let mk_floating_pe fval = Pexpr.mk (PEbase (Bobject (OVfloating fval)))
 
 let mk_nullptr_pe ref_ty =
   Pexpr.mk (PEbase (Bobject (OVpointer (Impl_mem.null_ptrval ref_ty))))

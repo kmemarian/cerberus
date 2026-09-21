@@ -5,6 +5,7 @@ open import Ctype Annot Loc
 import Symbol Implementation Undefined
 import Mem Mem_common
 import Atomics Linux
+import Floating
 
 
 type core_object_type =  (* types for C objects *)
@@ -175,7 +176,7 @@ end
 
 type object_value =  (* C object values *)
  | OVinteger of Mem.integer_value (* integer value *)
- | OVfloating of Mem.floating_value (* floating-point value *)
+ | OVfloating of Floating.float (* floating-point value *)
  | OVpointer of Mem.pointer_value (* pointer value *)
  | OVarray of list loaded_value (* C array value *)
  | OVstruct of Symbol.sym * list (Symbol.identifier * Ctype.ctype * Mem.mem_value) (* C struct value *)
@@ -214,6 +215,7 @@ type ctor =  (* data constructors *)
  | Cunspecified (* unspecified loaded value *)
  | Cfvfromint (* cast integer to floating value *)
  | Civfromfloat (* cast floating to integer value *)
+ | Cfloatingcast (* cast between two floating types *)
  | CivNULLcap of bool (* CHERI: null capability *)
 
 type dtor =  (* data destructors *)

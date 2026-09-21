@@ -206,11 +206,11 @@ module DefaultImpl = struct
 
   let sizeof_fty = function
     | RealFloating Float ->
-        Some 8 (* TODO:hack ==> 4 *)
+        Some 4
     | RealFloating Double ->
         Some 8
     | RealFloating LongDouble ->
-        Some 8 (* TODO:hack ==> 16 *)
+        Some 16
 
   let alignof_ity ity =
     match Common.normalise_integerType_ type_alias_map typeof_enum ity with

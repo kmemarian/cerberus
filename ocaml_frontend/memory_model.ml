@@ -25,7 +25,6 @@ module type Memory = sig
   
   type pointer_value
   type integer_value
-  type floating_value
   
   type mem_value
   
@@ -152,30 +151,16 @@ module type Memory = sig
   val lt_ival: integer_value -> integer_value -> bool option
   val le_ival: integer_value -> integer_value -> bool option
 
-  (* Floating value constructors *)
-  val zero_fval: floating_value
-  val one_fval: floating_value
-  val str_fval: string -> floating_value
-  
-  (* Floating value destructors *)
-  val case_fval: floating_value -> (unit -> 'a) -> (float -> 'a) -> 'a
-  
-  (* Predicates on floating values *)
-  val op_fval: Mem_common.floating_operator -> floating_value -> floating_value -> floating_value
-  val eq_fval: floating_value -> floating_value -> bool
-  val lt_fval: floating_value -> floating_value -> bool
-  val le_fval: floating_value -> floating_value -> bool
-  
   (* Integer <-> Floating casting constructors *)
-  val fvfromint: integer_value -> floating_value
-  val ivfromfloat: Ctype.integerType -> floating_value -> integer_value
+  val fvfromint: integer_value -> Float.t
+  val ivfromfloat: Ctype.integerType -> Float.t -> integer_value
   
   
   
   (* Memory value constructors *)
   val unspecified_mval: Ctype.ctype -> mem_value
   val integer_value_mval: Ctype.integerType -> integer_value -> mem_value
-  val floating_value_mval: Ctype.floatingType -> floating_value -> mem_value
+  val floating_value_mval: Ctype.floatingType -> Float.t -> mem_value
   val pointer_mval: Ctype.ctype -> pointer_value -> mem_value
   val array_mval: mem_value list -> mem_value
   val struct_mval: Cerb_symbol.Sym.t -> (Cerb_symbol.Identifier.t * Ctype.ctype * mem_value) list -> mem_value
@@ -187,7 +172,7 @@ module type Memory = sig
     (Ctype.ctype -> 'a) -> (* unspecified case *)
     (Ctype.integerType -> Cerb_symbol.Sym.t -> 'a) -> (* concurrency read case *)
     (Ctype.integerType -> integer_value -> 'a) ->
-    (Ctype.floatingType -> floating_value -> 'a) ->
+    (Ctype.floatingType -> Float.t -> 'a) ->
     (Ctype.ctype -> pointer_value -> 'a) ->
     (mem_value list -> 'a) ->
     (Cerb_symbol.Sym.t -> (Cerb_symbol.Identifier.t * Ctype.ctype * mem_value) list -> 'a) ->
@@ -202,7 +187,7 @@ module type Memory = sig
 
   (* Only used by cn-coq *)
   val pp_integer_value_for_coq: integer_value -> PPrint.document
-  val pp_floating_value_for_coq: floating_value -> PPrint.document
+  (* val pp_floating_value_for_coq: floating_value -> PPrint.document *)
   val pp_pointer_value_for_coq: (Cerb_symbol.Sym.t -> PPrint.document) -> pointer_value -> PPrint.document
   (* This is a bit ugly as we need to pass all the pretty printers for the different types *)
   val pp_mem_value_for_coq: 

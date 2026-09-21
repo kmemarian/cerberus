@@ -483,6 +483,16 @@ let rec symbolify_pexpr (Pexpr (annot, _, _pexpr): parsed_pexpr) : pexpr Eff.t =
           | _ ->
               Eff.fail loc (Core_parser_ctor_wrong_application (2, List.length _pes))
         end
+    | PEctor (Cfloatingcast, _pes) ->
+        begin match _pes with
+          | [_pe1; _pe2; _pe3] ->
+              symbolify_pexpr _pe1 >>= fun pe1 ->
+              symbolify_pexpr _pe2 >>= fun pe2 ->
+              symbolify_pexpr _pe3 >>= fun pe3 ->
+              Eff.return (Pexpr (annot, None, PEctor (Cfloatingcast, [pe1; pe2; pe3])))
+          | _ ->
+              Eff.fail loc (Core_parser_ctor_wrong_application (3, List.length _pes))
+        end
     | PEctor (CivNULLcap is_signed, _pes) ->
         begin match _pes with
           | [] ->
@@ -1154,7 +1164,7 @@ let mk_file decls =
 %token IVMAX_ALIGNMENT
 %token ARRAY SPECIFIED UNSPECIFIED
 
-%token FVFROMINT IVFROMFLOAT
+%token FVFROMINT IVFROMFLOAT FLOATINGCAST
 
 
 %token CASE PIPE EQ_GT OF
@@ -1458,6 +1468,8 @@ ctor:
     { Cfvfromint }
 | IVFROMFLOAT
     { Civfromfloat }
+| FLOATINGCAST
+    { Cfloatingcast }
 | IVCOMPL
     { CivCOMPL }
 | IVAND

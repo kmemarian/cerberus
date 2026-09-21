@@ -209,6 +209,7 @@ type token =
   
   | FVFROMINT
   | IVFROMFLOAT
+  | FLOATINGCAST
   | NULL
   | BUILTIN
   | CONV_INT

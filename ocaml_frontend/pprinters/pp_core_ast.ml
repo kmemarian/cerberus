@@ -46,10 +46,7 @@ let rec dtree_of_object_value = function
   | OVinteger ival ->
       Dleaf (pp_pure_ctor "OVinteger" ^^^ Impl_mem.pp_integer_value_for_core ival)
   | OVfloating fval ->
-      Dleaf (pp_pure_ctor "OVfloating" ^^^
-             Impl_mem.case_fval fval
-               (fun () -> !^ "unspec(floating)")
-              (fun fval -> !^(string_of_float fval)))
+      Dleaf (pp_pure_ctor "OVfloating" ^^^ !^(string_of_float fval))
   | OVpointer ptrval ->
       Dleaf (pp_pure_ctor "OVpointer" ^^^ Impl_mem.pp_pointer_value ptrval)
   | OVarray lvals ->

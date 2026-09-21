@@ -1,5 +1,6 @@
 open import Pervasives Utils Core Ctype
 import Mem Mem_common Atomics Linux Symbol Annot
+import Floating
 
 declare {ocaml} rename module = lem_core_aux
 
@@ -38,7 +39,7 @@ declare ocaml target_rep function mk_unspecified_pat = `Core_aux.mk_unspecified_
 (* Core pexpr builders  ***************************************************** *)
 val mk_sym_pe: Symbol.sym -> pexpr
 val mk_integer_pe: integer -> pexpr
-val mk_floating_value_pe: Mem.floating_value -> pexpr
+val mk_floating_pe: Floating.float -> pexpr
 val mk_nullptr_pe: ctype -> pexpr
 val mk_specified_pe: pexpr -> pexpr
 val mk_unspecified_pe: ctype -> pexpr
@@ -86,7 +87,7 @@ val mk_call_pe: name -> list pexpr -> pexpr
 val mk_are_compatible: pexpr -> pexpr -> pexpr
 declare ocaml target_rep function mk_sym_pe = `Core_aux.mk_sym_pe`
 declare ocaml target_rep function mk_integer_pe = `Core_aux.mk_integer_pe`
-declare ocaml target_rep function mk_floating_value_pe = `Core_aux.mk_floating_value_pe`
+declare ocaml target_rep function mk_floating_pe = `Core_aux.mk_floating_pe`
 declare ocaml target_rep function mk_nullptr_pe = `Core_aux.mk_nullptr_pe`
 declare ocaml target_rep function mk_specified_pe = `Core_aux.mk_specified_pe`
 declare ocaml target_rep function mk_unspecified_pe = `Core_aux.mk_unspecified_pe`

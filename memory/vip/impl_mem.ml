@@ -72,12 +72,7 @@ type integer_value =
   | IVloc of location
   | IVint of Z.t
 
-(* EXTERNAL *)
-type floating_value =
-  (* NOTE: simplistic handling of floating values *)
-  float
-
-  (* INTERNAL *)
+(* INTERNAL *)
 let ival_to_int: integer_value -> Z.t = function
   | IVloc (_, z) -> z
   | IVint z      -> z
@@ -87,7 +82,7 @@ let ival_to_int: integer_value -> Z.t = function
 type mem_value =
   | MVunspecified of ctype
   | MVinteger of integerType * integer_value
-  | MVfloating of floatingType * floating_value
+  | MVfloating of floatingType * Stdlib.Float.t
   | MVpointer of ctype * pointer_value
   | MVarray of mem_value list
   | MVstruct of Sym.t (*struct/union tag*) * (Identifier.t (*member*) * ctype * mem_value) list
@@ -328,13 +323,16 @@ let rec repr funptrmap mval : ((Digest.t * string) IntMap.t * AbsByte.t list) =
         ret @@ List.map (fun value -> AbsByte.{prov; value; ptrfrag_idx= None}) begin
           bytes_of_int (AilTypesAux.is_signed_ity ity) sz z
         end
-    | MVfloating (fty, fval) ->
-      (* TODO(state-removal) *)
-      (* TODO(fix-missing-impl) *)
-      let sz = Option.get (Ocaml_implementation.(get ()).sizeof_fty fty) in
-      ret @@ List.map (fun value -> AbsByte.{prov= Prov_empty; value; ptrfrag_idx= None}) begin
-        bytes_of_int true sz (Z.of_int64 (Int64.bits_of_float fval))
-      end
+    | MVfloating (Ctype.RealFloating rfty, fval) ->
+        (* TODO(state-removal) *)
+        (* TODO(fix-missing-impl) *)
+        let sz = Option.get (Ocaml_implementation.(get ()).sizeof_fty Ctype.(RealFloating rfty)) in
+        let n = match rfty with
+          | Float -> Z.of_int32 (Int32.bits_of_float fval)
+          | Double | LongDouble -> Z.of_int64 (Int64.bits_of_float fval) in
+        ret @@ List.map (fun value -> AbsByte.{prov= Prov_empty; value; ptrfrag_idx= None}) begin
+          bytes_of_int true sz n
+        end
     | MVpointer (_, ptrval) ->
         Cerb_debug.print_debug 1 [] (fun () -> "NOTE: we fix the sizeof pointers to 8 bytes");
         let ptr_size = match (Ocaml_implementation.get ()).sizeof_pointer with
@@ -501,11 +499,15 @@ match ty with
      (* let (_, _, bs1') = AbsByte.split_bytes bs1 in *)
      ( begin match interp_bytes bs1 with
          | `SPECIFIED (_, _, cs, _) ->
-              MVfloating ( fty
-              , Int64.float_of_bits (Z.to_int64 (int_of_bytes true cs)) )
+              let f = match fty with
+              | Ctype.(RealFloating Float) ->
+                  Int32.float_of_bits (Z.to_int32 (int_of_bytes true cs))
+              | Ctype.(RealFloating (Double | LongDouble)) ->
+                  Int64.float_of_bits (Z.to_int64 (int_of_bytes true cs)) in
+              MVfloating (fty, f)
          | `UNSPECIFIED ->
               MVunspecified cty
-       end , bs2)
+       end , bs2 )
     | Array (elem_ty, Some n) ->
      let rec aux n mval_acc cs =
        if Int.(n <= 0) then
@@ -1076,33 +1078,6 @@ Some (Z.leq (ival_to_int ival1) (ival_to_int ival2))
 let eval_integer_value ival =
   Some (ival_to_int ival)
 
-(* Floating value constructors *)
-let zero_fval =
-  0.0
-let one_fval =
-  1.0
-let str_fval str =
-  float_of_string str
-
-(* Floating value destructors *)
-let case_fval fval _ fconcrete =
-  fconcrete fval
-
-(* Predicates on floating values *)
-let op_fval fop fval1 fval2 =
-  match fop with
-    | MC.FloatAdd ->
-        fval1 +. fval2
-    | FloatSub ->
-        fval1 -. fval2
-    | FloatMul ->
-        fval1 *. fval2
-    | FloatDiv ->
-        fval1 /. fval2
-
-let eq_fval = Float.(=)
-let lt_fval = Float.(<)
-let le_fval = Float.(<=)
 
 (* Integer <-> Floating casting constructors *)
 let fvfromint ival =
@@ -1242,8 +1217,6 @@ let pp_integer_value_for_coq = function
     !^"(Mem.IVloc" ^^^  pp_location_for_coq loc ^^ !^")"
   | IVint n -> !^"(Mem.IVint" ^^^ (pp_address_for_coq n) ^^ !^")"
 
-let pp_floating_value_for_coq (f:floating_value) = !^ (string_of_float f)
-
  let pp_pointer_value_for_coq pp_symbol = function
    | PVnull -> !^"Mem.PVnull"
    | PVloc loc -> !^"(Mem.PVloc" ^^^ pp_location_for_coq loc ^^ !^")"
@@ -1256,7 +1229,7 @@ let rec pp_mem_value_for_coq pp_symbol pp_integer_type pp_floating_type pp_ctype
   | MVinteger (ity, ival) ->
     !^"(Mem.MVinteger" ^^^ pp_pair_for_coq pp_integer_type pp_integer_value_for_coq (ity, ival) ^^ !^")"
   | MVfloating (fty, fval) ->
-    !^"(Mem.MVfloating" ^^^ pp_pair_for_coq pp_floating_type pp_floating_value_for_coq (fty, fval) ^^ !^")"
+    !^"(Mem.MVfloating" ^^^ pp_pair_for_coq pp_floating_type (fun z -> !^ (string_of_float z)) (fty, fval) ^^ !^")"
   | MVpointer (ct, pval) ->
     !^"(Mem.MVpointer" ^^^ pp_pair_for_coq pp_ctype (pp_pointer_value_for_coq pp_symbol) (ct, pval) ^^ !^")"
   | MVarray vals ->
