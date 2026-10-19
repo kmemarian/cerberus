@@ -28,6 +28,14 @@ val combine_attributes: attributes -> attributes -> attributes
 let combine_attributes (Attrs xs1) (Attrs xs2) =
   Attrs (xs1 ++ xs2)
 
+val cerb_hidden: attribute
+let cerb_hidden =
+  <|
+    attr_ns= Just (Symbol.Identifier Loc.unknown "cerb");
+    attr_id= Symbol.Identifier Loc.unknown "hidden";
+    attr_args= [];
+  |>
+
 type loop_id = nat
 
 (* records where a label comes from *)

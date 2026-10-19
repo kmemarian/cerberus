@@ -4,12 +4,9 @@
 #undef assert
 
 #ifdef NDEBUG
-#define assert(ignore) ((void)0)
+#define assert(ignore)	((void)0)
 #endif
 
-#ifndef _ASSERT_H_
-#define _ASSERT_H_
+#define assert(X)	__builtin_assert(X)
 
-#define static_assert _Static_assert
-
-#endif
+#define static_assert	_Static_assert

@@ -111,6 +111,9 @@ val mk_config:
   backend_name:string ->
   agnostic:bool ->
   permissive:bool ->
+  lexicon:Config.lexicon ->
+  cerb_keywords:bool ->
+  cerb_builtins:bool ->
   ignore_bitfields:bool ->
   allow_distinct_ptr_types_comparison:bool ->
   allow_void_ptr_arithmetic:bool ->

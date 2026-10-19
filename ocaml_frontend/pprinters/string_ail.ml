@@ -24,6 +24,15 @@ let string_of_statement s =
 let string_of_qualifiers_human qs =
   Pp_utils.to_plain_string (pp_qualifiers_human qs)
 
+(* For the desugaring of __func__ and related GNU extensions *)
+let string_of_ctype_declaration str ty =
+  let open Cerb_colour in
+  without_colour (fun () ->
+    Pp_utils.to_plain_string
+      (pp_ctype_declaration (PPrint.string str) Ctype.no_qualifiers ty)
+  ) ()
+
+
 
 (* DEBUG*)
 let string_of_genType gty =

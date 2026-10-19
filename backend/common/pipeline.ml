@@ -164,6 +164,7 @@ let c_frontend ?(cn_init_scope=Cn_desugaring.empty_init)
   let module C_parser_driver = C_parser_driver.Make(
     struct
       let warn_extra_semicolon = not conf.Config.permissive
+      let cerb_conf = conf
     end
   ) in
   Cerb_fresh.set_digest filename;
@@ -660,6 +661,9 @@ let mk_config
   ~backend_name
   ~agnostic
   ~permissive
+  ~lexicon
+  ~cerb_keywords
+  ~cerb_builtins
   ~ignore_bitfields
   ~allow_distinct_ptr_types_comparison
   ~allow_void_ptr_arithmetic
@@ -674,6 +678,14 @@ let mk_config
   Config.{
     agnostic;
     permissive;
+    lexicon;
+    cerb_keywords;
+    cerb_builtins;
+    magic_comments= Switches.(has_switch SW_at_magic_comments);
+    magic_comment_char=
+      if Switches.(has_switch SW_magic_comment_char_dollar)
+      then '$'
+      else '@';
     ignore_bitfields;
     allow_distinct_ptr_types_comparison;
     allow_void_ptr_arithmetic;

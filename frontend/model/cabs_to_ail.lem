@@ -4782,6 +4782,61 @@ let desugar_cn_statement (CN_statement loc stmt_) =
 (* END CN *)
 
 
+let function_name_declaration loc fun_str name_str =
+  (* E.register_ordinary_identifier (Identifer loc "__func__") >>= fun __func__sym ->
+  E.register_internal_object_declaration __func__sym
+    ( loc
+    , A.Automatic
+    , false (* not register *)
+    , Nothing
+    , Ctype.make_qualifiers true false false (* const qualified *)
+    , Ctype.Array Ctype.char Nothing ) (* char[] *) >>= fun () ->
+  E.return () *)
+
+  let specifs = <|
+    storage_classes= [];
+    type_specifiers= [TSpec loc TSpec_char];
+    type_qualifiers= [Q_const];
+    function_specifiers= [];
+    alignment_specifiers= [];
+  |> in
+  let decltor =
+    Declarator Nothing (DDecl_array
+      (DDecl_identifier Annot.no_attributes (Symbol.Identifier loc name_str))
+      (ADecl loc [] false (Nothing))) in
+  let fun_str_expr =
+    let xs = List.map (fun c -> String.toString [c]) (String.toCharList fun_str) in
+    CabsExpression loc (CabsEstring (Nothing, [(loc, xs)])) in
+  CabsStatement loc (Annot.Attrs [Annot.cerb_hidden]) begin
+    CabsSdecl (Declaration_base Annot.no_attributes specifs
+      [InitDecl loc decltor (Just (Init_expr fun_str_expr))]
+    )
+  end
+
+val string_of_ctype_declaration: string -> Ctype.ctype -> string
+declare ocaml target_rep function string_of_ctype_declaration = `String_ail.string_of_ctype_declaration`
+
+let add_function_name_declarations is_gnu (Symbol.Identifier loc fun_str) fun_ty
+  (CabsStatement stmt_loc attrs stmt_desc)
+=
+  (* let () = Debug.print_debug 0 [] (fun () ->
+    "==> " ^ string_of_ctype_declaration fun_str fun_ty
+  ) in *)
+  CabsStatement stmt_loc attrs match stmt_desc with
+  | CabsSblock stmts ->
+      CabsSblock begin
+        let stmts = function_name_declaration loc fun_str "__func__" :: stmts in
+        if is_gnu then
+          let fun_ty_str = string_of_ctype_declaration fun_str fun_ty in
+          function_name_declaration loc fun_str "__FUNCTION__" ::
+          function_name_declaration loc fun_ty_str "__PRETTY_FUNCTION__" :: stmts
+        else
+          stmts
+      end
+  | _ -> stmt_desc
+  end
+
+
 (* TODO: check + annotate with STD *)
 val desugar_and_register_function_definition: function_definition -> E.desugM unit
 let desugar_and_register_function_definition (FunDef fundef_loc fundef_attrs specifs (Declarator ptr_decltor_opt ddecltor as decltor) stmt) =
@@ -4812,11 +4867,12 @@ let desugar_and_register_function_definition (FunDef fundef_loc fundef_attrs spe
           E.constraint_violation (Loc.locOf ddecltor) WrongTypeFunctionIdentifier
     end >>
     
-    E.register_ordinary_identifier fun_ident E.OK_function specifs.storage_classes >>= fun (_(*loc_fun_sym*), fun_sym) ->
+    E.register_ordinary_identifier fun_ident E.OK_function specifs.storage_classes
+      >>= fun (_(*loc_fun_sym*), fun_sym) ->
     
     E.under_scope E.Scope_function begin
-      register_labels stmt >>
-      
+      register_labels stmt >>= fun () ->
+
       E.under_scope funblock_scope begin
         (* TODO: this is a horrible hack, DO BETTER *)
         E.hack_inject_idents_map idents_map >>
@@ -4846,6 +4902,14 @@ let desugar_and_register_function_definition (FunDef fundef_loc fundef_attrs spe
             List.elem FS_inline   specifs.function_specifiers,
             List.elem FS_Noreturn specifs.function_specifiers
           ) >>
+          E.read_config >>= fun conf ->
+          let stmt =
+            let is_gnu = match conf.Config.lexicon with
+              | Config.GNU11 -> true
+              | Config.GNU23 -> true
+              | _ -> false
+            end in
+            add_function_name_declarations is_gnu fun_ident ty stmt in
           E.inside_function return_ty begin
             E.record_marker ()     >>= fun marker_id ->
             desugar_statement stmt >>= fun d_stmt    ->

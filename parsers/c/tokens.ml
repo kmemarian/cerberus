@@ -34,7 +34,6 @@ type token =
   | STRUCT
   | SWITCH
   | TYPEDEF
-  | TYPEOF
   | UNION
   | UNSIGNED
   | VOID
@@ -113,6 +112,25 @@ type token =
   | LBRACK_LBRACK
   (* | RBRACK_RBRACK *)
 
+  (* C23 keywords *)
+  | BITINT
+  | CONSTEXPR
+  | DECIMAL32
+  | DECIMAL64
+  | DECIMAL128
+  | FALSE
+  | NULLPTR
+  | TRUE
+  | TYPEOF
+  | TYPEOF_UNQUAL
+
+  (* GNU extensions *)
+  | ATTRIBUTE
+  | AUTO_TYPE
+  | EXTENSION
+  | INT128
+  | LABEL
+
   (* NON-STD *)
   | ASSERT
   | OFFSETOF
@@ -164,7 +182,6 @@ let string_of_token = function
   | STRUCT -> "STRUCT"
   | SWITCH -> "SWITCH"
   | TYPEDEF -> "TYPEDEF"
-  | TYPEOF -> "TYPEOF"
   | UNION -> "UNION"
   | UNSIGNED -> "UNSIGNED"
   | VOID -> "VOID"
@@ -234,6 +251,24 @@ let string_of_token = function
   | CARET_EQ -> "CARET_EQ"
   | PIPE_EQ -> "PIPE_EQ"
   | COMMA -> "COMMA"
+
+  | BITINT -> "BITINT"
+  | CONSTEXPR -> "CONSTEXPR"
+  | DECIMAL32 -> "DECIMAL32"
+  | DECIMAL64 -> "DECIMAL64"
+  | DECIMAL128 -> "DECIMAL128"
+  | FALSE -> "FALSE"
+  | NULLPTR -> "NULLPTR"
+  | TRUE -> "TRUE"
+  | TYPEOF -> "TYPEOF"
+  | TYPEOF_UNQUAL -> "TYPEOF_UNQUAL"
+
+  | ATTRIBUTE -> "ATTRIBUTE"
+  | AUTO_TYPE -> "AUTO_TYPE"
+  | EXTENSION -> "EXTENSION"
+  | INT128 -> "INT128"
+  | LABEL -> "LABEL"
+
   | ASSERT -> "ASSERT"
   | OFFSETOF -> "OFFSETOF"
   | LBRACES -> "LBRACES"

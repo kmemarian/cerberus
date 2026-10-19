@@ -7,6 +7,7 @@
 *)
 
 %{
+[@@@warning "-8"]
 open Cerb_frontend
 
 open Cabs
@@ -132,6 +133,11 @@ type asm_qualifier =
   PLUS_EQ MINUS_EQ LT_LT_EQ GT_GT_EQ AMPERSAND_EQ CARET_EQ PIPE_EQ COMMA
   LBRACK_LBRACK (*RBRACK_RBRACK*)
 %token LBRACE RBRACE SEMICOLON
+
+// %token TRUE FALSE NULLPTR
+%token BITINT DECIMAL32 DECIMAL64 DECIMAL128 CONSTEXPR // TYPEOF_UNQUAL
+%token LABEL EXTENSION AUTO_TYPE INT128
+// %token ATTRIBUTE ANY_WORD
 
 (* NON-STD: *)
   ASSERT OFFSETOF TYPEOF BUILTIN_TYPES_COMPATIBLE_P BUILTIN_CHOOSE_EXPR
@@ -572,6 +578,8 @@ unary_expression:
 | op= unary_operator expr= cast_expression
     { CabsExpression ( region ($startpos, $endpos) (pointCursor $startpos(op))
                      , CabsEunary (op, expr) ) }
+| EXTENSION expr= cast_expression
+    { expr }
 | SIZEOF expr= unary_expression
     { CabsExpression ( region ($startpos, $endpos) (pointCursor $startpos($1))
                      , CabsEsizeof_expr expr ) }
@@ -872,6 +880,8 @@ storage_class_specifier:
     { SC_auto }
 | REGISTER
     { SC_register }
+| CONSTEXPR
+    { failwith "TODO: SC_constexpr" }
 ;
 
 (* §6.7.2 Type specifiers *)
@@ -894,6 +904,16 @@ type_specifier_nonunique:
     { TSpec (region ($startpos, $endpos) noCursor, TSpec_unsigned) }
 | COMPLEX
     { TSpec (region ($startpos, $endpos) noCursor, TSpec_Complex) }
+| AUTO_TYPE
+    { failwith "TODO: __auto_type" }
+| INT128
+    { failwith "TODO: __int128" }
+| DECIMAL32
+    { failwith "TODO: __Decimal32" }
+| DECIMAL64
+    { failwith "TODO: __Decimal64" }
+| DECIMAL128
+    { failwith "TODO: __Decimal128" }
 ;
 
 attribute_type_specifier_nonunique:
@@ -906,6 +926,8 @@ type_specifier_unique:
     { TSpec (region ($startpos, $endpos) noCursor, TSpec_void) }
 | BOOL
     { TSpec (region ($startpos, $endpos) noCursor, TSpec_Bool) }
+| BITINT LPAREN expr= constant_expression RPAREN
+    { failwith "TODO: _BitInt" }
 | spec= atomic_type_specifier
     { spec }
 | spec= struct_or_union_specifier
@@ -966,6 +988,8 @@ struct_declaration:
                           opt_to_rev_list rev_sdeclrs_opt) }
 | sa_decl= static_assert_declaration
     { Struct_assert sa_decl }
+| EXTENSION decl= struct_declaration
+    { decl }
 ;
 
 specifier_qualifier_list:
@@ -1294,9 +1318,15 @@ labeled_statement:
         , CabsSdefault stmt ) }
 ;
 
+(* GCC extension: Locally Declared Labels *)
+label_declarations:
+| LABEL xs= separated_list(COMMA, general_identifier) SEMICOLON
+    { xs }
+;
+
 (* §6.8.2 Compound statement *)
 compound_statement:
-| LBRACE bis_opt= block_item_list? RBRACE
+| LBRACE label_declarations? bis_opt= block_item_list? RBRACE
     { CabsStatement
         ( region ($startpos, $endpos) noCursor
         , Annot.no_attributes
@@ -1316,7 +1346,7 @@ block_item_list: (* NOTE: the list is in reverse *)
 ;
 
 block_item:
-| xs_decl= declaration
+| /* EXTENSION* */ xs_decl= declaration
     { CabsStatement
         ( region ($startpos, $endpos) noCursor
         , Annot.no_attributes
@@ -1527,6 +1557,8 @@ external_declaration:
 | xs_decl= declaration has_extra= boption(SEMICOLON+)
     { if has_extra then warn_extra_semicolon $startpos(has_extra) AFTER_EDECL;
       EDecl_decl xs_decl }
+| EXTENSION decl= external_declaration
+    { decl }
 ;
 
 (* §6.9.1 Function definitions *)
@@ -1746,3 +1778,100 @@ balanced_token:
 | strs= separated_nonempty_list(COMMA, located_string_literal)
    { strs }
 ;
+
+
+
+// gnu_attributes:
+// |
+// | gnu_attributes gnu_attribute
+//     {}
+// ;
+
+/*
+gnu_attribute:
+| ATTRIBUTE LPAREN LPAREN gnu_attribute_list RPAREN RPAREN
+    {}
+;
+
+%inline gnu_attribute_list:
+| separated_nonempty_list(COMMA, gnu_attrib)
+// | gnu_attrib
+// | gnu_attribute_list COMMA gnu_attrib
+    {}
+;
+
+gnu_attrib:
+// |
+| ANY_WORD LPAREN gnu_attribute_arguments RPAREN
+| ANY_WORD
+    {}
+;
+
+gnu_attribute_arguments:
+// | var_name
+| expr_list
+| var_name COMMA nonempty_expr_list
+    {}
+;
+
+%inline expr_list:
+| separated_list(COMMA, assignment_expression)
+    {}
+;
+
+%inline nonempty_expr_list:
+| separated_nonempty_list(COMMA, assignment_expression)
+    {}
+;
+// nonempty_expr_list:
+// | assignment_expression
+// | nonempty_expr_list COMMA assignment_expression
+//     {}
+// ;
+*/
+
+/*
+
+
+
+   gnu-attributes:
+     empty
+     gnu-attributes gnu-attribute
+
+   gnu-attribute:
+     __attribute__ ( ( gnu-attribute-list ) )
+
+   gnu-attribute-list:
+     gnu-attrib
+     gnu-attribute_list , gnu-attrib
+
+   gnu-attrib:
+     empty
+     any-word
+     any-word ( gnu-attribute-arguments )
+
+   where "any-word" may be any identifier (including one declared as a
+   type), a reserved word storage class specifier, type specifier or
+   type qualifier.  ??? This still leaves out most reserved keywords
+   (following the old parser), shouldn't we include them?
+   When EXPECT_COMMA is true, expect the attribute to be preceded
+   by a comma and fail if it isn't.
+   When EMPTY_OK is true, allow and consume any number of consecutive
+   commas with no attributes in between.
+
+  gnu-attribute-arguments:
+     identifier
+     identifier , nonempty-expr-list
+     expr-list
+
+   where the "identifier" must not be declared as a type.  ??? Why not
+   allow identifiers declared as types to start the arguments? 
+
+  nonempty-expr-list:
+     assignment-expression
+     nonempty-expr-list , assignment-expression
+
+
+
+*/
+
